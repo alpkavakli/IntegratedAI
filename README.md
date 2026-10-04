@@ -275,10 +275,10 @@ Then add the class to `PROVIDERS` in [registry.js](server/src/providers/registry
 npm test
 ```
 
-50 unit tests cover:
+52 unit tests cover:
 - action validation and safety rules
 - auth (Origin, Host, token) and patch scopes
-- CLI argument building and output parsing, including session resume, cost differences, recovery from a lost session, decoding the streamed reply, and enabling only the web tools
+- CLI argument building and output parsing, including session resume, cost differences, recovery from a lost session, decoding the streamed reply, enabling only the web tools, and the one-time correction when a model calls page actions as tools
 - Anthropic message and tool conversion
 - the orchestrator: inspection round-trips, proposals, decisions reported as tool results, disabled `execute_js`, usage, persistence
 - site memory and page types: URL categorisation, note scopes, renaming groups, memory sent only when it changes, history per site
@@ -294,6 +294,7 @@ These were also checked manually against real Chrome and the real `claude` CLI d
 - The server console logs every Claude Code call: `[claude-cli] resume 98a8e185: 6.2s, exit 0, prompt 1395 chars`.
 - When a call fails, the full prompt, stdout and stderr are saved in `~/.integratedai/logs/`, and the error message in the panel shows the file path.
 - Panel errors: right-click inside the AI panel, choose **Inspect**, and check its console.
+- `[claude-cli] model called find_elements as tools; asking it to retry` means the model (often Sonnet) tried to call a page action as a Claude Code tool. The server resumes the session once with a correction, and the panel shows "↻ Retrying with the page tools…". If the answer still says it couldn't inspect the page, send the error log or the conversation file from `~/.integratedai/conversations/`.
 
 ## Known limitations
 
