@@ -142,6 +142,24 @@ Read-only inspections run automatically unless you enable *"Ask before the AI re
 - **Claude Code CLI provider:** uses Claude Code's `WebSearch`/`WebFetch` tools, and nothing else is enabled.
 - **Anthropic API provider:** uses the server-side `web_search`/`web_fetch` tools.
 
+### Apply to source (your own websites)
+
+When the page is **your own site**, an applied CSS change can go into the project's real source files: click **Apply to source…** on its card.
+
+1. Claude Code runs in your project folder with **read-only** tools (`Read`, `Glob`, `Grep`). It can't edit anything, and reads outside the folder are denied. It finds where the elements are styled and proposes exact edits that follow the project's conventions: the existing stylesheet, CSS module, Tailwind classes and so on. It drops `!important` and extra selector specificity that were only needed from the outside.
+2. The card shows the edits as a diff. **Nothing is written yet.**
+3. **Write to files** makes the server apply the edits, but only if the files haven't changed since the proposal. **Undo source edits** restores the originals, even after a server restart, and leaves alone any file you've edited since.
+
+Set it up in `config.json` (see [Configuration](#configuration)) by mapping your site's URLs to its folder:
+
+```jsonc
+"projects": [
+  { "name": "my-site", "path": "C:\\Users\\you\\code\\my-site", "urls": ["http://localhost:3000", "https://my-site.com"] }
+]
+```
+
+The button only appears on pages whose URL starts with one of `urls`. If several entries match, the longest prefix wins. Projects can only be set in `config.json`, never from the extension. Files use the line endings they already have (CRLF stays CRLF).
+
 ### Toggle buttons (theme switches, reading mode, …)
 
 Ask for something you want to switch on and off from the page itself, for example:
@@ -174,6 +192,7 @@ The button is created by the extension's own content script (`content/patch-togg
 - **Network data:** cookies, authorization and API-key headers, and token-like query parameters are redacted. Response bodies are never sent.
 - **Model output:** rendered with `textContent` only, never `innerHTML`. Page content is described to the model as untrusted data.
 - **Claude Code CLI isolation:** the CLI runs in an empty folder. It gets no file or shell tools. Only `WebSearch`/`WebFetch` can be enabled (via the web search setting), plus this server's own page inspections over MCP. Your own MCP servers are ignored (`--strict-mcp-config`). It also uses `--permission-mode dontAsk`, `--setting-sources ""` and `--disable-slash-commands`. The model can answer, read the page and search the web; it cannot touch your files.
+- **Apply to source:** Claude Code only gets read-only tools, and runs in a project folder listed in `config.json`, never one chosen by the extension. The server checks every proposed edit and writes nothing until you click **Write to files**. Edits must stay inside the project (no `..`, no absolute paths, no symlinks leading out, nothing in `.git` or `node_modules`), and the text to replace must appear exactly once. Original contents are kept in `~/.integratedai/source-edits/` for undo.
 - **The MCP endpoint (`POST /mcp`):** only offers the read-only inspections, never changes or memory updates. It needs a random token that is created for one Claude Code call and deleted when that call ends, and that token only reaches that conversation's page. Requests with a non-local Host or any Origin header (which every browser request has) are rejected.
 - **Page content and toggle buttons:** web pages can only ask the service worker for their own toggle buttons and flip them. Every other command is restricted to extension pages.
 
@@ -188,6 +207,7 @@ The button is created by the extension's own content script (`content/patch-togg
   "allowedExtensionIds": [],          // e.g. ["abcdefghijklmnopabcdefghijklmnop"]
   "defaultProvider": "claude-cli",
   "maxStepsPerTurn": 8,               // max model calls per message (inspection round-trips)
+  "projects": [],                     // your own sites' source folders for "Apply to source" (see above)
   "providers": {
     "claude-cli": {
       "command": "claude",            // or a full path to claude.exe
@@ -243,6 +263,7 @@ server/
   src/agent/orchestrator.js     the turn loop and approval rules
   src/agent/system-prompt.js
   src/agent/page-tools.js       per-call tokens and the inspections offered over MCP
+  src/source/source-editor.js   Apply to source: read-only Claude Code call, edit checks, write, undo
   src/sessions/store.js         conversations as JSON files
   src/providers/
     base.js                     the Provider interface
@@ -276,7 +297,6 @@ Then add the class to `PROVIDERS` in [registry.js](server/src/providers/registry
 
 ## Planned extensions (and where they plug in)
 
-- **Apply to source:** add a provider-side step (or a separate server endpoint) that hands an *applied* `inject_css` and its page URL to Claude Code running in your project folder, with edit tools enabled. The action card would get an "Apply to source" button next to "Save as site patch". The patch data model already records `sourceUrl`.
 - **Persistent JS patches:** deliberately left out; they need a stronger review flow.
 
 ## Tests
@@ -285,7 +305,7 @@ Then add the class to `PROVIDERS` in [registry.js](server/src/providers/registry
 npm test
 ```
 
-63 unit tests cover:
+72 unit tests cover:
 - action validation and safety rules
 - auth (Origin, Host, token) and patch scopes
 - CLI argument building and output parsing, including session resume, cost differences, recovery from a lost session, decoding the streamed reply, enabling only the web tools and our MCP page tools, and the one-time correction when a model calls page actions as tools
@@ -293,6 +313,7 @@ npm test
 - the orchestrator: inspection round-trips, proposals, decisions reported as tool results, disabled `execute_js`, usage, persistence
 - the MCP endpoint: only inspections are listed, calls reach the right conversation, inputs are validated, and tokens, Origin and Host are checked
 - screenshots: images are split out of results (never sent as text), invalid ones dropped, returned as MCP image content, and sent to the Anthropic API as images, only the most recent few
+- Apply to source: exact unique replacements, new files, CRLF files, paths kept inside the project (including through symlinks), project matching by URL, propose → write → undo (also after a restart), refusing files changed in between, and the read-only Claude Code arguments
 - site memory and page types: URL categorisation, note scopes, renaming groups, memory sent only when it changes, history per site
 
 These were also checked manually against real Chrome and the real `claude` CLI during development:
@@ -302,6 +323,7 @@ These were also checked manually against real Chrome and the real `claude` CLI d
 - the full panel UI flow: preview, apply, undo, save patch, toggle patch, Explain
 - Claude Code (Sonnet) calling the page inspections over MCP: through the real server on a new and a resumed session, and with the real panel code in Chromium on a webnovel-like test page (the panel ran in a tab with a `chrome.devtools` stand-in). There, "Make a toggle button in the nav bar…" found `nav.g_nav`, and Apply, Save as site patch + toggle, reload and the toggle all worked.
 - screenshots with the real panel code in Chromium: of the nav bar, and of a footer 2,400 px below the fold. The page was scrolled to the footer and back, and Sonnet read both images correctly.
+- Apply to source end to end in Chromium with Claude Code (Sonnet) on a small test project. It changed the existing `.main-nav` rules instead of pasting the browser CSS, wrote only after the click, and Undo restored the file.
 
 ## Debugging
 

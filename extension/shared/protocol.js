@@ -24,6 +24,10 @@
  *   memory.get       { id, url }                               → memory   (site memory for this page)
  *   memory.edit      { id, url, op, … }                        → memory   (op: addNote | updateNote | deleteNote |
  *                                                                          defineGroup | updateGroup | deleteGroup)
+ *   source.project   { id, url }                               → source.project  (project folder for this page, if any)
+ *   source.propose   { id, conversationId, actionId }          → source.proposal (edits to the project, nothing written)
+ *   source.write     { id, conversationId, actionId }          → source.result   (write the proposed edits)
+ *   source.undo      { id, conversationId, actionId }          → source.result   (restore the files)
  *
  * ── Server → Panel ─────────────────────────────────────────────────────────
  *   welcome          { serverVersion, protocol }
@@ -38,6 +42,9 @@
  *   sessions         { replyTo, site, items: [{ id, title, lastUrl, groupPattern, updatedAt, messageCount, sameGroup }] }
  *   memory           { replyTo, memory: { site, path, group, groups, notes } | null }
  *   memory.changed   { conversationId, site, change: { kind: 'note_added'|'note_deleted'|'group_defined', note?, group? } }
+ *   source.project   { replyTo, project: { name, path } | null }
+ *   source.proposal  { replyTo, proposal: { id, project, summary, notes, edits, previews, status, costUsd } }
+ *   source.result    { replyTo, source, files? | restored?, skipped? }
  *   error            { replyTo?, conversationId?, message }
  */
 
@@ -96,6 +103,8 @@ export const ACTION_STATUS = /** @type {const} */ ({
  * @property {keyof typeof ACTION_STATUS} status
  * @property {string} [detail]
  * @property {string[]} [errors]
+ * @property {{ proposalId: string, status: 'proposed'|'written'|'undone', files: string[] }} [source]
+ *   "Apply to source" edits for an applied inject_css
  */
 
 /**

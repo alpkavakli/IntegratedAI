@@ -66,7 +66,7 @@ export class Connection {
    * @param {import('ws').WebSocket} ws
    * @param {{ config: import('./config.js').Config, hub: PanelHub, orchestrator: Orchestrator,
    *   store: import('./sessions/store.js').SessionStore, registry: import('./providers/registry.js').ProviderRegistry,
-   *   memory: import('./memory/store.js').MemoryStore }} deps
+   *   memory: import('./memory/store.js').MemoryStore, sourceEditor?: import('./source/source-editor.js').SourceEditor }} deps
    */
   constructor(ws, deps) {
     this.ws = ws;
@@ -115,7 +115,7 @@ export class Connection {
     }
     if (!msg || typeof msg.type !== 'string') return this.sendError('Missing message type');
 
-    const { config, hub, orchestrator, store, registry, memory } = this.deps;
+    const { config, hub, orchestrator, store, registry, memory, sourceEditor } = this.deps;
 
     // ── authentication: the first message must be a valid hello ──
     if (!this.authenticated) {
@@ -141,6 +141,20 @@ export class Connection {
       return session;
     };
 
+    try {
+      await this.handle(msg, load, { config, hub, orchestrator, store, registry, memory, sourceEditor });
+    } catch (err) {
+      // Requests get their error as the answer, so the panel doesn't wait for a timeout.
+      this.sendError(err, msg.id);
+    }
+  }
+
+  /**
+   * @param {any} msg
+   * @param {() => Promise<import('./sessions/store.js').Session>} load
+   * @param {any} deps
+   */
+  async handle(msg, load, { config, hub, orchestrator, store, registry, memory, sourceEditor }) {
     switch (msg.type) {
       case 'session.open':
       case 'session.reset': {
@@ -230,6 +244,48 @@ export class Connection {
       case 'action.status': {
         const session = await load();
         orchestrator.setActionStatus(session, String(msg.actionId), String(msg.status), msg.detail);
+        return;
+      }
+
+      // ── Apply to source (see source/source-editor.js) ──
+      case 'source.project': {
+        const project = sourceEditor?.projectFor(String(msg.url ?? '')) ?? null;
+        this.send({ type: 'source.project', replyTo: msg.id, project: project && { name: project.name, path: project.path } });
+        return;
+      }
+
+      case 'source.propose': {
+        if (!sourceEditor) throw new Error('Apply to source is not available');
+        const session = await load();
+        const action = session.actions[String(msg.actionId)];
+        if (action?.name !== 'inject_css' || !['applied', 'saved'].includes(action.status)) {
+          throw new Error('Only applied CSS changes can be moved to the source');
+        }
+        const input = /** @type {any} */ (action.input);
+        const proposal = await sourceEditor.propose({ url: session.lastUrl ?? session.url ?? '', css: input.css, description: input.description });
+        action.source = { proposalId: proposal.id, status: 'proposed', files: Object.keys(proposal.files) };
+        store.save(session);
+        const { files, ...visible } = proposal; // whole-file contents stay on the server
+        this.send({ type: 'source.proposal', replyTo: msg.id, proposal: visible });
+        return;
+      }
+
+      case 'source.write':
+      case 'source.undo': {
+        if (!sourceEditor) throw new Error('Apply to source is not available');
+        const session = await load();
+        const action = session.actions[String(msg.actionId)];
+        if (!action?.source) throw new Error('No source edits for this change');
+        let result;
+        if (msg.type === 'source.write') {
+          result = { files: sourceEditor.write(action.source.proposalId) };
+          action.source.status = 'written';
+        } else {
+          result = sourceEditor.undo(action.source.proposalId);
+          action.source.status = 'undone';
+        }
+        store.save(session);
+        this.send({ type: 'source.result', replyTo: msg.id, source: action.source, ...result });
         return;
       }
 

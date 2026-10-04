@@ -21,12 +21,14 @@ import { handleMcpRequest } from './mcp.js';
 import { ProviderRegistry } from './providers/registry.js';
 import { SessionStore } from './sessions/store.js';
 import { MemoryStore } from './memory/store.js';
+import { SourceEditor } from './source/source-editor.js';
 
 const config = loadConfig();
 const store = new SessionStore(config.dataDir);
 const memory = new MemoryStore(config.dataDir);
 const registry = new ProviderRegistry(config);
 const hub = new PanelHub();
+const sourceEditor = new SourceEditor(config);
 const pageTools = new PageTools(hub);
 const orchestrator = new Orchestrator({ store, registry, config, panel: hub, memory, pageTools });
 
@@ -56,7 +58,7 @@ server.on('upgrade', (req, socket, head) => {
     return;
   }
   wss.handleUpgrade(req, socket, head, (ws) => {
-    new Connection(ws, { config, hub, orchestrator, store, registry, memory });
+    new Connection(ws, { config, hub, orchestrator, store, registry, memory, sourceEditor });
   });
 });
 

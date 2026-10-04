@@ -37,6 +37,10 @@ export class ActionCard extends HTMLElement {
     this.busy = false;
     this.showSaveForm = false;
     this.reviewed = false;
+    /** "Apply to source": the edits proposed in this panel session, while looking, and the last error. */
+    this.sourceProposal = /** @type {any} */ (null);
+    this.sourceBusy = false;
+    this.sourceError = '';
     this.className = `risk-${ACTIONS[name]?.risk ?? 'high'}`;
     this.addEventListener('mouseenter', () => {
       const target = this.app.targetFor(this.actionId, this.input);
@@ -68,6 +72,7 @@ export class ActionCard extends HTMLElement {
       record?.detail && serverStatus !== 'proposed' ? h('div', { class: 'note' }, record.detail) : null,
       h('div', { class: 'buttons' }, this.renderButtons(serverStatus, previewing, appliedHere, errors.length > 0)),
       this.showSaveForm ? this.renderSaveForm() : null,
+      this.renderSource(record?.source),
     );
   }
 
@@ -147,7 +152,17 @@ export class ActionCard extends HTMLElement {
       onclick: () => app.sendFromUi(checkRequest(this.input?.description || ACTIONS[name]?.label || name)),
     }, 'Check it');
 
-    if (status === 'saved') return [check, h('span', { class: 'note' }, 'Manage it in the Patches tab.')];
+    // Put an applied CSS change into the project's own source files (when a project is set up for this site).
+    const toSource = name === 'inject_css' && app.sourceProject && !this.sourceBusy && !this.sourceProposal
+      && this.app.session?.actions[actionId]?.source?.status !== 'written'
+      ? h('button', {
+        type: 'button', disabled,
+        title: `Claude Code looks through ${app.sourceProject.path} and proposes edits. Nothing is written until you click "Write to files".`,
+        onclick: () => this.proposeSource(),
+      }, 'Apply to source…')
+      : null;
+
+    if (status === 'saved') return [check, toSource, h('span', { class: 'note' }, 'Manage it in the Patches tab.')];
 
     if (status === 'applied') {
       if (!appliedHere) {
@@ -155,6 +170,7 @@ export class ActionCard extends HTMLElement {
       }
       return [
         check,
+        toSource,
         app.changes.canUndo(actionId)
           ? h('button', { type: 'button', disabled, onclick: run(() => app.undoAction(actionId)) }, 'Undo')
           : h('span', { class: 'note' }, 'Cannot be undone automatically; reload the page to revert.'),
@@ -187,6 +203,77 @@ export class ActionCard extends HTMLElement {
       buttons.push(h('button', { type: 'button', disabled, onclick: run(() => app.rejectAction(actionId)) }, 'Reject'));
     }
     return buttons;
+  }
+
+  async proposeSource() {
+    this.sourceBusy = true;
+    this.sourceError = '';
+    this.update();
+    try {
+      this.sourceProposal = await this.app.proposeSource(this.actionId);
+    } catch (err) {
+      this.sourceError = String(/** @type {any} */ (err)?.message ?? err);
+    } finally {
+      this.sourceBusy = false;
+      this.update();
+    }
+  }
+
+  /** @param {'write' | 'undo'} op */
+  async writeSource(op) {
+    this.sourceBusy = true;
+    this.sourceError = '';
+    this.update();
+    try {
+      const reply = await this.app.writeSource(this.actionId, op);
+      if (op === 'write') this.sourceProposal = null;
+      if (reply.skipped?.length) this.sourceError = `Not restored because you changed them since: ${reply.skipped.join(', ')}`;
+    } catch (err) {
+      this.sourceError = String(/** @type {any} */ (err)?.message ?? err);
+    } finally {
+      this.sourceBusy = false;
+      this.update();
+    }
+  }
+
+  /**
+   * The "Apply to source" part of the card: progress, the proposed diff, or what was written.
+   * @param {{ status: string, files: string[] } | undefined} source  state kept by the server
+   */
+  renderSource(source) {
+    const project = this.app.sourceProject;
+    const error = this.sourceError ? h('div', { class: 'errors' }, this.sourceError) : null;
+    if (this.sourceBusy) {
+      return h('div', { class: 'source' }, h('div', { class: 'note' }, `Looking through ${project?.name ?? 'your project'} for where this belongs… (this can take a minute)`));
+    }
+    const p = this.sourceProposal;
+    if (p) {
+      const close = () => { this.sourceProposal = null; this.update(); };
+      return h('div', { class: 'source' },
+        h('div', { class: 'head' }, `Apply to source: ${p.project.name}`),
+        p.summary ? h('div', null, p.summary) : null,
+        p.previews.map((/** @type {any} */ e) => h('div', { class: 'edit' },
+          h('div', { class: 'file' }, h('code', null, e.file), e.isNew ? ' (new file)' : ` (line ${e.line})`),
+          h('pre', { class: 'diff' },
+            e.removed.map((/** @type {string} */ l) => h('span', { class: 'del' }, `- ${l}`)),
+            e.added.map((/** @type {string} */ l) => h('span', { class: 'ins' }, `+ ${l}`))))),
+        p.notes ? h('div', { class: 'note' }, p.notes) : null,
+        error,
+        h('div', { class: 'buttons' }, p.previews.length
+          ? [
+            h('button', { type: 'button', class: 'primary', onclick: () => this.writeSource('write') }, `Write to ${p.previews.length === 1 ? 'file' : 'files'}`),
+            h('button', { type: 'button', onclick: close }, 'Discard'),
+          ]
+          : h('button', { type: 'button', onclick: close }, 'Close')));
+    }
+    if (source?.status === 'written') {
+      return h('div', { class: 'source' },
+        h('div', { class: 'note' }, `✓ Written to ${source.files.join(', ')}`),
+        error,
+        h('div', { class: 'buttons' }, h('button', { type: 'button', onclick: () => this.writeSource('undo') }, 'Undo source edits')));
+    }
+    if (source?.status === 'undone') return h('div', { class: 'source' }, h('div', { class: 'note' }, 'Source edits undone.'), error);
+    return error ? h('div', { class: 'source' }, error) : null;
   }
 
   renderSaveForm() {

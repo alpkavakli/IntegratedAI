@@ -53,6 +53,8 @@ export class App {
     this.navigationReset = null;
     /** Site memory for the current page (from the server), or null. @type {any} */
     this.memoryInfo = null;
+    /** Your project folder for this page ("Apply to source"), or null. @type {{ name: string, path: string } | null} */
+    this.sourceProject = null;
 
     this.chat = $('chat').bind(this);
     this.patchesView = /** @type {any} */ (null);
@@ -356,6 +358,7 @@ export class App {
 
   /** Load the site memory for the current page and update the Memory tab. */
   async refreshMemory() {
+    this.refreshSourceProject();
     if (!this.connected || !this.pageUrl) return;
     try {
       const reply = await this.client.request({ type: 'memory.get', url: this.pageUrl });
@@ -367,6 +370,17 @@ export class App {
     $('memory-count').hidden = count === 0;
     $('memory-count').textContent = String(count);
     this.memoryView.render();
+  }
+
+  /** Is there a project folder for this page (config.json "projects")? */
+  async refreshSourceProject() {
+    try {
+      const reply = await this.client.request({ type: 'source.project', url: this.pageUrl });
+      this.sourceProject = reply.project;
+    } catch {
+      this.sourceProject = null;
+    }
+    this.chat.refreshCards();
   }
 
   /**
@@ -507,6 +521,33 @@ export class App {
     await this.changes.forget(actionId);
     this.reportStatus(actionId, 'saved', `Saved as patch "${name}"`);
     this.patchesView.refresh();
+  }
+
+  // ───────────────────────────────────────────────────────── apply to source
+
+  /**
+   * Ask Claude Code (read-only, in the project folder) for edits that put an applied CSS change into the source.
+   * @param {string} actionId
+   */
+  async proposeSource(actionId) {
+    if (!this.session) throw new Error('No conversation');
+    const reply = await this.client.request({ type: 'source.propose', conversationId: this.session.id, actionId }, 6 * 60_000);
+    const record = this.session.actions[actionId];
+    if (record) record.source = { proposalId: reply.proposal.id, status: 'proposed', files: reply.proposal.previews.map((/** @type {any} */ p) => p.file) };
+    return reply.proposal;
+  }
+
+  /**
+   * Write the proposed edits to the files, or undo them.
+   * @param {string} actionId
+   * @param {'write' | 'undo'} op
+   */
+  async writeSource(actionId, op) {
+    if (!this.session) throw new Error('No conversation');
+    const reply = await this.client.request({ type: `source.${op}`, conversationId: this.session.id, actionId });
+    const record = this.session.actions[actionId];
+    if (record) record.source = reply.source;
+    return reply;
   }
 
   /**

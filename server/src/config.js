@@ -37,6 +37,8 @@ import { DEFAULT_PORT } from '../../extension/shared/protocol.js';
  * @property {string[]} allowedExtensionIds   Empty = any chrome-extension:// origin (token still required)
  * @property {string} defaultProvider
  * @property {number} maxStepsPerTurn         Max model calls per user message (inspection round-trips)
+ * @property {{ name?: string, path: string, urls: string[] }[]} projects  Your own sites' source folders for
+ *                                            "Apply to source": pages whose URL starts with one of `urls` map to `path`
  * @property {{ 'claude-cli': CliProviderConfig, anthropic: AnthropicProviderConfig }} providers
  * @property {string} dataDir                 (computed, not saved)
  */
@@ -48,6 +50,7 @@ export const DEFAULTS = {
   allowedExtensionIds: [],
   defaultProvider: 'claude-cli',
   maxStepsPerTurn: 8,
+  projects: [],
   providers: {
     'claude-cli': {
       command: 'claude',

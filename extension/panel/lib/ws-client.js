@@ -126,15 +126,16 @@ export class ServerClient extends EventTarget {
   /**
    * Send a message and wait for the reply (matched by id).
    * @param {Record<string, unknown>} msg
+   * @param {number} [timeoutMs]
    * @returns {Promise<any>}
    */
-  request(msg) {
+  request(msg, timeoutMs = REQUEST_TIMEOUT_MS) {
     const id = this.nextId++;
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(id);
         reject(new Error('The server did not answer'));
-      }, REQUEST_TIMEOUT_MS);
+      }, timeoutMs);
       this.pending.set(id, { resolve, reject, timer });
       try {
         this.send({ ...msg, id });
