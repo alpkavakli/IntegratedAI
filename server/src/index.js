@@ -1,0 +1,71 @@
+// @ts-check
+/**
+ * IntegratedAI agent server.
+ *
+ *   npm start
+ *
+ * Listens on http://127.0.0.1:7823 (configurable):
+ *   GET /health   → { ok: true }               (no data, no auth: lets the panel show "server running")
+ *   WS  /ws       → the DevTools panel protocol (see extension/shared/protocol.js)
+ */
+
+import { createServer } from 'node:http';
+import { WebSocketServer } from 'ws';
+import { checkUpgrade } from './auth.js';
+import { loadConfig } from './config.js';
+import { Connection, PanelHub } from './connection.js';
+import { Orchestrator } from './agent/orchestrator.js';
+import { ProviderRegistry } from './providers/registry.js';
+import { SessionStore } from './sessions/store.js';
+
+const config = loadConfig();
+const store = new SessionStore(config.dataDir);
+const registry = new ProviderRegistry(config);
+const hub = new PanelHub();
+const orchestrator = new Orchestrator({ store, registry, config, panel: hub });
+
+const server = createServer((req, res) => {
+  if (req.method === 'GET' && req.url === '/health') {
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ ok: true }));
+    return;
+  }
+  res.writeHead(404).end();
+});
+
+const wss = new WebSocketServer({ noServer: true, maxPayload: 8 * 1024 * 1024 });
+
+server.on('upgrade', (req, socket, head) => {
+  const check = req.url === '/ws' ? checkUpgrade(req, config) : { ok: false, reason: 'Unknown path' };
+  if (!check.ok) {
+    console.warn(`[auth] ${/** @type {any} */ (check).reason}`);
+    socket.end('HTTP/1.1 403 Forbidden\r\n\r\n');
+    return;
+  }
+  wss.handleUpgrade(req, socket, head, (ws) => {
+    new Connection(ws, { config, hub, orchestrator, store, registry });
+  });
+});
+
+server.on('error', (err) => {
+  console.error(`Server error: ${err.message}`);
+  process.exit(1);
+});
+
+server.listen(config.port, config.host, async () => {
+  console.log(`IntegratedAI agent server listening on http://${config.host}:${config.port}`);
+  console.log(`Data folder:   ${config.dataDir}`);
+  console.log(`Pairing token: ${config.token}`);
+  console.log('Paste the token into the extension options (right-click the extension → Options).');
+  for (const p of await registry.list()) {
+    console.log(`  provider ${p.id.padEnd(11)} ${p.available ? 'available' : `unavailable: ${p.reason}`}`);
+  }
+});
+
+// Save pending conversation writes before exiting.
+for (const signal of ['SIGINT', 'SIGTERM']) {
+  process.on(signal, async () => {
+    await store.flush();
+    process.exit(0);
+  });
+}

@@ -1,0 +1,15 @@
+{
+  // Editor type-checking for plain JS (JSDoc + // @ts-check). No build step.
+  // `npm run check` works only if you install TypeScript globally; it is optional.
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "target": "ES2023",
+    "checkJs": true,
+    "allowJs": true,
+    "noEmit": true,
+    "strict": false,
+    "lib": ["ES2023", "DOM"]
+  },
+  "include": ["server/**/*.js", "extension/shared/**/*.js"]
+}

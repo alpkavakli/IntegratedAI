@@ -1,0 +1,383 @@
+// @ts-check
+/**
+ * The orchestrator runs one "turn": the user sends a message, the model answers,
+ * possibly after several inspection round-trips.
+ *
+ *   user message ─► provider.turn() ─► assistant message
+ *                        ▲                 │ tool calls?
+ *                        │                 ├─ inspection (read-only) ─► run in the panel ─► result
+ *                        │                 ├─ change (mutation)      ─► PROPOSED to the panel, never run here
+ *                        │                 └─ invalid                ─► error result for the model
+ *                        └── loop again while there were inspection results to feed back
+ *
+ * Proposed changes: if the model ONLY proposed changes in its last step, the
+ * turn ends and those tool calls stay "open". The user's decisions (Apply /
+ * Reject / Undo / Save) are then sent as the tool results at the start of the
+ * next user message, so the model learns what really happened.
+ * If proposals were mixed with inspections, the model is told "proposed, awaiting
+ * decision" right away and later decisions are reported in an <action_updates> note.
+ */
+
+import { ACTION_STATUS } from '../../../extension/shared/protocol.js';
+import { enabledActionNames, isReadOnly, validateAction } from '../../../extension/shared/actions.js';
+import { snapshot } from '../sessions/store.js';
+import { buildSystemPrompt } from './system-prompt.js';
+
+/** @typedef {import('../sessions/store.js').Session} Session */
+/** @typedef {import('../sessions/store.js').SessionStore} SessionStore */
+/** @typedef {import('../providers/registry.js').ProviderRegistry} ProviderRegistry */
+/** @typedef {import('../../../extension/shared/protocol.js').NeutralMessage} NeutralMessage */
+/** @typedef {import('../../../extension/shared/protocol.js').ContentBlock} ContentBlock */
+/** @typedef {import('../../../extension/shared/protocol.js').Usage} Usage */
+
+/**
+ * How the orchestrator talks to the DevTools panel showing a conversation.
+ * Implemented by PanelHub in connection.js (and by fakes in tests).
+ * @typedef {object} PanelLink
+ * @property {(conversationId: string, msg: object) => void} send
+ * @property {(conversationId: string, name: string, input: unknown, signal: AbortSignal)
+ *   => Promise<{ ok: boolean, result?: unknown, error?: string }>} requestTool
+ */
+
+/**
+ * Settings the panel sends with each message.
+ * @typedef {{ executeJs?: boolean }} TurnSettings
+ */
+
+const MAX_TOOL_RESULT_CHARS = 30_000;
+
+const STATUS_TEXT = {
+  proposed: 'Shown to the user; they have not applied it yet.',
+  applied: 'The user applied this change.',
+  rejected: 'The user rejected this change. Do not propose it again unless asked.',
+  failed: 'The user tried to apply this change but it failed.',
+  undone: 'The user applied this change and then undid it.',
+  saved: 'The user applied this change and saved it as a persistent patch for this site.',
+  invalid: 'This action was invalid and was not shown to the user.',
+};
+
+export class Orchestrator {
+  /**
+   * @param {{ store: SessionStore, registry: ProviderRegistry, config: import('../config.js').Config, panel: PanelLink }} deps
+   */
+  constructor({ store, registry, config, panel }) {
+    this.store = store;
+    this.registry = registry;
+    this.config = config;
+    this.panel = panel;
+    /** @type {Map<string, AbortController>} running turns by conversation id */
+    this.running = new Map();
+  }
+
+  // ───────────────────────────────────────────────────────────── sessions
+
+  /**
+   * Return the conversation with this id, or create a new one.
+   * @param {{ conversationId?: string, url?: string, title?: string }} p
+   */
+  async openSession({ conversationId, url, title }) {
+    if (conversationId) {
+      const existing = await this.store.get(conversationId);
+      if (existing) return existing;
+    }
+    const provider = await this.registry.pickDefault();
+    const P = this.registry.get(provider);
+    return this.store.create({ url, title, provider, model: P ? P.defaultModel(this.config) : '' });
+  }
+
+  /**
+   * Change provider/model for a conversation (history is kept).
+   * @param {Session} session
+   * @param {{ provider?: string, model?: string }} p
+   */
+  configure(session, { provider, model }) {
+    if (session.busy) throw new Error('Wait for the current answer to finish');
+    if (provider && provider !== session.provider) {
+      const P = this.registry.get(provider);
+      if (!P) throw new Error(`Unknown provider "${provider}"`);
+      session.provider = provider;
+      session.model = P.defaultModel(this.config);
+    }
+    if (model) session.model = model;
+    this.store.save(session);
+  }
+
+  /** @param {string} conversationId */
+  cancel(conversationId) {
+    this.running.get(conversationId)?.abort();
+  }
+
+  /**
+   * The panel reports what happened to a proposed change (applied, rejected, undone, …).
+   * @param {Session} session
+   * @param {string} actionId
+   * @param {string} status
+   * @param {string} [detail]
+   */
+  setActionStatus(session, actionId, status, detail) {
+    const action = session.actions[actionId];
+    if (!action) throw new Error('Unknown action');
+    if (!Object.hasOwn(ACTION_STATUS, status) || status === 'invalid' || status === 'proposed') {
+      throw new Error(`Invalid status "${status}"`);
+    }
+    action.status = /** @type {any} */ (status);
+    action.detail = detail ? String(detail).slice(0, 2000) : undefined;
+    this.store.save(session);
+  }
+
+  // ───────────────────────────────────────────────────────────── turns
+
+  /**
+   * Handle one user message. Resolves when the turn is over (never throws;
+   * errors are sent to the panel).
+   * @param {Session} session
+   * @param {{ text: string, context?: unknown, settings?: TurnSettings }} msg
+   */
+  async chat(session, { text, context, settings = {} }) {
+    const id = session.id;
+    if (session.busy) {
+      this.panel.send(id, { type: 'error', conversationId: id, message: 'Still working on the previous message.' });
+      return;
+    }
+
+    const abort = new AbortController();
+    this.running.set(id, abort);
+    session.busy = true;
+    this.panel.send(id, { type: 'turn.started', conversationId: id });
+
+    /** @type {Usage} */
+    const turnUsage = { inputTokens: 0, outputTokens: 0, costUsd: null };
+    let stopReason = 'end_turn';
+
+    try {
+      const available = await this.registry.isAvailable(session.provider);
+      if (!available.available) throw new Error(`Provider unavailable: ${available.reason}`);
+      const provider = this.registry.create(session.provider);
+      const P = /** @type {any} */ (provider.constructor);
+
+      const actionNames = enabledActionNames(settings);
+      const system = buildSystemPrompt({ actionNames, structuredEnvelope: Boolean(P.structuredEnvelope) });
+
+      this.append(session, this.buildUserMessage(session, text, context));
+
+      for (let step = 0; step < this.config.maxStepsPerTurn; step++) {
+        const { message, toolCalls, usage, stopReason: sr } = await this.callModel(session, provider, {
+          system, actionNames, signal: abort.signal,
+        });
+        addUsage(turnUsage, usage);
+        stopReason = sr;
+        this.append(session, message);
+        if (!toolCalls.length) break;
+
+        // Until results are recorded, these calls are "open" (keeps history valid if we stop early).
+        session.openToolCalls = toolCalls.map((c) => c.id);
+        const continueLoop = await this.handleToolCalls(session, toolCalls, settings, abort.signal);
+        if (!continueLoop) break; // only proposals: wait for the user's decisions
+
+        if (step === this.config.maxStepsPerTurn - 1) {
+          stopReason = 'max_steps';
+          this.panel.send(id, { type: 'error', conversationId: id, message: `Stopped after ${this.config.maxStepsPerTurn} steps. Send a message to continue.` });
+        }
+      }
+    } catch (err) {
+      stopReason = abort.signal.aborted ? 'cancelled' : 'error';
+      if (!abort.signal.aborted) {
+        this.panel.send(id, { type: 'error', conversationId: id, message: String(/** @type {any} */ (err)?.message ?? err) });
+      }
+    } finally {
+      session.busy = false;
+      this.running.delete(id);
+      addUsage(session.usage, turnUsage);
+      this.store.save(session);
+      this.panel.send(id, { type: 'turn.done', conversationId: id, usage: turnUsage, sessionUsage: session.usage, stopReason });
+    }
+  }
+
+  /**
+   * Run one provider call and assemble the assistant message.
+   * @param {Session} session
+   * @param {import('../providers/base.js').Provider} provider
+   * @param {{ system: string, actionNames: string[], signal: AbortSignal }} o
+   */
+  async callModel(session, provider, { system, actionNames, signal }) {
+    const providerId = /** @type {any} */ (provider.constructor).id;
+    const state = (session.providerState[providerId] ??= {});
+
+    let text = '';
+    /** @type {{ id: string, name: string, input: unknown }[]} */
+    const toolCalls = [];
+    /** @type {unknown} */
+    let raw;
+    /** @type {Usage} */
+    const usage = { inputTokens: 0, outputTokens: 0, costUsd: null };
+    let stopReason = 'end_turn';
+
+    const events = provider.turn({
+      messages: session.messages, system, actionNames, model: session.model, state, signal,
+    });
+    for await (const ev of events) {
+      if (signal.aborted) throw new Error('Cancelled');
+      switch (ev.type) {
+        case 'text_delta':
+          text += ev.text;
+          this.panel.send(session.id, { type: 'chat.delta', conversationId: session.id, text: ev.text });
+          break;
+        case 'tool_call':
+          toolCalls.push({ id: ev.id, name: ev.name, input: ev.input });
+          break;
+        case 'usage':
+          addUsage(usage, ev);
+          break;
+        case 'raw':
+          raw = ev.content;
+          break;
+        case 'done':
+          stopReason = ev.stopReason;
+          break;
+      }
+    }
+
+    /** @type {NeutralMessage} */
+    const message = {
+      role: 'assistant',
+      content: [
+        ...(text ? [{ type: /** @type {const} */ ('text'), text }] : []),
+        ...toolCalls.map((c) => ({ type: /** @type {const} */ ('tool_call'), ...c })),
+      ],
+      ts: Date.now(),
+    };
+    if (raw !== undefined) message.raw = { provider: providerId, content: raw };
+    return { message, toolCalls, usage, stopReason };
+  }
+
+  /**
+   * Validate and dispatch the tool calls of one assistant message.
+   * @param {Session} session
+   * @param {{ id: string, name: string, input: unknown }[]} calls
+   * @param {TurnSettings} settings
+   * @param {AbortSignal} signal
+   * @returns {Promise<boolean>} true if the model should be called again with results
+   */
+  async handleToolCalls(session, calls, settings, signal) {
+    /** @type {ContentBlock[]} */
+    const results = [];
+    /** @type {string[]} */
+    const proposals = [];
+    let needsResults = false;
+
+    for (const call of calls) {
+      const errors = validateAction(call.name, call.input, settings);
+      if (errors.length) {
+        needsResults = true;
+        if (!isReadOnly(call.name)) {
+          session.actions[call.id] = { name: call.name, input: call.input, status: 'invalid', errors, reportedStatus: 'invalid' };
+        }
+        results.push({ type: 'tool_result', toolCallId: call.id, isError: true, content: `Invalid action: ${errors.join('; ')}` });
+        continue;
+      }
+
+      if (isReadOnly(call.name)) {
+        needsResults = true;
+        const res = await this.panel.requestTool(session.id, call.name, call.input, signal);
+        results.push({
+          type: 'tool_result',
+          toolCallId: call.id,
+          isError: !res.ok,
+          content: res.ok ? truncate(JSON.stringify(res.result ?? null)) : `Inspection failed: ${res.error ?? 'unknown error'}`,
+        });
+      } else {
+        session.actions[call.id] = { name: call.name, input: call.input, status: 'proposed' };
+        proposals.push(call.id);
+        this.panel.send(session.id, {
+          type: 'action.proposed', conversationId: session.id, actionId: call.id, name: call.name, input: call.input,
+        });
+      }
+    }
+
+    if (!needsResults) return false; // only proposals → results are sent with the next user message
+
+    for (const id of proposals) {
+      session.actions[id].reportedStatus = 'proposed';
+      results.push({ type: 'tool_result', toolCallId: id, content: 'Proposed to the user; awaiting their decision. You will be told what they decide.' });
+    }
+    session.openToolCalls = [];
+    this.append(session, { role: 'user', content: results, ts: Date.now() });
+    return true;
+  }
+
+  /**
+   * Build the next user message: results for open tool calls, updates on earlier
+   * proposals, the page context and the user's text.
+   * @param {Session} session
+   * @param {string} text
+   * @param {unknown} context
+   * @returns {NeutralMessage}
+   */
+  buildUserMessage(session, text, context) {
+    /** @type {ContentBlock[]} */
+    const content = [];
+
+    for (const id of session.openToolCalls) {
+      const action = session.actions[id];
+      if (action) action.reportedStatus = action.status;
+      content.push({
+        type: 'tool_result',
+        toolCallId: id,
+        content: action ? describeAction(action) : 'Not executed: the previous answer was interrupted.',
+      });
+    }
+    session.openToolCalls = [];
+
+    const updates = [];
+    for (const [id, action] of Object.entries(session.actions)) {
+      if (action.reportedStatus && action.reportedStatus !== action.status) {
+        updates.push(`- ${action.name} (${id}): ${describeAction(action)}`);
+        action.reportedStatus = action.status;
+      }
+    }
+    if (updates.length) content.push({ type: 'note', text: updates.join('\n') });
+
+    if (context) content.push({ type: 'context', data: context });
+    content.push({ type: 'text', text: String(text ?? '') });
+    return { role: 'user', content, ts: Date.now() };
+  }
+
+  /**
+   * Append a message and tell the panel (without provider-internal raw content).
+   * @param {Session} session
+   * @param {NeutralMessage} message
+   */
+  append(session, message) {
+    session.messages.push(message);
+    this.store.save(session);
+    const { raw, ...visible } = message;
+    this.panel.send(session.id, { type: 'chat.message', conversationId: session.id, message: visible });
+  }
+
+  /** @param {Session} session */
+  snapshot(session) {
+    return snapshot(session);
+  }
+}
+
+/** @param {import('../sessions/store.js').StoredAction} action */
+function describeAction(action) {
+  let text = STATUS_TEXT[action.status] ?? action.status;
+  if (action.detail) text += ` Details: ${action.detail}`;
+  return text;
+}
+
+/**
+ * @param {Usage} total
+ * @param {{ inputTokens: number, outputTokens: number, costUsd: number | null }} add
+ */
+function addUsage(total, add) {
+  total.inputTokens += add.inputTokens;
+  total.outputTokens += add.outputTokens;
+  if (add.costUsd !== null && add.costUsd !== undefined) total.costUsd = (total.costUsd ?? 0) + add.costUsd;
+}
+
+/** @param {string} s */
+function truncate(s) {
+  return s.length > MAX_TOOL_RESULT_CHARS ? `${s.slice(0, MAX_TOOL_RESULT_CHARS)}… [truncated]` : s;
+}

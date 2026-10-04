@@ -1,0 +1,19 @@
+{
+  "name": "integrated-ai",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI panel for Chrome DevTools, backed by a local Node.js agent server.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server/src/index.js",
+    "test": "node --test \"server/test/*.test.js\"",
+    "check": "tsc --noEmit -p jsconfig.json"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.131.0",
+    "ws": "^8.22.0"
+  }
+}
