@@ -191,3 +191,37 @@ test('StreamPreview: records calls to tools that do not exist, ignores real ones
   }
   assert.deepEqual(p.misusedTools, ['find_elements', 'inspect_element']);
 });
+
+test('provider: a model that calls actions as tools is resumed once with a correction', async () => {
+  const misuse = streamLine({ type: 'content_block_start', content_block: { type: 'tool_use', name: 'find_elements' } });
+  const gaveUp = JSON.stringify({ type: 'result', subtype: 'success', total_cost_usd: 0.01, usage: {}, structured_output: { reply: "Couldn't inspect the page", actions: [] } });
+  const retried = JSON.stringify({ type: 'result', subtype: 'success', total_cost_usd: 0.03, usage: {}, structured_output: { reply: 'Looking…', actions: [{ type: 'find_elements', input: { text: 'nav' } }] } });
+  // The retry misuses a tool again: it must not loop.
+  const outputs = [[misuse, gaveUp].join('\n') + '\n', [misuse, retried].join('\n') + '\n'];
+  const calls = [];
+  const run = async (cmd, args, opts) => {
+    calls.push({ args, input: opts.input });
+    const stdout = outputs.shift();
+    opts.onStdout(stdout);
+    return { code: 0, stdout, stderr: '' };
+  };
+  const provider = new ClaudeCliProvider(testConfig(), { run });
+  const state = {};
+  const messages = [user('make a theme toggle in the nav bar')];
+  const events = await collect(provider.turn({
+    messages, system: 's', actionNames: ['find_elements'], model: 'sonnet', state, signal: new AbortController().signal,
+  }));
+
+  assert.equal(calls.length, 2);
+  assert.ok(calls[1].args.includes('--resume'));
+  assert.equal(calls[1].args[calls[1].args.indexOf('--resume') + 1], state.sessionId);
+  assert.match(calls[1].input, /not callable tools/);
+  assert.match(events.filter((e) => e.type === 'preview_delta').map((e) => e.text).join(''), /Retrying with the page tools/);
+  const toolCalls = events.filter((e) => e.type === 'tool_call');
+  assert.deepEqual(toolCalls.map((e) => e.name), ['find_elements']);
+  assert.deepEqual(events.filter((e) => e.type === 'text_delta').map((e) => e.text), ['Looking…']);
+  const costs = events.filter((e) => e.type === 'usage').map((e) => e.costUsd);
+  assert.equal(costs.length, 2);
+  assert.ok(Math.abs(costs[0] - 0.01) < 1e-9 && Math.abs(costs[1] - 0.02) < 1e-9, 'cost split per call');
+  assert.equal(state.synced, messages.length + 1);
+});
