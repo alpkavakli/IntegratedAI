@@ -183,3 +183,11 @@ test('StreamPreview: shows a status line while searching the web', () => {
   const out = p.feed(streamLine({ type: 'content_block_start', content_block: { type: 'tool_use', name: 'WebSearch' } }));
   assert.match(out, /Searching the web/);
 });
+
+test('StreamPreview: records calls to tools that do not exist, ignores real ones', () => {
+  const p = new StreamPreview();
+  for (const name of ['find_elements', 'StructuredOutput', 'WebSearch', 'inspect_element']) {
+    p.feed(streamLine({ type: 'content_block_start', content_block: { type: 'tool_use', name } }));
+  }
+  assert.deepEqual(p.misusedTools, ['find_elements', 'inspect_element']);
+});
