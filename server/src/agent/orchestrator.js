@@ -19,7 +19,9 @@
  */
 
 import { ACTION_STATUS } from '../../../extension/shared/protocol.js';
-import { enabledActionNames, isReadOnly, validateAction } from '../../../extension/shared/actions.js';
+import { enabledActionNames, isReadOnly, isServerSide, validateAction } from '../../../extension/shared/actions.js';
+import { siteKey } from '../../../extension/shared/page-groups.js';
+import { createHash } from 'node:crypto';
 import { snapshot } from '../sessions/store.js';
 import { buildSystemPrompt } from './system-prompt.js';
 
@@ -58,10 +60,12 @@ const STATUS_TEXT = {
 
 export class Orchestrator {
   /**
-   * @param {{ store: SessionStore, registry: ProviderRegistry, config: import('../config.js').Config, panel: PanelLink }} deps
+   * @param {{ store: SessionStore, registry: ProviderRegistry, config: import('../config.js').Config, panel: PanelLink,
+   *   memory?: import('../memory/store.js').MemoryStore }} deps
    */
-  constructor({ store, registry, config, panel }) {
+  constructor({ store, registry, config, panel, memory }) {
     this.store = store;
+    this.memory = memory ?? null;
     this.registry = registry;
     this.config = config;
     this.panel = panel;
@@ -159,6 +163,7 @@ export class Orchestrator {
       const webTools = settings.webTools === true;
       const system = buildSystemPrompt({ actionNames, webTools, structuredEnvelope: Boolean(P.structuredEnvelope) });
 
+      this.trackPage(session, context, text);
       this.append(session, this.buildUserMessage(session, text, context));
 
       for (let step = 0; step < this.config.maxStepsPerTurn; step++) {
@@ -271,6 +276,8 @@ export class Orchestrator {
     const results = [];
     /** @type {string[]} */
     const proposals = [];
+    /** @type {ContentBlock[]} */
+    const serverResults = [];
     let needsResults = false;
 
     for (const call of calls) {
@@ -281,6 +288,14 @@ export class Orchestrator {
           session.actions[call.id] = { name: call.name, input: call.input, status: 'invalid', errors, reportedStatus: 'invalid' };
         }
         results.push({ type: 'tool_result', toolCallId: call.id, isError: true, content: `Invalid action: ${errors.join('; ')}` });
+        continue;
+      }
+
+      if (isServerSide(call.name)) {
+        // Site memory: done right here. The result goes back with the other results,
+        // or (if nothing else needs an answer) at the start of the next user message.
+        const result = this.runMemoryAction(session, call);
+        serverResults.push({ type: 'tool_result', toolCallId: call.id, ...result });
         continue;
       }
 
@@ -302,7 +317,14 @@ export class Orchestrator {
       }
     }
 
-    if (!needsResults) return false; // only proposals → results are sent with the next user message
+    if (!needsResults) {
+      // Only proposals and memory updates: end the turn. Their results are sent with the next user message.
+      session.pendingResults = Object.fromEntries(
+        serverResults.map((r) => [/** @type {any} */ (r).toolCallId, { content: /** @type {any} */ (r).content, isError: /** @type {any} */ (r).isError }]),
+      );
+      return false;
+    }
+    results.push(...serverResults);
 
     for (const id of proposals) {
       session.actions[id].reportedStatus = 'proposed';
@@ -327,14 +349,17 @@ export class Orchestrator {
 
     for (const id of session.openToolCalls) {
       const action = session.actions[id];
+      const pending = session.pendingResults?.[id];
       if (action) action.reportedStatus = action.status;
       content.push({
         type: 'tool_result',
         toolCallId: id,
-        content: action ? describeAction(action) : 'Not executed: the previous answer was interrupted.',
+        content: pending?.content ?? (action ? describeAction(action) : 'Not executed: the previous answer was interrupted.'),
+        ...(pending?.isError ? { isError: true } : {}),
       });
     }
     session.openToolCalls = [];
+    session.pendingResults = {};
 
     const updates = [];
     for (const [id, action] of Object.entries(session.actions)) {
@@ -345,9 +370,81 @@ export class Orchestrator {
     }
     if (updates.length) content.push({ type: 'note', text: updates.join('\n') });
 
+    // Site memory is sent when it differs from what this conversation last saw.
+    const memory = this.memoryContext(session);
+    if (memory) content.push({ type: 'memory', data: memory });
     if (context) content.push({ type: 'context', data: context });
     content.push({ type: 'text', text: String(text ?? '') });
     return { role: 'user', content, ts: Date.now() };
+  }
+
+  // ───────────────────────────────────────────────────────────── site memory
+
+  /**
+   * Remember which site / page group the conversation is about (for History),
+   * and title the conversation after its first message.
+   * @param {Session} session
+   * @param {any} context
+   * @param {string} text
+   */
+  trackPage(session, context, text) {
+    const url = typeof context?.page?.url === 'string' ? context.page.url : session.lastUrl;
+    if (url) {
+      session.lastUrl = url;
+      session.site = siteKey(url) ?? session.site;
+      const info = this.memory?.forUrl(url);
+      if (info) session.groupPattern = info.group.pattern;
+    }
+    if (!session.titleFromUser && text.trim()) {
+      session.title = text.trim().replace(/\s+/g, ' ').slice(0, 80);
+      session.titleFromUser = true;
+    }
+  }
+
+  /**
+   * The memory block for the next user message, or null if unchanged since last sent.
+   * @param {Session} session
+   */
+  memoryContext(session) {
+    if (!this.memory || !session.lastUrl) return null;
+    const data = this.memory.contextFor(session.lastUrl);
+    if (!data) return null;
+    const hash = createHash('sha256').update(JSON.stringify(data)).digest('hex').slice(0, 16);
+    if (hash === session.memoryHash) return null;
+    session.memoryHash = hash;
+    return data;
+  }
+
+  /**
+   * Run remember / forget / define_page_group and tell the panel.
+   * @param {Session} session
+   * @param {{ id: string, name: string, input: any }} call
+   * @returns {{ content: string, isError?: boolean }}
+   */
+  runMemoryAction(session, { name, input }) {
+    if (!this.memory || !session.lastUrl) return { content: 'Site memory is not available for this page.', isError: true };
+    try {
+      let change;
+      if (name === 'remember') {
+        const note = this.memory.addNote(session.lastUrl, { text: input.note, scope: input.scope, by: 'assistant', conversationId: session.id });
+        change = { kind: 'note_added', note };
+      } else if (name === 'forget') {
+        const note = this.memory.deleteNote(/** @type {string} */ (siteKey(session.lastUrl)), input.id);
+        change = { kind: 'note_deleted', note };
+      } else {
+        const group = this.memory.defineGroup(session.lastUrl, { name: input.name, pattern: input.pattern });
+        session.groupPattern = group.pattern;
+        change = { kind: 'group_defined', group };
+      }
+      // The model already knows about its own change; don't resend memory just for that.
+      const data = this.memory.contextFor(session.lastUrl);
+      session.memoryHash = createHash('sha256').update(JSON.stringify(data)).digest('hex').slice(0, 16);
+      this.panel.send(session.id, { type: 'memory.changed', conversationId: session.id, site: siteKey(session.lastUrl), change });
+      const id = change.note?.id ?? change.group?.id;
+      return { content: `Saved (${change.kind.replace('_', ' ')}, id ${id}).` };
+    } catch (err) {
+      return { content: String(/** @type {any} */ (err)?.message ?? err), isError: true };
+    }
   }
 
   /**

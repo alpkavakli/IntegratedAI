@@ -16,8 +16,12 @@ import { ACTIONS, validateAction } from '../shared/actions.js';
 import './components/action-card.js';
 import './components/chat-view.js';
 import './components/console-view.js';
+import './components/history-view.js';
+import './components/memory-view.js';
+import { relativeTime } from './components/history-view.js';
 import './components/patches-view.js';
 import { bg } from './lib/bg.js';
+import { h } from './lib/dom.js';
 import { ChangeManager } from './lib/changes.js';
 import { collectContext } from './lib/context.js';
 import { callInPage, selectInElementsPanel } from './lib/inspected.js';
@@ -47,6 +51,8 @@ export class App {
     this.targets = {};
     /** @type {Promise<void> | null} */
     this.navigationReset = null;
+    /** Site memory for the current page (from the server), or null. @type {any} */
+    this.memoryInfo = null;
 
     this.chat = $('chat').bind(this);
     this.patchesView = /** @type {any} */ (null);
@@ -71,6 +77,8 @@ export class App {
 
     this.patchesView = $('patches').bind(this);
     this.consoleView = $('console').bind(this);
+    this.historyView = $('history').bind(this);
+    this.memoryView = $('memory').bind(this);
     this.wireUi();
     this.wireDevtoolsEvents();
     this.wireServer();
@@ -98,6 +106,7 @@ export class App {
     });
 
     $('new-chat').addEventListener('click', () => this.newConversation());
+    $('history-button').addEventListener('click', () => this.historyView.toggle());
     $('open-options').addEventListener('click', () => bg('options.open'));
     $('provider-select').addEventListener('change', () => this.configure({ provider: $('provider-select').value }));
     $('model-select').addEventListener('change', () => this.configure({ model: $('model-select').value }));
@@ -108,7 +117,8 @@ export class App {
     for (const tab of document.querySelectorAll('.tabs button')) {
       tab.classList.toggle('active', /** @type {HTMLElement} */ (tab).dataset.tab === name);
     }
-    for (const view of ['chat', 'patches', 'console']) $(`view-${view}`).hidden = view !== name;
+    for (const view of ['chat', 'patches', 'console', 'memory']) $(`view-${view}`).hidden = view !== name;
+    if (name === 'memory') this.refreshMemory();
     this.consoleView.setVisible(name === 'console');
     if (name === 'patches') this.patchesView.refresh();
     if (name === 'chat') $('prompt').focus();
@@ -142,6 +152,8 @@ export class App {
     this.refreshSelectedChip();
     this.patchesView.refresh();
     this.consoleView.refresh(true);
+    await this.refreshMemory();
+    this.updateWelcome();
   }
 
   async refreshSelectedChip() {
@@ -195,8 +207,10 @@ export class App {
     this.session = session;
     await bg('conv.set', { tabId: this.tabId, conversationId: session.id });
     this.targets = (await bg('kv.get', { key: `targets:${session.id}` })) ?? {};
+    this.memoryInfo = null;
     this.chat.renderAll();
     this.renderUsage();
+    this.refreshMemory();
     this.renderProviderPicker();
     this.updateComposer();
   }
@@ -259,6 +273,9 @@ export class App {
         this.updateComposer();
         this.chat.refreshCards();
         break;
+      case 'memory.changed':
+        await this.refreshMemory();
+        break;
       case 'error':
         this.showError(msg.message);
         break;
@@ -313,6 +330,76 @@ export class App {
     } finally {
       this.updateComposer();
     }
+  }
+
+  // ───────────────────────────────────────────────────────── history & site memory
+
+  /** Conversations on this site (for the History popover and the welcome area). */
+  async listConversations() {
+    const reply = await this.client.request({ type: 'sessions.list', url: this.pageUrl });
+    return { site: reply.site, items: reply.items };
+  }
+
+  /**
+   * Continue an earlier conversation in this tab.
+   * @param {string} conversationId
+   */
+  async switchConversation(conversationId) {
+    const page = await callInPage(pageInfo).catch(() => ({ url: this.pageUrl, title: '' }));
+    const reply = await this.client.request({ type: 'session.open', conversationId, url: page.url, title: page.title });
+    await this.setSession(reply.session);
+    this.showTab('chat');
+  }
+
+  /** Load the site memory for the current page and update the Memory tab. */
+  async refreshMemory() {
+    if (!this.connected || !this.pageUrl) return;
+    try {
+      const reply = await this.client.request({ type: 'memory.get', url: this.pageUrl });
+      this.memoryInfo = reply.memory;
+    } catch {
+      this.memoryInfo = null;
+    }
+    const count = this.memoryInfo ? this.memoryInfo.notes.filter((/** @type {any} */ n) => n.appliesHere).length : 0;
+    $('memory-count').hidden = count === 0;
+    $('memory-count').textContent = String(count);
+    this.memoryView.render();
+  }
+
+  /**
+   * Edit site memory from the Memory tab.
+   * @param {Record<string, unknown>} change
+   */
+  async editMemory(change) {
+    const reply = await this.client.request({ type: 'memory.edit', url: this.pageUrl, ...change });
+    this.memoryInfo = reply.memory;
+    await this.refreshMemory();
+  }
+
+  /**
+   * For an empty conversation: offer to continue the latest conversation on this
+   * site, and say what the AI already remembers here.
+   */
+  async updateWelcome() {
+    if (!this.connected || !this.session) return;
+    if (this.session.messages.some((m) => m.role === 'user')) return;
+    let items = [];
+    try {
+      items = (await this.listConversations()).items.filter((/** @type {any} */ i) => i.id !== this.session?.id);
+    } catch { /* offline */ }
+    if (!this.memoryInfo) await this.refreshMemory();
+    const last = items[0]; // same kind of page first, then newest
+    const remembered = this.memoryInfo ? this.memoryInfo.notes.filter((/** @type {any} */ n) => n.appliesHere).length : 0;
+    const groupName = this.memoryInfo?.group.name;
+    this.chat.setWelcome([
+      last ? h('div', { class: 'continue' },
+        h('button', { type: 'button', class: 'primary', onclick: () => this.switchConversation(last.id) }, 'Continue'),
+        ` "${last.title}" · ${relativeTime(last.updatedAt)}${last.sameGroup ? '' : ' (another page on this site)'} `,
+        items.length > 1 ? h('button', { type: 'button', class: 'link', onclick: () => this.historyView.toggle() }, `all ${items.length}`) : null) : null,
+      remembered ? h('div', { class: 'meta' },
+        `🧠 I remember ${remembered} thing${remembered === 1 ? '' : 's'} about ${this.memoryInfo.site}${groupName ? ` and "${groupName}" pages` : ''}. `,
+        h('button', { type: 'button', class: 'link', onclick: () => this.showTab('memory') }, 'See memory')) : null,
+    ]);
   }
 
   /** "Explain" button in the Console tab. @param {any} entry */

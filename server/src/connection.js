@@ -11,6 +11,7 @@
 import { randomUUID } from 'node:crypto';
 import { PROTOCOL_VERSION } from '../../extension/shared/protocol.js';
 import { tokenMatches } from './auth.js';
+import { matchPattern, pathOf, siteKey } from '../../extension/shared/page-groups.js';
 
 const HELLO_TIMEOUT_MS = 5_000;
 const TOOL_TIMEOUT_MS = 120_000; // the user may be asked to confirm an inspection
@@ -64,7 +65,8 @@ export class Connection {
   /**
    * @param {import('ws').WebSocket} ws
    * @param {{ config: import('./config.js').Config, hub: PanelHub, orchestrator: Orchestrator,
-   *   store: import('./sessions/store.js').SessionStore, registry: import('./providers/registry.js').ProviderRegistry }} deps
+   *   store: import('./sessions/store.js').SessionStore, registry: import('./providers/registry.js').ProviderRegistry,
+   *   memory: import('./memory/store.js').MemoryStore }} deps
    */
   constructor(ws, deps) {
     this.ws = ws;
@@ -113,7 +115,7 @@ export class Connection {
     }
     if (!msg || typeof msg.type !== 'string') return this.sendError('Missing message type');
 
-    const { config, hub, orchestrator, store, registry } = this.deps;
+    const { config, hub, orchestrator, store, registry, memory } = this.deps;
 
     // ── authentication: the first message must be a valid hello ──
     if (!this.authenticated) {
@@ -174,6 +176,41 @@ export class Connection {
           context: msg.context,
           settings: { executeJs: msg.settings?.executeJs === true, webTools: msg.settings?.webTools === true },
         });
+        return;
+      }
+
+      case 'sessions.list': {
+        // Conversations on this site; those about the same kind of page first.
+        const url = String(msg.url ?? '');
+        const site = siteKey(url);
+        const path = pathOf(url);
+        const items = site
+          ? store.listForSite(site).map((e) => ({ ...e, sameGroup: matchPattern(e.groupPattern, path) }))
+          : [];
+        items.sort((a, b) => Number(b.sameGroup) - Number(a.sameGroup) || b.updatedAt - a.updatedAt);
+        this.send({ type: 'sessions', replyTo: msg.id, site, items });
+        return;
+      }
+
+      case 'memory.get':
+        this.send({ type: 'memory', replyTo: msg.id, memory: memory.forUrl(String(msg.url ?? '')) });
+        return;
+
+      case 'memory.edit': {
+        // Edits from the Memory tab. Always scoped to the site of the given URL.
+        const url = String(msg.url ?? '');
+        const site = siteKey(url);
+        if (!site) throw new Error('This page has no site memory');
+        switch (msg.op) {
+          case 'addNote': memory.addNote(url, { text: String(msg.text ?? ''), scope: msg.scope === 'page_group' ? 'page_group' : 'site', by: 'user' }); break;
+          case 'updateNote': memory.updateNote(site, String(msg.noteId), String(msg.text ?? '')); break;
+          case 'deleteNote': memory.deleteNote(site, String(msg.noteId)); break;
+          case 'defineGroup': memory.defineGroup(url, { name: String(msg.name ?? ''), pattern: String(msg.pattern ?? '') }); break;
+          case 'updateGroup': memory.updateGroup(site, String(msg.groupId), { name: msg.name, pattern: msg.pattern }); break;
+          case 'deleteGroup': memory.deleteGroup(site, String(msg.groupId)); break;
+          default: throw new Error(`Unknown memory operation "${msg.op}"`);
+        }
+        this.send({ type: 'memory', replyTo: msg.id, memory: memory.forUrl(url) });
         return;
       }
 

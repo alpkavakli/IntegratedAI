@@ -30,6 +30,8 @@ import { validate } from './validate.js';
  * @property {string} description    Shown to the model
  * @property {Schema} inputSchema
  * @property {'executeJs'} [requiresSetting]  Only offered when that setting is on
+ * @property {boolean} [serverSide]  Runs on the server (site memory), never touches the page,
+ *                                   needs no approval; shown in the chat and undoable in the Memory tab
  */
 
 const selectorProp = {
@@ -126,6 +128,57 @@ export const ACTIONS = {
         type: { type: 'string', enum: ['document', 'stylesheet', 'script', 'image', 'font', 'other'] },
         readContentOf: { type: 'string', description: 'Exact URL of a resource whose content should be returned.' },
       },
+      additionalProperties: false,
+    },
+  },
+
+  // ---------------------------------------------------------------- site memory (server-side)
+  remember: {
+    label: 'Remember',
+    readOnly: false,
+    serverSide: true,
+    risk: 'none',
+    description:
+      'Save a short note about this site so future conversations start out knowing it: stable selectors (e.g. "nav bar: nav.g_nav", "chapter text: .cha-words p"), site quirks, and the user\'s preferences (e.g. "prefers dark themes, bg #121212"). scope "site" = all pages of the site; "page_group" = only pages like this one. Do not save secrets, personal data, or one-off details.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        note: { type: 'string', description: 'One fact, max ~200 characters.' },
+        scope: { type: 'string', enum: ['site', 'page_group'] },
+      },
+      required: ['note', 'scope'],
+      additionalProperties: false,
+    },
+  },
+
+  forget: {
+    label: 'Forget',
+    readOnly: false,
+    serverSide: true,
+    risk: 'none',
+    description: 'Delete a site-memory note that is wrong or outdated (by its id from <site_memory>). To correct a note, forget it and remember the new version.',
+    inputSchema: {
+      type: 'object',
+      properties: { id: { type: 'string' } },
+      required: ['id'],
+      additionalProperties: false,
+    },
+  },
+
+  define_page_group: {
+    label: 'Name page type',
+    readOnly: false,
+    serverSide: true,
+    risk: 'none',
+    description:
+      'Name the type of page the user is on and the URL path pattern for all pages of that type, e.g. { name: "Chapter reader", pattern: "/book/*/*" } or { name: "Search results", pattern: "/search" }. "*" = one path segment, a final "**" = any number. The pattern must match the current page. Use when <site_memory> shows an unnamed or wrong pageGroup; reusing an existing name updates that group.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Short human name, e.g. "Chapter reader".' },
+        pattern: { type: 'string', description: 'Path pattern starting with "/".' },
+      },
+      required: ['name', 'pattern'],
       additionalProperties: false,
     },
   },
@@ -237,6 +290,11 @@ export function isReadOnly(name) {
   return isKnownAction(name) && ACTIONS[name].readOnly;
 }
 
+/** Site-memory actions handled by the server itself. @param {string} name */
+export function isServerSide(name) {
+  return isKnownAction(name) && ACTIONS[name].serverSide === true;
+}
+
 /**
  * Names of the actions the model may use, given the user's settings.
  * @param {{ executeJs?: boolean }} settings
@@ -285,6 +343,11 @@ export function validateAction(name, input, settings) {
   }
   if (name === 'inject_css' && /<\/?style/i.test(i.css)) {
     errors.push('css must be plain CSS without <style> tags');
+  }
+  if (name === 'remember' && (!i.note.trim() || i.note.length > 300)) errors.push('note must be 1–300 characters');
+  if (name === 'define_page_group') {
+    if (!i.name.trim() || i.name.length > 40) errors.push('name must be 1–40 characters');
+    if (!/^\/[^\s?#]*$/.test(i.pattern) || i.pattern.length > 200) errors.push('pattern must be a path starting with "/" (no spaces, ? or #)');
   }
   if (name === 'inject_css' && i.toggle) {
     for (const key of ['label', 'activeLabel']) {

@@ -12,11 +12,13 @@
         <button type="button" data-tab="chat" class="active">Chat</button>
         <button type="button" data-tab="patches">Patches <span id="patch-count" class="badge" hidden></span></button>
         <button type="button" data-tab="console">Console <span id="error-count" class="badge error" hidden></span></button>
+        <button type="button" data-tab="memory">Memory <span id="memory-count" class="badge" hidden></span></button>
       </nav>
       <span class="spacer"></span>
       <select id="provider-select" title="AI provider"></select>
       <select id="model-select" title="Model"></select>
       <span id="cost" class="cost"></span>
+      <button type="button" id="history-button" class="icon" title="Earlier conversations on this site">History</button>
       <button type="button" id="new-chat" class="icon" title="New conversation for this tab">New</button>
       <button type="button" id="open-options" class="icon" title="Settings">⚙</button>
     </header>
@@ -25,6 +27,8 @@
       <span id="banner-text"></span>
       <button type="button" id="banner-action" hidden></button>
     </div>
+
+    <ai-history id="history" hidden></ai-history>
 
     <main>
       <section id="view-chat" class="view">
@@ -54,6 +58,10 @@
 
       <section id="view-console" class="view" hidden>
         <ai-console id="console"></ai-console>
+      </section>
+
+      <section id="view-memory" class="view" hidden>
+        <ai-memory id="memory"></ai-memory>
       </section>
     </main>
 

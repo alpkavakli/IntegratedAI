@@ -17,12 +17,14 @@ import { Connection, PanelHub } from './connection.js';
 import { Orchestrator } from './agent/orchestrator.js';
 import { ProviderRegistry } from './providers/registry.js';
 import { SessionStore } from './sessions/store.js';
+import { MemoryStore } from './memory/store.js';
 
 const config = loadConfig();
 const store = new SessionStore(config.dataDir);
+const memory = new MemoryStore(config.dataDir);
 const registry = new ProviderRegistry(config);
 const hub = new PanelHub();
-const orchestrator = new Orchestrator({ store, registry, config, panel: hub });
+const orchestrator = new Orchestrator({ store, registry, config, panel: hub, memory });
 
 const server = createServer((req, res) => {
   if (req.method === 'GET' && req.url === '/health') {
@@ -43,7 +45,7 @@ server.on('upgrade', (req, socket, head) => {
     return;
   }
   wss.handleUpgrade(req, socket, head, (ws) => {
-    new Connection(ws, { config, hub, orchestrator, store, registry });
+    new Connection(ws, { config, hub, orchestrator, store, registry, memory });
   });
 });
 

@@ -5,11 +5,15 @@
  *   { type: 'origin',  value: 'https://example.com' }          every page on that origin
  *   { type: 'prefix',  value: 'https://example.com/docs/' }     URLs starting with this
  *   { type: 'pattern', value: 'https://*.example.com/app/*' }   simple glob, * = any characters
+ *   { type: 'group', value: 'https://example.com', pattern: '/book/**', name: 'Chapter reader' }
+ *                                                               pages of one page type (see page-groups.js)
  *
  * Patches never apply to chrome://, chrome-extension:// or other non-web pages.
  */
 
-/** @typedef {{ type: 'origin'|'prefix'|'pattern', value: string }} Scope */
+import { matchPattern } from './page-groups.js';
+
+/** @typedef {{ type: 'origin'|'prefix'|'pattern'|'group', value: string, pattern?: string, name?: string }} Scope */
 
 /**
  * @param {Scope} scope
@@ -31,6 +35,8 @@ export function scopeMatches(scope, url) {
       return url.startsWith(scope.value);
     case 'pattern':
       return globToRegExp(scope.value).test(url);
+    case 'group':
+      return parsed.origin === scope.value && matchPattern(scope.pattern ?? '/', parsed.pathname);
     default:
       return false;
   }
@@ -68,6 +74,7 @@ export function describeScope(scope) {
     case 'origin': return `all pages on ${scope.value}`;
     case 'prefix': return `URLs starting with ${scope.value}`;
     case 'pattern': return `URLs matching ${scope.value}`;
+    case 'group': return `"${scope.name ?? scope.pattern}" pages on ${scope.value} (${scope.pattern})`;
     default: return 'unknown scope';
   }
 }

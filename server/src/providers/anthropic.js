@@ -14,7 +14,7 @@
 import { ACTIONS } from '../../../extension/shared/actions.js';
 import { anthropicApiKey } from '../config.js';
 import { Provider } from './base.js';
-import { renderContext } from './common.js';
+import { renderContext, renderMemory } from './common.js';
 import { estimateCost } from './pricing.js';
 
 /** @typedef {import('../../../extension/shared/protocol.js').NeutralMessage} NeutralMessage */
@@ -182,6 +182,8 @@ export function toAnthropicMessages(messages) {
             return { type: 'tool_result', tool_use_id: b.toolCallId, content: b.content, is_error: !!b.isError };
           case 'context':
             return { type: 'text', text: renderContext(b.data) };
+          case 'memory':
+            return { type: 'text', text: renderMemory(b.data) };
           case 'note':
             return { type: 'text', text: `<action_updates>\n${b.text}\n</action_updates>` };
           case 'text':

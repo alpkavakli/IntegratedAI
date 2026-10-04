@@ -85,6 +85,29 @@ Defaults can be changed in Options.
 | **Patches** | Saved CSS patches: enable/disable, edit, delete. Enabled patches are reapplied whenever a matching page loads, even when DevTools is closed. Patches with a **toggle** also get an on/off button on the page itself. |
 | **Console** | Errors and warnings captured on the page, each with **Explain** (asks the AI) and **Open source** (jumps to Sources) |
 
+### Memory: what it remembers between conversations
+
+Memory has two layers, both stored by the server in `~/.integratedai/`, so it survives browser restarts.
+
+**1. Site memory** (`memory/<site>.json`): short notes per site and per **page type**.
+- The AI saves notes with the `remember` action when it learns something reusable, such as key selectors (`nav bar: nav.g_nav`), how the site is built, or your preferences (e.g. a dark theme you saved). It fixes wrong notes with `forget`.
+- Notes are saved without asking, never touch the page, and show in the chat as **📝 Remembered …**.
+- **Whole site** notes apply to every page of the site. **This kind of page** notes apply only to pages of the same page type.
+- At the start of each conversation, and whenever the notes change, the AI receives the notes that apply to the current page (`<site_memory>`, a few hundred tokens). So it starts out knowing the site.
+- The **Memory** tab shows everything: rename page types, edit, delete or add notes yourself (e.g. *"I prefer serif fonts for reading"*).
+
+**Page types** (path categorisation): long, dynamic URLs are grouped by a path pattern. For example, `/book/lord-of-mysteries_11022733705139605/chapter-1_29558554638401523` becomes **"Chapter reader" = `/book/*/*`**.
+- `*` matches one path part (any ID or slug). A final `**` matches anything below.
+- An automatic guess replaces ID-like path parts with `*`.
+- The AI names page types and fixes patterns with `define_page_group`. You can edit them in the Memory tab.
+- Saved patches can also be scoped to a page type: **Save as site patch → "Pages like this: Chapter reader"**.
+
+**2. Conversation history** (`conversations/`): every conversation is kept.
+- **History** in the toolbar lists the conversations on this site, those about the same page type first. Clicking one continues it, and the Claude Code session is resumed too.
+- A new conversation on a known site starts fresh but already knows the site memory. It offers **Continue "…"** for the latest conversation on that site, and shows how many things it remembers.
+
+Notes come partly from page content, so they are treated as data, never as instructions. They are only shown for their own site, and you can see and delete every one.
+
 **Conversations are per tab.** They survive closing DevTools, reloads and navigation in the same
 tab. A browser restart starts fresh. Conversations are never merged just because two tabs share
 an origin. **New** starts a new conversation for the tab. Old conversations stay on disk in
@@ -244,7 +267,6 @@ Then add the class to `PROVIDERS` in [registry.js](server/src/providers/registry
 - **Apply to source:** add a provider-side step (or a separate server endpoint) that hands an *applied* `inject_css` and its page URL to Claude Code running in your project folder, with edit tools enabled. The action card would get an "Apply to source" button next to "Save as site patch". The patch data model already records `sourceUrl`.
 - **Claude Code inspecting the page via MCP:** expose the four `inspect_*` actions as an MCP server from the agent server and pass `--mcp-config` in [claude-cli.js](server/src/providers/claude-cli.js). The orchestrator's `PanelLink.requestTool` already does the round-trip.
 - **Element screenshots / vision:** capture `$0`'s box in the service worker (`chrome.tabs.captureVisibleTab` + crop), add an `image` content block to the neutral message format, and map it in providers that declare `capabilities.vision`.
-- **Recent conversations / resume:** `SessionStore.listRecent()` exists; add a `sessions.list` protocol message and a picker.
 - **Persistent JS patches:** deliberately left out; they need a stronger review flow.
 
 ## Tests
@@ -253,12 +275,13 @@ Then add the class to `PROVIDERS` in [registry.js](server/src/providers/registry
 npm test
 ```
 
-39 unit tests cover:
+50 unit tests cover:
 - action validation and safety rules
 - auth (Origin, Host, token) and patch scopes
 - CLI argument building and output parsing, including session resume, cost differences, recovery from a lost session, decoding the streamed reply, and enabling only the web tools
 - Anthropic message and tool conversion
 - the orchestrator: inspection round-trips, proposals, decisions reported as tool results, disabled `execute_js`, usage, persistence
+- site memory and page types: URL categorisation, note scopes, renaming groups, memory sent only when it changes, history per site
 
 These were also checked manually against real Chrome and the real `claude` CLI during development:
 - page scripts and console capture

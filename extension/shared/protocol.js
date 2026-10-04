@@ -20,6 +20,10 @@
  *   chat.cancel      { conversationId }
  *   tool.result      { requestId, ok, result?, error? }        (answer to tool.request)
  *   action.status    { conversationId, actionId, status, detail? }
+ *   sessions.list    { id, url }                               → sessions (conversations on this site)
+ *   memory.get       { id, url }                               → memory   (site memory for this page)
+ *   memory.edit      { id, url, op, … }                        → memory   (op: addNote | updateNote | deleteNote |
+ *                                                                          defineGroup | updateGroup | deleteGroup)
  *
  * ── Server → Panel ─────────────────────────────────────────────────────────
  *   welcome          { serverVersion, protocol }
@@ -31,6 +35,9 @@
  *   tool.request     { conversationId, requestId, name, input }  (read-only inspection to run in the page)
  *   action.proposed  { conversationId, actionId, name, input }   (mutation awaiting approval)
  *   turn.done        { conversationId, usage, sessionUsage, stopReason }
+ *   sessions         { replyTo, site, items: [{ id, title, lastUrl, groupPattern, updatedAt, messageCount, sameGroup }] }
+ *   memory           { replyTo, memory: { site, path, group, groups, notes } | null }
+ *   memory.changed   { conversationId, site, change: { kind: 'note_added'|'note_deleted'|'group_defined', note?, group? } }
  *   error            { replyTo?, conversationId?, message }
  */
 
@@ -73,6 +80,7 @@ export const ACTION_STATUS = /** @type {const} */ ({
 /**
  * @typedef {{ type: 'text', text: string }
  *   | { type: 'context', data: unknown }
+ *   | { type: 'memory', data: unknown }      site memory (notes + page group), sent when it changed
  *   | { type: 'note', text: string }
  *   | { type: 'tool_call', id: string, name: string, input: unknown }
  *   | { type: 'tool_result', toolCallId: string, content: string, isError?: boolean }} ContentBlock

@@ -4,7 +4,7 @@
  * format, streams the reply as it arrives, and hosts action cards.
  */
 
-import { ACTIONS, isReadOnly } from '../../shared/actions.js';
+import { ACTIONS, isReadOnly, isServerSide } from '../../shared/actions.js';
 import { h } from '../lib/dom.js';
 import { renderMarkdown } from '../lib/markdown.js';
 import { ActionCard } from './action-card.js';
@@ -52,7 +52,18 @@ export class ChatView extends HTMLElement {
     this.append(h('div', { class: 'empty' },
       h('div', null, 'Select an element in the Elements panel, then ask something about it.'),
       h('div', { class: 'suggestions' },
-        SUGGESTIONS.map((text) => h('button', { type: 'button', onclick: () => this.app?.sendFromUi(text) }, text)))));
+        SUGGESTIONS.map((text) => h('button', { type: 'button', onclick: () => this.app?.sendFromUi(text) }, text))),
+      h('div', { class: 'welcome' })));
+    this.app?.updateWelcome();
+  }
+
+  /**
+   * Fill the welcome area of the empty state ("Continue …", "I remember …").
+   * @param {(Node | null)[]} nodes
+   */
+  setWelcome(nodes) {
+    const box = this.querySelector('.empty .welcome');
+    if (box) box.replaceChildren(...nodes.filter((n) => n !== null));
   }
 
   /**
@@ -68,7 +79,8 @@ export class ChatView extends HTMLElement {
       const text = message.content.filter((b) => b.type === 'text').map((b) => /** @type {any} */ (b).text).join('\n');
       if (!text) return; // a message carrying only inspection results: internal
       const context = /** @type {any} */ (message.content.find((b) => b.type === 'context'))?.data;
-      this.insert(h('div', { class: 'msg user' }, text, this.contextCaption(context)));
+      const memory = /** @type {any} */ (message.content.find((b) => b.type === 'memory'))?.data;
+      this.insert(h('div', { class: 'msg user' }, text, this.contextCaption(context, memory)));
     } else {
       // The streamed text is replaced by the final, formatted message.
       this.streamingEl?.remove();
@@ -87,6 +99,7 @@ export class ChatView extends HTMLElement {
    * @param {{ id: string, name: string, input: any }} call
    */
   renderToolCall(call) {
+    if (isServerSide(call.name)) return this.renderMemoryLine(call);
     if (isReadOnly(call.name) || !ACTIONS[call.name]) {
       const i = call.input ?? {};
       const details = i.include?.join(', ') || i.urlContains || i.readContentOf || i.selector || (i.text ? `"${i.text}"` : '') || i.query || '';
@@ -98,10 +111,25 @@ export class ChatView extends HTMLElement {
     return card;
   }
 
+  /**
+   * One line for a site-memory update ("📝 Remembered …"). Managed in the Memory tab.
+   * @param {{ name: string, input: any }} call
+   */
+  renderMemoryLine({ name, input }) {
+    const text = name === 'remember'
+      ? `📝 Remembered (${input.scope === 'site' ? 'whole site' : 'this kind of page'}): ${input.note}`
+      : name === 'forget'
+        ? `🗑 Forgot a note (${input.id})`
+        : `🏷 Named this kind of page "${input.name}" (${input.pattern})`;
+    return h('div', { class: 'memory-line' }, text, ' ',
+      h('button', { type: 'button', class: 'link', onclick: () => this.app?.showTab('memory') }, 'manage'));
+  }
+
   /** "with $0 div.card > h2 · console" under a user message. */
-  contextCaption(context) {
-    if (!context) return null;
+  contextCaption(context, memory) {
     const parts = [];
+    if (memory?.notes?.length) parts.push(`site memory (${memory.notes.length} note${memory.notes.length === 1 ? '' : 's'})`);
+    if (!context) return parts.length ? h('div', { class: 'caption' }, `with ${parts.join(' · ')}`) : null;
     if (context.selected?.selector) parts.push(`$0 ${context.selected.selector}`);
     if (context.console) parts.push('console');
     if (context.network) parts.push('network');

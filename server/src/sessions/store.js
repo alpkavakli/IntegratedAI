@@ -3,8 +3,8 @@
  * Conversation storage.
  *
  * Each conversation is one JSON file: <dataDir>/conversations/<id>.json
- * Conversations are kept after the browser tab closes, so a future
- * "recent conversations / resume" feature can list them (see listRecent()).
+ * Conversations are kept after the browser tab closes. A small index
+ * (conversations/index.json) lists them per site for the panel's History.
  *
  * The extension decides which conversation belongs to which tab (it keeps a
  * tabId → conversationId map that lives as long as the browser session).
@@ -12,7 +12,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { mkdirSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from 'node:fs';
 import { readFile, writeFile, rename } from 'node:fs/promises';
 import { join } from 'node:path';
 
@@ -37,6 +37,13 @@ import { join } from 'node:path';
  * @property {string[]} openToolCalls  tool calls that still need a tool_result in the next user message
  * @property {Record<string, any>} providerState     per-provider memory, e.g. Claude CLI session id
  * @property {Usage} usage
+ * @property {string} [site]          site key of the latest page (e.g. "webnovel.com")
+ * @property {string} [groupPattern]  page group pattern of the latest page
+ * @property {string} [lastUrl]       latest page URL
+ * @property {boolean} [titleFromUser] title was taken from the first message
+ * @property {string} [memoryHash]    hash of the site memory last sent to the model
+ * @property {Record<string, { content: string, isError?: boolean }>} [pendingResults]
+ *   results of server-side actions (memory) waiting to be sent with the next user message
  * @property {boolean} [busy]          runtime only, not persisted
  */
 
@@ -49,6 +56,8 @@ export class SessionStore {
     this.cache = new Map();
     /** @type {Map<string, NodeJS.Timeout>} */
     this.pendingWrites = new Map();
+    /** @type {Map<string, IndexEntry> | null} */
+    this.indexCache = null;
   }
 
   /**
@@ -127,17 +136,56 @@ export class SessionStore {
     const tmp = this.file(session.id) + '.tmp';
     await writeFile(tmp, JSON.stringify(data));
     await rename(tmp, this.file(session.id)); // atomic replace
+    this.updateIndex(session);
+  }
+
+  // ─────────────────────────────────────────── index (for "recent conversations")
+
+  /**
+   * A small index of all conversations (conversations/index.json), so the panel
+   * can list them per site without reading every file. Rebuilt from the files
+   * if missing.
+   * @returns {Map<string, IndexEntry>}
+   */
+  index() {
+    if (this.indexCache) return this.indexCache;
+    /** @type {Map<string, IndexEntry>} */
+    const map = new Map();
+    const file = join(this.dir, 'index.json');
+    if (existsSync(file)) {
+      for (const entry of JSON.parse(readFileSync(file, 'utf8'))) map.set(entry.id, entry);
+    } else {
+      for (const f of readdirSync(this.dir).filter((name) => /^[0-9a-f-]{36}\.json$/.test(name))) {
+        try {
+          const entry = indexEntry(JSON.parse(readFileSync(join(this.dir, f), 'utf8')));
+          if (entry) map.set(entry.id, entry);
+        } catch { /* skip unreadable files */ }
+      }
+    }
+    this.indexCache = map;
+    return map;
+  }
+
+  /** @param {Session} session */
+  updateIndex(session) {
+    const entry = indexEntry(session);
+    if (!entry) return;
+    const map = this.index();
+    map.set(entry.id, entry);
+    const file = join(this.dir, 'index.json');
+    writeFileSync(`${file}.tmp`, JSON.stringify([...map.values()]));
+    renameSync(`${file}.tmp`, file);
   }
 
   /**
-   * Most recently updated conversations (for a future "resume" UI).
-   * @param {number} limit
+   * Conversations on a site, newest first.
+   * @param {string} site
+   * @param {number} [limit]
    */
-  listRecent(limit = 20) {
-    return readdirSync(this.dir)
-      .filter((f) => f.endsWith('.json'))
-      .map((f) => ({ id: f.slice(0, -5), mtime: statSync(join(this.dir, f)).mtimeMs }))
-      .sort((a, b) => b.mtime - a.mtime)
+  listForSite(site, limit = 30) {
+    return [...this.index().values()]
+      .filter((e) => e.site === site)
+      .sort((a, b) => b.updatedAt - a.updatedAt)
       .slice(0, limit);
   }
 
@@ -145,6 +193,23 @@ export class SessionStore {
   file(id) {
     return join(this.dir, `${id}.json`);
   }
+}
+
+/**
+ * @typedef {{ id: string, site: string, groupPattern: string, lastUrl: string, title: string,
+ *   updatedAt: number, messageCount: number }} IndexEntry
+ *
+ * Index entry for a conversation; null if it has no user message or no site yet.
+ * @param {Session} s
+ * @returns {IndexEntry | null}
+ */
+function indexEntry(s) {
+  const messageCount = s.messages.filter((m) => m.role === 'user' && m.content.some((b) => b.type === 'text')).length;
+  if (!s.site || !messageCount) return null;
+  return {
+    id: s.id, site: s.site, groupPattern: s.groupPattern ?? '/', lastUrl: s.lastUrl ?? s.url,
+    title: s.title, updatedAt: s.updatedAt, messageCount,
+  };
 }
 
 /**
@@ -165,5 +230,7 @@ export function snapshot(session) {
       Object.entries(session.actions).map(([id, { reportedStatus, ...a }]) => [id, a]),
     ),
     usage: session.usage,
+    site: session.site,
+    groupPattern: session.groupPattern,
   };
 }

@@ -184,18 +184,21 @@ export class ActionCard extends HTMLElement {
     const url = this.app.pageUrl;
     const origin = defaultScopeFor(url);
     const pageUrl = url.split(/[?#]/)[0];
+    const group = this.app.memoryInfo?.group;
     const name = /** @type {HTMLInputElement} */ (h('input', { type: 'text', value: this.input.description?.slice(0, 80) ?? 'CSS patch' }));
     const pattern = /** @type {HTMLInputElement} */ (h('input', { type: 'text', value: `${new URL(pageUrl).origin}/*`, hidden: true }));
     const scope = /** @type {HTMLSelectElement} */ (h('select', {
       onchange: () => { pattern.hidden = scope.value !== 'pattern'; },
     },
     origin ? h('option', { value: 'origin' }, `Whole site (${origin.value})`) : null,
+    group && group.pattern !== '/' ? h('option', { value: 'group' }, `Pages like this: ${group.name ?? 'this page type'} (${group.pattern})`) : null,
     h('option', { value: 'prefix' }, `This page (${pageUrl})`),
     h('option', { value: 'pattern' }, 'Custom URL pattern…')));
 
     const save = async () => {
       /** @type {import('../../shared/url-scope.js').Scope} */
       const chosen = scope.value === 'origin' && origin ? origin
+        : scope.value === 'group' && group ? { type: 'group', value: new URL(pageUrl).origin, pattern: group.pattern, name: group.name ?? undefined }
         : scope.value === 'prefix' ? { type: 'prefix', value: pageUrl }
           : { type: 'pattern', value: pattern.value.trim() };
       if (!chosen.value) return;
