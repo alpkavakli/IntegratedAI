@@ -24,6 +24,7 @@ import { siteKey } from '../../../extension/shared/page-groups.js';
 import { createHash } from 'node:crypto';
 import { snapshot } from '../sessions/store.js';
 import { buildSystemPrompt } from './system-prompt.js';
+import { formatResult } from './page-tools.js';
 
 /** @typedef {import('../sessions/store.js').Session} Session */
 /** @typedef {import('../sessions/store.js').SessionStore} SessionStore */
@@ -45,8 +46,6 @@ import { buildSystemPrompt } from './system-prompt.js';
  * Settings the panel sends with each message.
  * @typedef {{ executeJs?: boolean, webTools?: boolean }} TurnSettings
  */
-
-const MAX_TOOL_RESULT_CHARS = 30_000;
 
 const STATUS_TEXT = {
   proposed: 'Shown to the user; they have not applied it yet.',
@@ -314,12 +313,12 @@ export class Orchestrator {
       if (isReadOnly(call.name)) {
         needsResults = true;
         const res = await this.panel.requestTool(session.id, call.name, call.input, signal);
-        results.push({
-          type: 'tool_result',
-          toolCallId: call.id,
-          isError: !res.ok,
-          content: res.ok ? truncate(JSON.stringify(res.result ?? null)) : `Inspection failed: ${res.error ?? 'unknown error'}`,
-        });
+        if (res.ok) {
+          const { text, images } = formatResult(res.result);
+          results.push({ type: 'tool_result', toolCallId: call.id, content: text, ...(images ? { images } : {}) });
+        } else {
+          results.push({ type: 'tool_result', toolCallId: call.id, isError: true, content: `Inspection failed: ${res.error ?? 'unknown error'}` });
+        }
       } else {
         session.actions[call.id] = { name: call.name, input: call.input, status: 'proposed' };
         proposals.push(call.id);
@@ -501,9 +500,4 @@ function addUsage(total, add) {
 function mcpUrl({ host, port }) {
   const h = host === '0.0.0.0' || host === '::' ? '127.0.0.1' : host.includes(':') ? `[${host}]` : host;
   return `http://${h}:${port}/mcp`;
-}
-
-/** @param {string} s */
-function truncate(s) {
-  return s.length > MAX_TOOL_RESULT_CHARS ? `${s.slice(0, MAX_TOOL_RESULT_CHARS)}… [truncated]` : s;
 }

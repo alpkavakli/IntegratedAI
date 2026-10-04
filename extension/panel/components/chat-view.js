@@ -103,7 +103,8 @@ export class ChatView extends HTMLElement {
     if (isServerSide(call.name)) return this.renderMemoryLine(call);
     if (isReadOnly(call.name) || !ACTIONS[call.name]) {
       const i = call.input ?? {};
-      const details = i.include?.join(', ') || i.urlContains || i.readContentOf || i.selector || (i.text ? `"${i.text}"` : '') || i.query || '';
+      const details = i.include?.join(', ') || i.urlContains || i.readContentOf || i.selector || (i.text ? `"${i.text}"` : '') || i.query
+        || (i.fullViewport ? 'visible page' : '');
       return h('div', { class: 'inspection' }, `${ACTIONS[call.name]?.label ?? call.name}${details ? ` (${details})` : ''}`);
     }
     const card = /** @type {ActionCard} */ (document.createElement('ai-action-card'));
@@ -153,6 +154,22 @@ export class ChatView extends HTMLElement {
   showError(text) {
     this.insert(h('div', { class: 'chat-error' }, text));
     this.scrollToBottom();
+  }
+
+  /**
+   * A screenshot the AI just took, so the user sees what it looked at.
+   * Shown during this session only; the conversation keeps the "Screenshot" line.
+   * @param {string} label what was captured
+   * @param {string} src data URL
+   */
+  addScreenshot(label, src) {
+    const stick = this.isNearBottom();
+    const img = h('img', {
+      src, alt: `Screenshot of ${label}`, title: 'Click to enlarge',
+      onclick: (/** @type {Event} */ e) => /** @type {HTMLElement} */ (e.currentTarget).classList.toggle('large'),
+    });
+    this.insert(h('div', { class: 'screenshot' }, h('div', { class: 'caption' }, `📷 The AI looked at ${label}`), img));
+    if (stick) this.scrollToBottom();
   }
 
   /**

@@ -315,6 +315,40 @@ export function readConsole(h, selected, input) {
   return { available: true, total: entries.length, entries: entries.slice(-limit) };
 }
 
+/**
+ * screenshot, step 1: where is the target on screen? An element that is completely
+ * off-screen is scrolled into view (restoreScroll puts the page back afterwards).
+ * Without a selector or selected element, the visible page is captured.
+ */
+export function prepareScreenshot(h, selected, input) {
+  const viewport = { width: innerWidth, height: innerHeight };
+  const scroll = { x: scrollX, y: scrollY };
+  if (input.fullViewport || (!input.selector && !(selected instanceof Element))) {
+    return { viewport, scroll, scrolled: false, rect: null, label: 'the visible page' };
+  }
+  const el = h.target(input.selector, selected);
+  let r = el.getBoundingClientRect();
+  if (!r.width || !r.height) throw new Error(`${h.cssPath(el)} has no visible size (hidden or empty)`);
+  let scrolled = false;
+  if (r.bottom <= 0 || r.top >= viewport.height || r.right <= 0 || r.left >= viewport.width) {
+    el.scrollIntoView({ block: r.height > viewport.height ? 'start' : 'center', inline: 'nearest' });
+    scrolled = true;
+    r = el.getBoundingClientRect();
+  }
+  return {
+    viewport, scroll, scrolled,
+    rect: { x: r.left, y: r.top, width: r.width, height: r.height },
+    selector: h.cssPath(el),
+    label: h.label(el),
+  };
+}
+
+/** screenshot, step 3: undo the scroll from prepareScreenshot. */
+export function restoreScroll(h, selected, { x, y }) {
+  scrollTo(x, y);
+  return true;
+}
+
 // ───────────────────────────────────────────────────────────── modifications
 
 /**

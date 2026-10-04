@@ -141,3 +141,58 @@ test('system prompt: without page tools, inspections go in actions', () => {
   assert.doesNotMatch(buildSystemPrompt({ actionNames: names, structuredEnvelope: true }), /Inspections are real tools/);
   assert.match(buildSystemPrompt({ actionNames: names, structuredEnvelope: true, pageTools: true }), /changes and memory updates .* are NOT\ntools/);
 });
+
+const PNG_1PX = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+
+test('formatResult: a screenshot becomes an image next to the text, invalid images are dropped', async () => {
+  const { formatResult } = await import('../src/agent/page-tools.js');
+  const ok = formatResult({ captured: 'nav.g_nav', image: { mediaType: 'image/png', data: PNG_1PX } });
+  assert.deepEqual(ok.images, [{ mediaType: 'image/png', data: PNG_1PX }]);
+  assert.deepEqual(JSON.parse(ok.text), { captured: 'nav.g_nav', image: 'attached' });
+  assert.doesNotMatch(ok.text, /iVBOR/, 'image data is never sent as text');
+
+  for (const image of [{ mediaType: 'image/svg+xml', data: PNG_1PX }, { mediaType: 'image/png', data: 'not base64!' }, { mediaType: 'image/png', data: 'A'.repeat(6 * 1024 * 1024) }]) {
+    const bad = formatResult({ image });
+    assert.equal(bad.images, undefined);
+    assert.match(bad.text, /missing/);
+  }
+  assert.equal(formatResult({ found: [] }).images, undefined);
+});
+
+test('MCP endpoint: screenshots are returned as image content', async (t) => {
+  const panel = {
+    send: () => {},
+    requestTool: async () => ({ ok: true, result: { captured: 'nav.g_nav', image: { mediaType: 'image/png', data: PNG_1PX } } }),
+  };
+  const pageTools = new PageTools(panel);
+  const { server, rpc } = await startServer(pageTools);
+  t.after(() => server.close());
+  const { token } = pageTools.grant('c', ['screenshot'], new AbortController().signal);
+  const res = await rpc(token, { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'screenshot', arguments: { selector: 'nav' } } });
+  const [text, image] = res.body.result.content;
+  assert.equal(text.type, 'text');
+  assert.deepEqual(image, { type: 'image', data: PNG_1PX, mimeType: 'image/png' });
+});
+
+test('orchestrator: screenshot results keep their image for providers that read tool results', async () => {
+  let call = 0;
+  class Plain extends Provider {
+    static id = 'plain';
+    static models = ['m'];
+    static async checkAvailability() { return { available: true }; }
+    async *turn() {
+      if (call++ === 0) yield { type: 'tool_call', id: 'c1', name: 'screenshot', input: { selector: 'nav' } };
+      else yield { type: 'text_delta', text: 'It is white.' };
+      yield { type: 'done', stopReason: 'end_turn' };
+    }
+  }
+  const config = testConfig({ defaultProvider: 'plain' });
+  const panel = { send: () => {}, requestTool: async () => ({ ok: true, result: { captured: 'nav', image: { mediaType: 'image/png', data: PNG_1PX } } }) };
+  const store = new SessionStore(config.dataDir);
+  const orchestrator = new Orchestrator({ store, registry: new ProviderRegistry(config, [Plain]), config, panel });
+  const session = await orchestrator.openSession({ url: 'https://example.com/' });
+  await orchestrator.chat(session, { text: 'what colour is the nav?' });
+  const result = session.messages.flatMap((m) => m.content).find((b) => b.type === 'tool_result');
+  assert.deepEqual(result.images, [{ mediaType: 'image/png', data: PNG_1PX }]);
+  assert.doesNotMatch(result.content, /iVBOR/);
+});

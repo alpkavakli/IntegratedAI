@@ -85,7 +85,8 @@ export const ACTION_STATUS = /** @type {const} */ ({
  *   | { type: 'tool_call', id: string, name: string, input: unknown }
  *   | { type: 'inspection', name: string, input: unknown }  an inspection the model ran itself during
  *                                            the call (Claude Code via MCP); display only, not sent back
- *   | { type: 'tool_result', toolCallId: string, content: string, isError?: boolean }} ContentBlock
+ *   | { type: 'tool_result', toolCallId: string, content: string, isError?: boolean,
+ *       images?: { mediaType: string, data: string }[] }} ContentBlock   images: e.g. a screenshot (base64)
  */
 
 /**

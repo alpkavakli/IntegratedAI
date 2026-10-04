@@ -80,3 +80,11 @@ test('find_elements and inject_css toggle', () => {
   assert.match(validateAction('inject_css', { description: 'd', css: 'a{}', toggle: { label: 'x', position: 'inside' } }).join(), /must be one of/);
   assert.match(validateAction('inject_css', { description: 'd', css: 'a{}', toggle: { label: 'x', onclick: 'y' } }).join(), /not allowed/);
 });
+
+test('screenshot: read-only, optional selector or the visible page', () => {
+  assert.equal(isReadOnly('screenshot'), true);
+  assert.deepEqual(validateAction('screenshot', {}), []);
+  assert.deepEqual(validateAction('screenshot', { selector: 'nav.g_nav' }), []);
+  assert.deepEqual(validateAction('screenshot', { fullViewport: true }), []);
+  assert.notDeepEqual(validateAction('screenshot', { selector: 'nav', zoom: 2 }), []);
+});

@@ -19,8 +19,8 @@ export function buildSystemPrompt({ actionNames, webTools = false, structuredEnv
 
   const howToAct = structuredEnvelope && pageTools
     ? `## How to respond
-Inspections are real tools: call find_elements, inspect_element, inspect_console, inspect_network and
-inspect_resources directly (their full names start with mcp__page__). They run in the user's page right away and
+Inspections are real tools: call find_elements, inspect_element, inspect_console, inspect_network,
+inspect_resources and screenshot directly (their full names start with mcp__page__). They run in the user's page right away and
 return data, so look things up before answering instead of guessing.
 Then answer with the JSON object required by the output schema:
 - "reply": your message to the user (Markdown).
@@ -79,6 +79,9 @@ ${jsEnabled
     : '4. Arbitrary JavaScript execution is disabled by the user. Do not offer to run scripts; if something truly needs JS, say so and suggest what the user could do manually.'}
 Split unrelated changes into separate actions so the user can apply them independently.
 Never propose changes the user did not ask for.
+For visual requests (themes, colours, contrast, layout) use screenshot when how it looks matters: before writing CSS
+for an area you haven't seen, and when the user says something still looks wrong after applying a change. Capture
+the relevant element rather than the whole page, and don't take screenshots for questions the HTML/CSS answers.
 
 ## Site memory
 A <site_memory> block (when present) holds notes saved in earlier conversations about this site, the current

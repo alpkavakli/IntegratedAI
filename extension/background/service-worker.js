@@ -40,6 +40,13 @@ const handlers = {
   'kv.get': async ({ key }) => (await sessionGet(`kv:${key}`)) ?? null,
   'kv.set': async ({ key, value }) => sessionSet(`kv:${key}`, value),
 
+  // Screenshot of what the inspected tab shows right now (PNG data URL).
+  'tab.capture': async ({ tabId }) => {
+    const tab = await chrome.tabs.get(tabId);
+    if (!tab.active) throw new Error('The inspected tab is not the one showing in its window, so it cannot be captured. Switch to it and ask again.');
+    return chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' });
+  },
+
   'css.insert': async ({ tabId, css }) => insertCss(tabId, css),
   'css.remove': async ({ tabId, css }) => removeCss(tabId, css),
 

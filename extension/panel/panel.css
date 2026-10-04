@@ -133,6 +133,10 @@ ai-chat { flex: 1; min-height: 0; overflow-y: auto; padding: 8px; display: block
 .msg.streaming { white-space: pre-wrap; }
 .inspection { color: var(--fg-muted); font-size: 11px; margin: 2px 0; }
 .inspection::before { content: "🔍 "; }
+.screenshot { margin: 4px 0; }
+.screenshot .caption { color: var(--fg-muted); font-size: 11px; margin-bottom: 2px; }
+.screenshot img { display: block; max-width: min(100%, 320px); max-height: 140px; border: 1px solid var(--border); border-radius: 4px; cursor: zoom-in; }
+.screenshot img.large { max-width: 100%; max-height: none; cursor: zoom-out; }
 .chat-error { color: var(--error); background: var(--error-bg); padding: 4px 8px; border-radius: 4px; margin-bottom: 8px; }
 .thinking { color: var(--fg-muted); font-style: italic; margin-bottom: 8px; }
 .empty { color: var(--fg-muted); padding: 16px 4px; }

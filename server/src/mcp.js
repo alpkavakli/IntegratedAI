@@ -72,8 +72,11 @@ export async function handleMcpRequest(req, res, { pageTools, port }) {
       return reply({ tools: pageTools.list(grant) });
     case 'tools/call': {
       const name = String(msg.params?.name ?? '');
-      const { text, isError } = await pageTools.call(grant, name, msg.params?.arguments);
-      return reply({ content: [{ type: 'text', text }], isError });
+      const { text, isError, images = [] } = await pageTools.call(grant, name, msg.params?.arguments);
+      return reply({
+        content: [{ type: 'text', text }, ...images.map((i) => ({ type: 'image', data: i.data, mimeType: i.mediaType }))],
+        isError,
+      });
     }
     default:
       return sendJson(res, 200, rpcError(msg.id, -32601, `Method not found: ${msg.method}`));

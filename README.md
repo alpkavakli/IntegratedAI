@@ -124,11 +124,18 @@ Defined once in [extension/shared/actions.js](extension/shared/actions.js) and v
 | `inspect_console` | read: captured console messages | — |
 | `inspect_network` | read: DevTools network log, sensitive headers/params redacted, no bodies | — |
 | `inspect_resources` | read: page resources, or the source text of one | — |
+| `screenshot` | read: an image of an element or of the visible page, so the AI can see colours and layout (shown to you in the chat too) | — |
 | `inject_css` | **change**: add a stylesheet (preferred). Optional `toggle`: an on/off button on the page | full (removeCSS) |
 | `modify_element` | **change**: styles, attributes, classes or text of one element | full (snapshot restore) |
 | `execute_js` | **change**: arbitrary JS. **Off by default.** | only if the model provided `undoCode` (best effort) |
 
 Read-only inspections run automatically unless you enable *"Ask before the AI reads page details"* in Options.
+
+**Screenshots.** The panel captures the inspected tab (`chrome.tabs.captureVisibleTab`) and crops it to the element. An off-screen element is scrolled into view first, and the page is scrolled back afterwards. The image is resized to at most 1280 px and sent as a JPEG, and a thumbnail appears in the chat ("📷 The AI looked at …"; click it to enlarge).
+- The inspected tab must be the visible tab in its window. With DevTools docked it always is.
+- Only what's on screen can be captured: an element taller than the window is cut off.
+- **Claude Code CLI:** the image comes back from the `mcp__page__screenshot` tool.
+- **Anthropic API:** the image goes in the tool result. Only the last 3 screenshots are re-sent on later calls, because each one costs about 1–1.5k input tokens every time.
 
 **Web search.** The AI can search the web and read web pages (documentation, MDN, browser support). It is on by default; turn it off in Options.
 - **Claude Code CLI provider:** uses Claude Code's `WebSearch`/`WebFetch` tools, and nothing else is enabled.
@@ -162,6 +169,7 @@ The button is created by the extension's own content script (`content/patch-togg
   - It rejects non-local Host headers, which blocks DNS rebinding.
   - It requires the pairing token.
   - You can pin your extension ID with `allowedExtensionIds` in the config.
+- **Screenshots:** a screenshot shows whatever is on screen in that tab, so it can include personal information the page displays. Like the other inspections, you can require approval for each one in Options. The panel shows every screenshot the AI takes.
 - **Network data:** cookies, authorization and API-key headers, and token-like query parameters are redacted. Response bodies are never sent.
 - **Model output:** rendered with `textContent` only, never `innerHTML`. Page content is described to the model as untrusted data.
 - **Claude Code CLI isolation:** the CLI runs in an empty folder. It gets no file or shell tools. Only `WebSearch`/`WebFetch` can be enabled (via the web search setting), plus this server's own page inspections over MCP. Your own MCP servers are ignored (`--strict-mcp-config`). It also uses `--permission-mode dontAsk`, `--setting-sources ""` and `--disable-slash-commands`. The model can answer, read the page and search the web; it cannot touch your files.
@@ -268,7 +276,6 @@ Then add the class to `PROVIDERS` in [registry.js](server/src/providers/registry
 ## Planned extensions (and where they plug in)
 
 - **Apply to source:** add a provider-side step (or a separate server endpoint) that hands an *applied* `inject_css` and its page URL to Claude Code running in your project folder, with edit tools enabled. The action card would get an "Apply to source" button next to "Save as site patch". The patch data model already records `sourceUrl`.
-- **Element screenshots / vision:** capture `$0`'s box in the service worker (`chrome.tabs.captureVisibleTab` + crop), add an `image` content block to the neutral message format, and map it in providers that declare `capabilities.vision`.
 - **Persistent JS patches:** deliberately left out; they need a stronger review flow.
 
 ## Tests
@@ -277,13 +284,14 @@ Then add the class to `PROVIDERS` in [registry.js](server/src/providers/registry
 npm test
 ```
 
-58 unit tests cover:
+63 unit tests cover:
 - action validation and safety rules
 - auth (Origin, Host, token) and patch scopes
 - CLI argument building and output parsing, including session resume, cost differences, recovery from a lost session, decoding the streamed reply, enabling only the web tools and our MCP page tools, and the one-time correction when a model calls page actions as tools
 - Anthropic message and tool conversion
 - the orchestrator: inspection round-trips, proposals, decisions reported as tool results, disabled `execute_js`, usage, persistence
 - the MCP endpoint: only inspections are listed, calls reach the right conversation, inputs are validated, and tokens, Origin and Host are checked
+- screenshots: images are split out of results (never sent as text), invalid ones dropped, returned as MCP image content, and sent to the Anthropic API as images, only the most recent few
 - site memory and page types: URL categorisation, note scopes, renaming groups, memory sent only when it changes, history per site
 
 These were also checked manually against real Chrome and the real `claude` CLI during development:
@@ -292,6 +300,7 @@ These were also checked manually against real Chrome and the real `claude` CLI d
 - automatic patch reapplication
 - the full panel UI flow: preview, apply, undo, save patch, toggle patch, Explain
 - Claude Code (Sonnet) calling the page inspections over MCP: through the real server on a new and a resumed session, and with the real panel code in Chromium on a webnovel-like test page (the panel ran in a tab with a `chrome.devtools` stand-in). There, "Make a toggle button in the nav bar…" found `nav.g_nav`, and Apply, Save as site patch + toggle, reload and the toggle all worked.
+- screenshots with the real panel code in Chromium: of the nav bar, and of a footer 2,400 px below the fold. The page was scrolled to the footer and back, and Sonnet read both images correctly.
 
 ## Debugging
 

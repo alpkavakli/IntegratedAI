@@ -153,14 +153,30 @@ export function toAnthropicTools(actionNames) {
   }));
 }
 
+/** Only the most recent screenshots are sent again; older ones become a short note. */
+export const MAX_IMAGES_SENT = 3;
+
 /**
  * Neutral conversation → Anthropic `messages`.
  * - Consecutive messages with the same role are merged (the API wants alternation).
  * - In user messages, tool_result blocks must come first.
  * - Assistant messages produced by this provider are sent back exactly as received.
+ * - Screenshots: only the last MAX_IMAGES_SENT are attached (each costs ~1–1.5k tokens on every call).
  * @param {NeutralMessage[]} messages
  */
 export function toAnthropicMessages(messages) {
+  let imagesLeft = MAX_IMAGES_SENT;
+  /** @type {Set<unknown>} tool_result blocks whose images are still sent */
+  const keepImages = new Set();
+  for (const m of [...messages].reverse()) {
+    for (const b of m.content) {
+      if (b.type === 'tool_result' && b.images?.length && imagesLeft >= b.images.length) {
+        keepImages.add(b);
+        imagesLeft -= b.images.length;
+      }
+    }
+  }
+
   /** @type {{ role: 'user'|'assistant', content: any[] }[]} */
   const out = [];
   for (const m of messages) {
@@ -179,7 +195,7 @@ export function toAnthropicMessages(messages) {
       content = m.content.map((b) => {
         switch (b.type) {
           case 'tool_result':
-            return { type: 'tool_result', tool_use_id: b.toolCallId, content: b.content, is_error: !!b.isError };
+            return { type: 'tool_result', tool_use_id: b.toolCallId, content: toolResultContent(b, keepImages.has(b)), is_error: !!b.isError };
           case 'context':
             return { type: 'text', text: renderContext(b.data) };
           case 'memory':
@@ -205,4 +221,17 @@ export function toAnthropicMessages(messages) {
     }
   }
   return out;
+}
+
+/**
+ * @param {Extract<import('../../../extension/shared/protocol.js').ContentBlock, { type: 'tool_result' }>} b
+ * @param {boolean} withImages
+ */
+function toolResultContent(b, withImages) {
+  if (!b.images?.length) return b.content;
+  if (!withImages) return `${b.content}\n(The screenshot from this result is no longer attached.)`;
+  return [
+    { type: 'text', text: b.content },
+    ...b.images.map((i) => ({ type: 'image', source: { type: 'base64', media_type: i.mediaType, data: i.data } })),
+  ];
 }

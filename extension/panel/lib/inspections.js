@@ -4,8 +4,9 @@
  * These only READ from the page or DevTools; they never change anything.
  */
 
+import { bg } from './bg.js';
 import { callInPage } from './inspected.js';
-import { findElements, inspectElement, readConsole } from './page-scripts.js';
+import { findElements, inspectElement, prepareScreenshot, readConsole, restoreScroll } from './page-scripts.js';
 
 // Headers that must never be sent to the AI.
 const SENSITIVE_HEADERS = /^(cookie|set-cookie|authorization|proxy-authorization|x-api-key|api-key|x-auth-token|x-csrf-token|x-xsrf-token|x-amz-security-token)$/i;
@@ -16,7 +17,7 @@ const SENSITIVE_PARAMS = /^(token|access_token|id_token|refresh_token|code|key|a
  * Run one inspection.
  * @param {string} name
  * @param {any} input
- * @param {{ selectedSelector?: string }} ctx
+ * @param {{ selectedSelector?: string, tabId: number }} ctx
  */
 export async function runInspection(name, input, ctx) {
   switch (name) {
@@ -30,9 +31,76 @@ export async function runInspection(name, input, ctx) {
       return inspectNetwork(input);
     case 'inspect_resources':
       return inspectResources(input);
+    case 'screenshot':
+      return screenshot(input, ctx);
     default:
       throw new Error(`Unknown inspection ${name}`);
   }
+}
+
+// Longest side of a screenshot sent to the AI, and padding around the element (CSS px).
+const SCREENSHOT_MAX_SIDE = 1280;
+const SCREENSHOT_PADDING = 8;
+
+/**
+ * Capture the visible tab and crop it to the element. The image is returned as
+ * { image: { mediaType, data } } next to a short description; the server sends the
+ * image to the model as an image, not as text.
+ * @param {{ selector?: string, fullViewport?: boolean }} input
+ * @param {{ selectedSelector?: string, tabId: number }} ctx
+ */
+export async function screenshot(input, ctx) {
+  const selector = input.fullViewport ? undefined : input.selector || ctx.selectedSelector || undefined;
+  const target = await callInPage(prepareScreenshot, { ...input, selector });
+  let dataUrl;
+  try {
+    if (target.scrolled) await new Promise((r) => setTimeout(r, 150)); // let the page repaint
+    dataUrl = await bg('tab.capture', { tabId: ctx.tabId });
+  } finally {
+    if (target.scrolled) await callInPage(restoreScroll, target.scroll).catch(() => {});
+  }
+
+  const bitmap = await createImageBitmap(await (await fetch(dataUrl)).blob());
+  const scale = bitmap.width / target.viewport.width; // device pixels per CSS pixel
+  let crop = { x: 0, y: 0, w: bitmap.width, h: bitmap.height };
+  let cutOff = false;
+  if (target.rect) {
+    const r = target.rect;
+    const x0 = Math.max(0, r.x - SCREENSHOT_PADDING);
+    const y0 = Math.max(0, r.y - SCREENSHOT_PADDING);
+    const x1 = Math.min(target.viewport.width, r.x + r.width + SCREENSHOT_PADDING);
+    const y1 = Math.min(target.viewport.height, r.y + r.height + SCREENSHOT_PADDING);
+    if (x1 <= x0 || y1 <= y0) throw new Error('The element is not on screen, so it cannot be captured');
+    cutOff = r.x < 0 || r.y < 0 || r.x + r.width > target.viewport.width || r.y + r.height > target.viewport.height;
+    crop = {
+      x: Math.round(x0 * scale), y: Math.round(y0 * scale),
+      w: Math.min(bitmap.width, Math.round((x1 - x0) * scale)), h: Math.min(bitmap.height, Math.round((y1 - y0) * scale)),
+    };
+  }
+
+  const k = Math.min(1, SCREENSHOT_MAX_SIDE / Math.max(crop.w, crop.h));
+  const width = Math.max(1, Math.round(crop.w * k));
+  const height = Math.max(1, Math.round(crop.h * k));
+  const canvas = new OffscreenCanvas(width, height);
+  /** @type {OffscreenCanvasRenderingContext2D} */ (canvas.getContext('2d')).drawImage(bitmap, crop.x, crop.y, crop.w, crop.h, 0, 0, width, height);
+  bitmap.close();
+  const blob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.85 });
+
+  return {
+    captured: target.selector ?? target.label,
+    element: target.rect ? target.label : undefined,
+    size: { width, height },
+    ...(cutOff ? { note: 'The element is larger than the visible area; only its visible part was captured.' } : {}),
+    image: { mediaType: 'image/jpeg', data: await toBase64(blob) },
+  };
+}
+
+/** @param {Blob} blob */
+async function toBase64(blob) {
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(binary);
 }
 
 /**

@@ -132,6 +132,22 @@ export const ACTIONS = {
     },
   },
 
+  screenshot: {
+    label: 'Screenshot',
+    readOnly: true,
+    risk: 'low',
+    description:
+      'See how part of the page actually looks: returns an image of an element (or of the visible page). Use it to check colours, contrast, spacing and layout, to find areas a theme missed, and to verify a change after the user applied it. Only on-screen content can be captured: an element outside the viewport is scrolled into view and the scroll position is restored afterwards; a part taller than the viewport is cut off. Prefer find_elements / inspect_element for selectors and CSS values.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        selector: { type: 'string', description: 'CSS selector of the element to capture. Omit to capture the selected element ($0), or the visible page if nothing is selected.' },
+        fullViewport: { type: 'boolean', description: 'Capture everything visible in the tab instead of one element.' },
+      },
+      additionalProperties: false,
+    },
+  },
+
   // ---------------------------------------------------------------- site memory (server-side)
   remember: {
     label: 'Remember',

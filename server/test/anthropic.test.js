@@ -122,3 +122,17 @@ test('web tools are added only when enabled', async () => {
     assert.deepEqual(names, webTools ? ['inject_css', 'web_search', 'web_fetch'] : ['inject_css']);
   }
 });
+
+test('toAnthropicMessages: screenshots are sent as images, only the most recent few', () => {
+  const shot = (id) => [
+    { role: 'assistant', content: [{ type: 'tool_call', id, name: 'screenshot', input: {} }], ts: 0 },
+    { role: 'user', content: [{ type: 'tool_result', toolCallId: id, content: '{"image":"attached"}', images: [{ mediaType: 'image/jpeg', data: 'AAAA' }] }], ts: 0 },
+  ];
+  const messages = [{ role: 'user', content: [{ type: 'text', text: 'hi' }], ts: 0 }, ...shot('a'), ...shot('b'), ...shot('c'), ...shot('d')];
+  const results = toAnthropicMessages(messages).flatMap((m) => m.content).filter((b) => b.type === 'tool_result');
+  assert.equal(typeof results[0].content, 'string', 'oldest screenshot: text only');
+  assert.match(results[0].content, /no longer attached/);
+  for (const r of results.slice(1)) {
+    assert.deepEqual(r.content[1], { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: 'AAAA' } });
+  }
+});

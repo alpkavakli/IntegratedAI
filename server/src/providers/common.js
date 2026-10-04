@@ -51,7 +51,9 @@ export function renderBlockAsText(block) {
     case 'tool_call':
       return `<action id="${block.id}" type="${block.name}">${JSON.stringify(block.input)}</action>`;
     case 'tool_result':
-      return `<action_result id="${block.toolCallId}"${block.isError ? ' error="true"' : ''}>\n${block.content}\n</action_result>`;
+      return `<action_result id="${block.toolCallId}"${block.isError ? ' error="true"' : ''}>\n${block.content}${
+        block.images?.length ? '\n(A screenshot was taken, but images cannot be shown here: call the screenshot tool to see it.)' : ''
+      }\n</action_result>`;
     default:
       return '';
   }
