@@ -21,6 +21,9 @@ export function buildSystemPrompt({ actionNames, webTools = false, structuredEnv
 Answer with the JSON object required by the output schema:
 - "reply": your message to the user (Markdown).
 - "actions": inspections to run or changes to propose ([] if none).
+IMPORTANT: the actions (find_elements, inspect_element, inject_css, remember, …) are NOT tools you can call.
+Calling them directly fails with "No such tool available". The ONLY way to use them is to list them in the
+"actions" array of your JSON answer, e.g. "actions": [{ "type": "find_elements", "input": { "text": "Library" } }].
 Put your whole message in "reply" and write nothing outside the JSON output (it would be shown twice).
 If you request inspections, their results come back in the next message and you can continue.
 Proposed changes are NOT applied by you: the user previews them and clicks Apply or Reject.`

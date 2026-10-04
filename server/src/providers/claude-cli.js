@@ -86,7 +86,8 @@ export class ClaudeCliProvider extends Provider {
     const resume = Boolean(state.sessionId);
     const sessionId = state.sessionId ?? randomUUID();
     const unseen = resume ? messages.slice(state.synced ?? 0) : messages;
-    const prompt = renderAsText(unseen);
+    // A correction (see below) is sent instead of the new messages.
+    const prompt = req.correction ?? renderAsText(unseen);
 
     const args = buildCliArgs({
       sessionId,
@@ -139,18 +140,25 @@ export class ClaudeCliProvider extends Provider {
       throw new Error(`Claude Code error: ${out.errorText || res.stderr.trim() || `exit code ${res.code}`}`);
     }
 
+    // Some models try to call our actions (find_elements, inspect_element, …) as if they
+    // were real tools. Claude Code answers "No such tool" and the model then gives up on
+    // inspecting. Resume once with a correction so it lists them in "actions" instead.
+    if (preview.misusedTools.length && !req.correction) {
+      console.log(`[claude-cli] model called ${preview.misusedTools.join(', ')} as tools; asking it to retry`);
+      state.sessionId = sessionId;
+      state.synced = messages.length;
+      yield { type: 'usage', inputTokens: out.inputTokens, outputTokens: out.outputTokens, costUsd: this.callCost(state, out.totalCostUsd) };
+      yield { type: 'preview_delta', text: '\n↻ Retrying with the page tools…\n' };
+      yield* this.turn({ ...req, correction: correctionFor(preview.misusedTools) });
+      return;
+    }
+
     // Remember the session. +1 because the orchestrator appends exactly one
     // assistant message for this call; Claude Code already knows that one.
     state.sessionId = sessionId;
     state.synced = messages.length + 1;
 
-    // With --resume, total_cost_usd is the session's running total; report the difference.
-    let costUsd = out.totalCostUsd;
-    if (costUsd !== null) {
-      const previous = state.lastTotalCostUsd ?? 0;
-      state.lastTotalCostUsd = costUsd;
-      if (costUsd >= previous) costUsd -= previous;
-    }
+    const costUsd = this.callCost(state, out.totalCostUsd);
 
     // The validated reply is the stored text (the preview above was display-only).
     if (out.reply) yield { type: 'text_delta', text: out.reply };
@@ -159,6 +167,18 @@ export class ClaudeCliProvider extends Provider {
     }
     yield { type: 'usage', inputTokens: out.inputTokens, outputTokens: out.outputTokens, costUsd };
     yield { type: 'done', stopReason: out.stopReason };
+  }
+
+  /**
+   * With --resume, total_cost_usd is the session's running total; return this call's part.
+   * @param {Record<string, any>} state
+   * @param {number | null} total
+   */
+  callCost(state, total) {
+    if (total === null) return null;
+    const previous = state.lastTotalCostUsd ?? 0;
+    state.lastTotalCostUsd = total;
+    return total >= previous ? total - previous : total;
   }
 
   /**
@@ -195,6 +215,13 @@ export class ClaudeCliProvider extends Provider {
 }
 
 const WEB_TOOLS = 'WebSearch,WebFetch';
+/** Tools that really exist in our Claude Code calls. Anything else the model calls is a mistake. */
+const REAL_TOOLS = new Set(['StructuredOutput', 'WebSearch', 'WebFetch']);
+
+/** @param {string[]} names */
+function correctionFor(names) {
+  return `Your previous answer tried to call ${[...new Set(names)].join(', ')} as tools. Those are not callable tools, which is why they failed. The page tools DO work: list them in the "actions" array of your JSON answer, for example "actions": [{ "type": "find_elements", "input": { "text": "Library" } }], and their results will come back in the next message. Ignore your previous answer and answer the user's last message again, using actions.`;
+}
 
 /**
  * Build the argv for one `claude -p` call. Exported for tests.
@@ -374,6 +401,8 @@ export class StreamPreview {
   constructor() {
     this.sawText = false;
     this.inStructuredOutput = false;
+    /** @type {string[]} names of non-existent tools the model tried to call */
+    this.misusedTools = [];
     this.json = '';
     this.reply = new JsonStringField('reply');
   }
@@ -397,6 +426,7 @@ export class StreamPreview {
     if (event?.type === 'content_block_start') {
       const block = event.content_block;
       this.inStructuredOutput = block?.type === 'tool_use' && block?.name === 'StructuredOutput';
+      if (block?.type === 'tool_use' && !REAL_TOOLS.has(block.name)) this.misusedTools.push(block.name);
       // The live preview is plain text, so no Markdown here.
       if (block?.type === 'tool_use' && block.name === 'WebSearch') return '\n🔎 Searching the web…\n';
       if (block?.type === 'tool_use' && block.name === 'WebFetch') return '\n🔎 Reading a web page…\n';

@@ -372,7 +372,7 @@ export function envelopeSchema(names) {
       reply: { type: 'string', description: 'Your message to the user (Markdown allowed).' },
       actions: {
         type: 'array',
-        description: 'Inspections to run or changes to propose. Empty array if none.',
+        description: 'Inspections to run or changes to propose. Empty array if none. These actions are not callable tools: listing them here is the only way to use them.',
         items: {
           anyOf: names.map((name) => ({
             type: 'object',
