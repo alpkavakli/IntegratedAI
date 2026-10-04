@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCliArgs, parseCliOutput, ClaudeCliProvider } from '../src/providers/claude-cli.js';
+import { buildCliArgs, parseCliOutput, ClaudeCliProvider, JsonStringField, StreamPreview } from '../src/providers/claude-cli.js';
 import { testConfig, collect } from './helpers.js';
 
 // Trimmed copy of real `claude -p --output-format json --json-schema …` output.
@@ -16,7 +16,7 @@ const REAL_OUTPUT = JSON.stringify({
 test('buildCliArgs: first call vs resume', () => {
   const base = { sessionId: 'S', model: 'default', schema: { type: 'object' }, systemPromptFile: 'sp.md' };
   const first = buildCliArgs({ ...base, resume: false });
-  assert.deepEqual(first.slice(0, 3), ['-p', '--output-format', 'json']);
+  assert.deepEqual(first.slice(0, 5), ['-p', '--output-format', 'stream-json', '--verbose', '--include-partial-messages']);
   assert.ok(first.includes('--session-id') && !first.includes('--resume'));
   assert.ok(!first.includes('--bare'), 'must not use --bare (subscription login)');
   assert.ok(!first.includes('--model'), '"default" model passes no --model');
@@ -114,4 +114,55 @@ test('availability: not installed / not logged in', async () => {
   assert.equal(missing.available, false);
   const loggedOut = await ClaudeCliProvider.checkAvailability(config, async () => ({ code: 1, stdout: '', stderr: '' }));
   assert.match(loggedOut.reason, /not logged in/);
+});
+
+// ─────────────────────────────────────────────── streaming
+
+const streamLine = (event) => JSON.stringify({ type: 'stream_event', parent_tool_use_id: null, event });
+const jsonDelta = (partial_json) => streamLine({ type: 'content_block_delta', delta: { type: 'input_json_delta', partial_json } });
+const structuredStart = streamLine({ type: 'content_block_start', content_block: { type: 'tool_use', name: 'StructuredOutput' } });
+
+test('JsonStringField decodes a string split across fragments, including escapes', () => {
+  const field = new JsonStringField('reply');
+  // JSON text as the model emits it: \n, \t, \" and é escapes, split at awkward places.
+  const parts = ['{"re', 'ply": "Line 1\\', 'nTab\\t\\"q\\" \\u00', 'e9 end", "actions": []}'];
+  const out = parts.map((p) => field.feed(p)).join('');
+  assert.equal(out, 'Line 1\nTab\t"q" é end');
+  assert.equal(field.feed('more'), '');
+});
+
+test('StreamPreview: previews the reply from StructuredOutput JSON', () => {
+  const p = new StreamPreview();
+  const text = [structuredStart, jsonDelta('{"reply": "Hel'), jsonDelta('lo"'), jsonDelta(', "actions": []}')]
+    .map((l) => p.feed(l)).join('');
+  assert.equal(text, 'Hello');
+});
+
+test('StreamPreview: free text first → JSON reply is not previewed twice', () => {
+  const p = new StreamPreview();
+  const text = [
+    streamLine({ type: 'content_block_start', content_block: { type: 'text' } }),
+    streamLine({ type: 'content_block_delta', delta: { type: 'text_delta', text: 'Hello' } }),
+    structuredStart, jsonDelta('{"reply": "Hello"}'),
+    JSON.stringify({ type: 'stream_event', parent_tool_use_id: 'toolu_x', event: { type: 'content_block_delta', delta: { type: 'text_delta', text: 'subagent' } } }),
+    'not json',
+  ].map((l) => p.feed(l)).join('');
+  assert.equal(text, 'Hello');
+});
+
+test('provider: streams preview deltas, then the validated reply', async () => {
+  const result = JSON.stringify({ type: 'result', subtype: 'success', total_cost_usd: 0.001, usage: {}, structured_output: { reply: 'Hello world', actions: [] } });
+  const stdout = [structuredStart, jsonDelta('{"reply": "Hello'), jsonDelta(' world"'), jsonDelta(', "actions": []}'), result].join('\n') + '\n';
+  const run = async (cmd, args, opts) => {
+    // Deliver output in awkward chunks, like a real pipe.
+    for (let i = 0; i < stdout.length; i += 7) opts.onStdout(stdout.slice(i, i + 7));
+    return { code: 0, stdout, stderr: '' };
+  };
+  const provider = new ClaudeCliProvider(testConfig(), { run });
+  const events = await collect(provider.turn({
+    messages: [user('hi')], system: 's', actionNames: [], model: 'default', state: {}, signal: new AbortController().signal,
+  }));
+  const preview = events.filter((e) => e.type === 'preview_delta').map((e) => e.text).join('');
+  assert.equal(preview, 'Hello world');
+  assert.deepEqual(events.filter((e) => e.type === 'text_delta').map((e) => e.text), ['Hello world']);
 });

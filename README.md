@@ -234,10 +234,10 @@ Then add the class to `PROVIDERS` in [registry.js](server/src/providers/registry
 npm test
 ```
 
-30 unit tests cover:
+34 unit tests cover:
 - action validation and safety rules
 - auth (Origin, Host, token) and patch scopes
-- CLI argument building and output parsing, including session resume, cost differences and recovery from a lost session
+- CLI argument building and output parsing, including session resume, cost differences, recovery from a lost session, and decoding the streamed reply
 - Anthropic message and tool conversion
 - the orchestrator: inspection round-trips, proposals, decisions reported as tool results, disabled `execute_js`, usage, persistence
 
@@ -250,7 +250,7 @@ These were also checked manually against real Chrome and the real `claude` CLI d
 ## Known limitations
 
 - DevTools extension APIs only work **while DevTools is open**. The network log only contains requests made since DevTools opened; reload to capture everything.
-- The Claude Code CLI provider is **not streamed**: each step's reply appears at once, typically after 5–15 s. The Anthropic API provider streams.
+- Each Claude Code CLI call starts a new `claude` process, so the first words take a few seconds to appear (about 4–6 s). The reply then streams live. The streamed text is a preview; the stored reply is the schema-validated `structured_output`.
 - Patches are inserted when navigation commits, so a very fast page may show its original style for a moment.
 - Injected CSS doesn't automatically win specificity ties with the page's styles. The AI is instructed to use specific selectors or `!important`.
 - Only the top frame is inspected and patched (no iframes).

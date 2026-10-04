@@ -204,6 +204,7 @@ export class Orchestrator {
     const state = (session.providerState[providerId] ??= {});
 
     let text = '';
+    let previewed = false;
     /** @type {{ id: string, name: string, input: unknown }[]} */
     const toolCalls = [];
     /** @type {unknown} */
@@ -220,6 +221,11 @@ export class Orchestrator {
       switch (ev.type) {
         case 'text_delta':
           text += ev.text;
+          if (!previewed) this.panel.send(session.id, { type: 'chat.delta', conversationId: session.id, text: ev.text });
+          break;
+        case 'preview_delta':
+          // Live display only; the final text arrives as text_delta (not re-sent, it's already on screen).
+          previewed = true;
           this.panel.send(session.id, { type: 'chat.delta', conversationId: session.id, text: ev.text });
           break;
         case 'tool_call':

@@ -14,12 +14,16 @@
 
 /**
  * @typedef {{ type: 'text_delta', text: string }
+ *   | { type: 'preview_delta', text: string }
  *   | { type: 'tool_call', id: string, name: string, input: unknown }
  *   | { type: 'usage', inputTokens: number, outputTokens: number, costUsd: number | null }
  *   | { type: 'raw', content: unknown }
  *   | { type: 'done', stopReason: string }} ProviderEvent
  *
  *  text_delta  part of the assistant's visible reply (may arrive in one piece)
+ *  preview_delta  text shown live while the model is still writing, but NOT stored.
+ *              For providers whose final answer arrives separately (Claude CLI
+ *              streams a preview, then yields the validated reply as text_delta).
  *  tool_call   the model wants to run an action (inspection or proposed change)
  *  usage       tokens/cost of this call; costUsd null if unknown
  *  raw         provider-native assistant content to store and send back next time

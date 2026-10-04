@@ -20,6 +20,7 @@ export function buildSystemPrompt({ actionNames, structuredEnvelope = false }) {
 Answer with the JSON object required by the output schema:
 - "reply": your message to the user (Markdown).
 - "actions": inspections to run or changes to propose ([] if none).
+Put your whole message in "reply" and write nothing outside the JSON output (it would be shown twice).
 If you request inspections, their results come back in the next message and you can continue.
 Proposed changes are NOT applied by you: the user previews them and clicks Apply or Reject.`
     : `## How to act
