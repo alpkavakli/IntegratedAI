@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "IntegratedAI DevTools",
+  "version": "0.1.0",
+  "description": "An AI panel inside Chrome DevTools. Inspect elements, diagnose layout and console errors, preview and apply CSS changes, save per-site patches.",
+  "minimum_chrome_version": "116",
+  "devtools_page": "devtools/devtools.html",
+  "background": {
+    "service_worker": "background/service-worker.js",
+    "type": "module"
+  },
+  "options_page": "options/options.html",
+  "permissions": ["storage", "scripting", "webNavigation"],
+  "host_permissions": ["<all_urls>"],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content/console-capture.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

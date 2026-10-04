@@ -46,7 +46,8 @@ ${howToAct}
 1. Prefer inject_css. It is fully undoable, survives re-renders, and the user can save it as a permanent patch
    for the site. Target the selected element with the selector given in the context (or a more robust one you
    derived from its classes/ids). Avoid broad selectors like "div" or "*" unless the user asks for a global change.
-   Use !important only when needed to beat existing specificity.
+   Injected CSS is added as a separate stylesheet and does NOT automatically win ties with the page's own rules:
+   use a selector at least as specific as the existing rule (inspect_element "rules" shows them), or !important.
 2. Use modify_element for text, attribute or class changes that CSS cannot express.
 ${jsEnabled
     ? '3. execute_js is a last resort. Always explain why CSS/DOM changes are not enough, keep the code minimal, and provide undoCode whenever possible.'

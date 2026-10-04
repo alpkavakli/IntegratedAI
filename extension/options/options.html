@@ -1,0 +1,59 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>IntegratedAI settings</title>
+    <link rel="stylesheet" href="../panel/panel.css">
+    <style>
+      body { display: block; padding: 16px 24px; max-width: 720px; font-size: 13px; }
+      h1 { font-size: 18px; margin: 0 0 4px; }
+      h2 { font-size: 14px; margin: 20px 0 6px; }
+      .field { margin: 10px 0; }
+      .field label { display: block; font-weight: 600; margin-bottom: 3px; }
+      .field input[type="text"], .field input[type="password"] { width: 100%; padding: 4px 6px; }
+      .hint { color: var(--fg-muted); font-size: 12px; margin-top: 2px; }
+      .check { display: flex; gap: 8px; align-items: flex-start; margin: 8px 0; }
+      .check input { margin-top: 3px; }
+      .danger-box { border: 1px solid var(--error); background: var(--error-bg); border-radius: 6px; padding: 8px 10px; }
+      #test-result { margin-left: 8px; }
+      .ok { color: var(--ok); }
+      .bad { color: var(--error); }
+    </style>
+  </head>
+  <body>
+    <h1>IntegratedAI settings</h1>
+    <div class="hint">The AI panel lives in Chrome DevTools (F12 → "AI" tab). It talks to the local agent server started with <code>npm start</code>.</div>
+
+    <h2>Agent server</h2>
+    <div class="field">
+      <label for="serverUrl">Server URL</label>
+      <input type="text" id="serverUrl" spellcheck="false">
+    </div>
+    <div class="field">
+      <label for="token">Pairing token</label>
+      <input type="password" id="token" spellcheck="false" autocomplete="off">
+      <div class="hint">Printed by the server on startup, also stored in <code>~/.integratedai/config.json</code>.</div>
+    </div>
+    <button type="button" id="test">Test connection</button><span id="test-result"></span>
+
+    <h2>Context sent by default</h2>
+    <div class="hint">Which context chips are switched on when the panel opens. You can toggle them per message.</div>
+    <label class="check"><input type="checkbox" id="ctx-selected"> <span>Selected element ($0): selector, key computed styles, box, short HTML</span></label>
+    <label class="check"><input type="checkbox" id="ctx-console"> <span>Recent console errors and warnings</span></label>
+    <label class="check"><input type="checkbox" id="ctx-network"> <span>Failed and recent network requests (sensitive headers and query parameters are redacted)</span></label>
+
+    <h2>Permissions</h2>
+    <label class="check">
+      <input type="checkbox" id="askBeforeInspections">
+      <span>Ask before the AI reads page details (element inspection, console, network, resources). When off, these read-only inspections run automatically.</span>
+    </label>
+    <div class="danger-box">
+      <label class="check">
+        <input type="checkbox" id="executeJs">
+        <span><strong>Allow the AI to propose JavaScript (execute_js).</strong> Every script is shown to you and only runs after you tick "I reviewed this code" and click Run. Scripts run in the page with access to its data and your logged-in session, and may not be undoable. CSS and safe DOM changes are always preferred.</span>
+      </label>
+    </div>
+
+    <script src="options.js" type="module"></script>
+  </body>
+</html>

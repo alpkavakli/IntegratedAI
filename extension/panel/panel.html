@@ -1,0 +1,62 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>AI</title>
+    <link rel="stylesheet" href="panel.css">
+  </head>
+  <body>
+    <header class="toolbar">
+      <span id="status-dot" class="dot" title="Disconnected"></span>
+      <nav class="tabs" role="tablist">
+        <button type="button" data-tab="chat" class="active">Chat</button>
+        <button type="button" data-tab="patches">Patches <span id="patch-count" class="badge" hidden></span></button>
+        <button type="button" data-tab="console">Console <span id="error-count" class="badge error" hidden></span></button>
+      </nav>
+      <span class="spacer"></span>
+      <select id="provider-select" title="AI provider"></select>
+      <select id="model-select" title="Model"></select>
+      <span id="cost" class="cost"></span>
+      <button type="button" id="new-chat" class="icon" title="New conversation for this tab">New</button>
+      <button type="button" id="open-options" class="icon" title="Settings">⚙</button>
+    </header>
+
+    <div id="banner" class="banner" hidden>
+      <span id="banner-text"></span>
+      <button type="button" id="banner-action" hidden></button>
+    </div>
+
+    <main>
+      <section id="view-chat" class="view">
+        <ai-chat id="chat"></ai-chat>
+        <form id="composer" autocomplete="off">
+          <div class="chips">
+            <label class="chip" title="Send a compact description of the element selected in the Elements panel">
+              <input type="checkbox" id="ctx-selected"> <span id="selected-label">$0 (nothing selected)</span>
+            </label>
+            <label class="chip" title="Send recent console errors and warnings">
+              <input type="checkbox" id="ctx-console"> Console
+            </label>
+            <label class="chip" title="Send failed and recent network requests (sensitive headers redacted)">
+              <input type="checkbox" id="ctx-network"> Network
+            </label>
+          </div>
+          <div class="input-row">
+            <textarea id="prompt" rows="2" placeholder="Ask about the selected element… (Enter to send, Shift+Enter for a new line)"></textarea>
+            <button type="submit" id="send" class="primary">Send</button>
+          </div>
+        </form>
+      </section>
+
+      <section id="view-patches" class="view" hidden>
+        <ai-patches id="patches"></ai-patches>
+      </section>
+
+      <section id="view-console" class="view" hidden>
+        <ai-console id="console"></ai-console>
+      </section>
+    </main>
+
+    <script src="panel.js" type="module"></script>
+  </body>
+</html>
