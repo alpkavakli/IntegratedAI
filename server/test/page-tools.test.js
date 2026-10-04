@@ -110,6 +110,8 @@ test('orchestrator: gives MCP-capable providers a token that works only during t
     static async checkAvailability() { return { available: true }; }
     async *turn(req) {
       seen.push({ pageTools: req.pageTools, system: req.system, live: Boolean(pageTools.lookup(req.pageTools?.token)) });
+      // What Claude Code does through /mcp during the call.
+      await pageTools.call(pageTools.lookup(req.pageTools.token), 'find_elements', { text: 'Library' });
       yield { type: 'text_delta', text: 'ok' };
       yield { type: 'done', stopReason: 'end_turn' };
     }
@@ -127,6 +129,11 @@ test('orchestrator: gives MCP-capable providers a token that works only during t
   assert.ok(seen[0].live, 'token valid while the provider runs');
   assert.equal(pageTools.lookup(seen[0].pageTools.token), null, 'revoked afterwards');
   assert.match(seen[0].system, /Inspections are real tools/);
+  assert.deepEqual(panel.requests.map((r) => [r.conversationId, r.name]), [[session.id, 'find_elements']]);
+  // The chat keeps a record of what was inspected, before the reply.
+  const reply = session.messages.at(-1);
+  assert.deepEqual(reply.content.map((b) => b.type), ['inspection', 'text']);
+  assert.deepEqual(reply.content[0], { type: 'inspection', name: 'find_elements', input: { text: 'Library' } });
 });
 
 test('system prompt: without page tools, inspections go in actions', () => {

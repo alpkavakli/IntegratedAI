@@ -264,6 +264,8 @@ export class Orchestrator {
     const message = {
       role: 'assistant',
       content: [
+        // Inspections the model ran itself (MCP), so the chat still shows what it looked at.
+        ...(grant?.calls ?? []).map((c) => ({ type: /** @type {const} */ ('inspection'), ...c })),
         ...(text ? [{ type: /** @type {const} */ ('text'), text }] : []),
         ...toolCalls.map((c) => ({ type: /** @type {const} */ ('tool_call'), ...c })),
       ],

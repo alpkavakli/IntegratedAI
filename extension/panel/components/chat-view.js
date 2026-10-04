@@ -87,6 +87,7 @@ export class ChatView extends HTMLElement {
       this.streamingEl = null;
       const el = h('div', { class: 'msg assistant' });
       for (const block of message.content) {
+        if (block.type === 'inspection') el.append(this.renderToolCall({ id: '', ...block }));
         if (block.type === 'text') el.append(renderMarkdown(block.text));
         if (block.type === 'tool_call') el.append(this.renderToolCall(block));
       }

@@ -21,7 +21,8 @@ import { ACTIONS, isReadOnly, validateAction } from '../../../extension/shared/a
 const MAX_RESULT_CHARS = 30_000;
 
 /**
- * @typedef {{ conversationId: string, names: string[], signal: AbortSignal }} Grant
+ * @typedef {{ conversationId: string, names: string[], signal: AbortSignal,
+ *   calls: { name: string, input: unknown }[] }} Grant  calls: inspections run so far, for the chat
  * @typedef {{ name: string, description: string, inputSchema: object }} ToolInfo
  */
 
@@ -41,8 +42,10 @@ export class PageTools {
    */
   grant(conversationId, names, signal) {
     const token = randomBytes(24).toString('base64url');
-    this.grants.set(token, { conversationId, names: names.filter(isReadOnly), signal });
-    return { token, revoke: () => { this.grants.delete(token); } };
+    /** @type {Grant} */
+    const grant = { conversationId, names: names.filter(isReadOnly), signal, calls: [] };
+    this.grants.set(token, grant);
+    return { token, calls: grant.calls, revoke: () => { this.grants.delete(token); } };
   }
 
   /** @param {unknown} token */
@@ -73,6 +76,7 @@ export class PageTools {
     if (!grant.names.includes(name)) return { text: `Unknown tool "${name}"`, isError: true };
     const errors = validateAction(name, input ?? {});
     if (errors.length) return { text: `Invalid input: ${errors.join('; ')}`, isError: true };
+    grant.calls.push({ name, input: input ?? {} });
     const res = await this.panel.requestTool(grant.conversationId, name, input ?? {}, grant.signal);
     if (!res.ok) return { text: `Inspection failed: ${res.error ?? 'unknown error'}`, isError: true };
     const text = JSON.stringify(res.result ?? null);

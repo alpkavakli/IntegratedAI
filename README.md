@@ -291,7 +291,7 @@ These were also checked manually against real Chrome and the real `claude` CLI d
 - `insertCSS`/`removeCSS` under a strict CSP
 - automatic patch reapplication
 - the full panel UI flow: preview, apply, undo, save patch, toggle patch, Explain
-- Claude Code (Sonnet) calling the page inspections over MCP through the real server, on a new and a resumed session (with a scripted panel, not real Chrome)
+- Claude Code (Sonnet) calling the page inspections over MCP: through the real server on a new and a resumed session, and with the real panel code in Chromium on a webnovel-like test page (the panel ran in a tab with a `chrome.devtools` stand-in). There, "Make a toggle button in the nav bar…" found `nav.g_nav`, and Apply, Save as site patch + toggle, reload and the toggle all worked.
 
 ## Debugging
 
