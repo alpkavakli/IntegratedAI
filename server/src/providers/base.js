@@ -36,6 +36,7 @@
  * @property {NeutralMessage[]} messages    full conversation so far (last one is a user message)
  * @property {string} system                system prompt
  * @property {string[]} actionNames         actions the model may use this turn
+ * @property {boolean} [webTools]           allow the provider's own web search / web fetch tools
  * @property {string} model                 model id/alias chosen for this conversation
  * @property {Record<string, any>} state    per-conversation memory for this provider (persisted)
  * @property {AbortSignal} signal           aborted when the user clicks Stop

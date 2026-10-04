@@ -70,3 +70,13 @@ test('envelope schema accepts valid actions and rejects unknown ones', () => {
   const bad = { reply: 'hi', actions: [{ type: 'rm_rf', input: {} }] };
   assert.equal(validate(schema, bad).length, 1);
 });
+
+test('find_elements and inject_css toggle', () => {
+  assert.deepEqual(validateAction('find_elements', { text: 'Sign in', limit: 5 }), []);
+  assert.deepEqual(validateAction('find_elements', {}), []);
+  const toggle = { label: '🌙', activeLabel: '☀️', placeSelector: 'header nav', position: 'append' };
+  assert.deepEqual(validateAction('inject_css', { description: 'd', css: 'html{filter:invert(1)}', toggle }), []);
+  assert.match(validateAction('inject_css', { description: 'd', css: 'a{}', toggle: { label: 'x'.repeat(41) } }).join(), /1–40/);
+  assert.match(validateAction('inject_css', { description: 'd', css: 'a{}', toggle: { label: 'x', position: 'inside' } }).join(), /must be one of/);
+  assert.match(validateAction('inject_css', { description: 'd', css: 'a{}', toggle: { label: 'x', onclick: 'y' } }).join(), /not allowed/);
+});

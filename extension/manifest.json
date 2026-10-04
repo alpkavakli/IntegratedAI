@@ -18,6 +18,11 @@
       "js": ["content/console-capture.js"],
       "run_at": "document_start",
       "world": "MAIN"
+    },
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content/patch-toggles.js"],
+      "run_at": "document_idle"
     }
   ],
   "icons": {

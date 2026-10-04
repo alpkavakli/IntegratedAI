@@ -13,6 +13,7 @@ $('serverUrl').value = settings.serverUrl;
 $('token').value = settings.token;
 $('executeJs').checked = settings.executeJs;
 $('askBeforeInspections').checked = settings.askBeforeInspections;
+$('webTools').checked = settings.webTools;
 $('ctx-selected').checked = settings.contextDefaults.selected;
 $('ctx-console').checked = settings.contextDefaults.console;
 $('ctx-network').checked = settings.contextDefaults.network;
@@ -20,7 +21,7 @@ $('ctx-network').checked = settings.contextDefaults.network;
 for (const id of ['serverUrl', 'token']) {
   $(id).addEventListener('change', () => saveSettings({ [id]: $(id).value.trim() }));
 }
-for (const id of ['executeJs', 'askBeforeInspections']) {
+for (const id of ['executeJs', 'askBeforeInspections', 'webTools']) {
   $(id).addEventListener('change', () => saveSettings({ [id]: $(id).checked }));
 }
 for (const key of ['selected', 'console', 'network']) {

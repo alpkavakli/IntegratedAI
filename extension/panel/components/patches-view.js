@@ -69,7 +69,9 @@ export class PatchesView extends HTMLElement {
             }
           },
         }, 'Delete')),
-      h('div', { class: 'meta' }, `Applies to ${describeScope(patch.scope)} · ${patch.enabled ? 'enabled' : 'disabled'}`),
+      h('div', { class: 'meta' },
+        `Applies to ${describeScope(patch.scope)} · ${patch.enabled ? 'enabled' : 'disabled'}`,
+        patch.toggle ? ` · page button "${patch.toggle.label}"` : ''),
       editing
         ? h('div', null,
           nameInput,

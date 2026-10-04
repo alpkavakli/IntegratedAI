@@ -7,7 +7,8 @@
  *     --output-format stream-json …            live events, one JSON object per line; the last is the result
  *     --json-schema '<envelope schema>'        forces { reply, actions[] } → result.structured_output
  *     --system-prompt-file <file>              replaces Claude Code's coding-agent prompt with ours
- *     --tools "" --disallowedTools "mcp__*"    no file/shell/MCP tools: the model can only answer
+ *     --tools "" | "WebSearch,WebFetch"         no file/shell/MCP tools; web search only if enabled in Options
+ *     --permission-mode dontAsk                anything not pre-approved is denied, never prompted
  *     --strict-mcp-config --setting-sources "" ignore your MCP servers, hooks and settings files
  *     --disable-slash-commands                 page text can't trigger skills/commands
  *     --session-id <uuid> | --resume <uuid>    one Claude Code session per conversation
@@ -76,7 +77,7 @@ export class ClaudeCliProvider extends Provider {
    * @returns {AsyncGenerator<import('./base.js').ProviderEvent>}
    */
   async *turn(req) {
-    const { messages, system, actionNames, model, state, signal } = req;
+    const { messages, system, actionNames, model, state, signal, webTools } = req;
     const cfg = this.config.providers['claude-cli'];
 
     // Resume the Claude Code session if we have one; then only the messages it
@@ -94,6 +95,7 @@ export class ClaudeCliProvider extends Provider {
       effort: cfg.effort,
       maxBudgetUsd: cfg.maxBudgetUsdPerCall,
       schema: envelopeSchema(actionNames),
+      webTools,
       systemPromptFile: this.writeSystemPrompt(system),
     });
 
@@ -104,6 +106,7 @@ export class ClaudeCliProvider extends Provider {
       const text = preview.feed(line);
       if (text) queue.push({ type: 'preview_delta', text });
     });
+    const started = Date.now();
     const running = this.run(cfg.command, args, {
       cwd: this.workDir,
       input: prompt,
@@ -113,12 +116,15 @@ export class ClaudeCliProvider extends Provider {
     }).finally(() => queue.end());
     for await (const event of queue) yield event;
     const res = await running;
+    const seconds = ((Date.now() - started) / 1000).toFixed(1);
+    console.log(`[claude-cli] ${resume ? 'resume' : 'new session'} ${sessionId.slice(0, 8)}: ${seconds}s, exit ${res.code}, prompt ${prompt.length} chars`);
 
     if (signal.aborted) throw new Error('Cancelled');
     if (res.spawnError) throw new Error(`Could not run Claude Code: ${res.spawnError}`);
     if (res.timedOut) throw new Error(`Claude Code did not answer within ${Math.round(cfg.timeoutMs / 1000)}s`);
 
     const out = parseCliOutput(res.stdout);
+    if (out.isError) out.errorText += ` (details: ${this.writeErrorLog(args, prompt, res, seconds)})`;
 
     // The stored Claude Code session may be gone (e.g. deleted with `claude purge`).
     // Start a fresh one and send the full history instead.
@@ -156,6 +162,27 @@ export class ClaudeCliProvider extends Provider {
   }
 
   /**
+   * Save everything about a failed call for debugging; returns the file path.
+   * @param {string[]} args
+   * @param {string} prompt
+   * @param {{ code: number | null, stdout: string, stderr: string }} res
+   * @param {string} seconds
+   */
+  writeErrorLog(args, prompt, res, seconds) {
+    const dir = join(this.config.dataDir, 'logs');
+    mkdirSync(dir, { recursive: true });
+    const file = join(dir, `claude-cli-error-${new Date().toISOString().replace(/[:.]/g, '-')}.log`);
+    writeFileSync(file, [
+      `duration: ${seconds}s  exit code: ${res.code}`,
+      `args: ${JSON.stringify(args.map((a) => (a.length > 200 ? `${a.slice(0, 200)}…` : a)))}`,
+      `--- prompt ---\n${prompt}`,
+      `--- stderr ---\n${res.stderr}`,
+      `--- stdout ---\n${res.stdout}`,
+    ].join('\n\n'));
+    return file;
+  }
+
+  /**
    * Write the system prompt to a file named after its hash (so it's written once per variant).
    * @param {string} system
    */
@@ -167,18 +194,25 @@ export class ClaudeCliProvider extends Provider {
   }
 }
 
+const WEB_TOOLS = 'WebSearch,WebFetch';
+
 /**
  * Build the argv for one `claude -p` call. Exported for tests.
  * @param {{ sessionId: string, resume: boolean, model: string, effort?: string | null,
- *   maxBudgetUsd?: number | null, schema: object, systemPromptFile: string }} o
+ *   maxBudgetUsd?: number | null, schema: object, systemPromptFile: string, webTools?: boolean }} o
  */
 export function buildCliArgs(o) {
+  // Only the read-only web tools may ever be enabled: no file, shell or MCP tools.
+  // dontAsk denies anything not pre-approved instead of waiting for a prompt.
+  const tools = o.webTools ? WEB_TOOLS : '';
   const args = [
     '-p',
     '--output-format', 'stream-json', '--verbose', '--include-partial-messages',
     '--json-schema', JSON.stringify(o.schema),
     '--system-prompt-file', o.systemPromptFile,
-    '--tools', '',
+    '--tools', tools,
+    ...(tools ? ['--allowedTools', tools] : []),
+    '--permission-mode', 'dontAsk',
     '--disallowedTools', 'mcp__*',
     '--strict-mcp-config',
     '--setting-sources', '',
@@ -361,7 +395,11 @@ export class StreamPreview {
     const event = msg.event;
 
     if (event?.type === 'content_block_start') {
-      this.inStructuredOutput = event.content_block?.type === 'tool_use' && event.content_block?.name === 'StructuredOutput';
+      const block = event.content_block;
+      this.inStructuredOutput = block?.type === 'tool_use' && block?.name === 'StructuredOutput';
+      // The live preview is plain text, so no Markdown here.
+      if (block?.type === 'tool_use' && block.name === 'WebSearch') return '\n🔎 Searching the web…\n';
+      if (block?.type === 'tool_use' && block.name === 'WebFetch') return '\n🔎 Reading a web page…\n';
       return '';
     }
     if (event?.type !== 'content_block_delta') return '';

@@ -82,7 +82,7 @@ Defaults can be changed in Options.
 | Tab | What it does |
 |---|---|
 | **Chat** | Conversation, action cards, provider/model picker, cost meter |
-| **Patches** | Saved CSS patches: enable/disable, edit, delete. Enabled patches are reapplied whenever a matching page loads, even when DevTools is closed. |
+| **Patches** | Saved CSS patches: enable/disable, edit, delete. Enabled patches are reapplied whenever a matching page loads, even when DevTools is closed. Patches with a **toggle** also get an on/off button on the page itself. |
 | **Console** | Errors and warnings captured on the page, each with **Explain** (asks the AI) and **Open source** (jumps to Sources) |
 
 **Conversations are per tab.** They survive closing DevTools, reloads and navigation in the same
@@ -96,15 +96,28 @@ Defined once in [extension/shared/actions.js](extension/shared/actions.js) and v
 
 | Action | Kind | Undo |
 |---|---|---|
+| `find_elements` | read: search the page by selector or visible text (e.g. find the nav bar); page landmarks by default | — |
 | `inspect_element` | read: computed styles, matching CSS rules, ancestors, children, HTML | — |
 | `inspect_console` | read: captured console messages | — |
 | `inspect_network` | read: DevTools network log, sensitive headers/params redacted, no bodies | — |
 | `inspect_resources` | read: page resources, or the source text of one | — |
-| `inject_css` | **change**: add a stylesheet (preferred) | full (removeCSS) |
+| `inject_css` | **change**: add a stylesheet (preferred). Optional `toggle`: an on/off button on the page | full (removeCSS) |
 | `modify_element` | **change**: styles, attributes, classes or text of one element | full (snapshot restore) |
 | `execute_js` | **change**: arbitrary JS. **Off by default.** | only if the model provided `undoCode` (best effort) |
 
 Read-only inspections run automatically unless you enable *"Ask before the AI reads page details"* in Options.
+
+**Web search.** The AI can also search the web and read web pages (documentation, MDN, browser support). It is on by default; turn it off in Options. With the Claude Code CLI provider these are Claude Code's / tools, and nothing else is enabled. With the Anthropic API provider, the server-side / tools are used.
+
+### Toggle buttons (theme switches, reading mode, …)
+
+Ask for something you want to switch on and off from the page, for example *"add a toggle in the nav bar to switch between light and dark theme"* or *"a reading mode button in the header"*:
+
+1. The AI uses  to locate the nav bar, writes the CSS, and proposes  with a  such as .
+2. Apply it, then click **Save as site patch + toggle…**.
+3. A real button appears in the nav bar. Clicking it switches the patch on and off, and the choice is remembered across reloads and visits.
+
+The button is created by the extension's own content script (, in an isolated world), not by model-written JavaScript, so this works with  disabled. If the target element is not found (e.g. the site changed), the button floats in the bottom-right corner instead.
 
 ## Security model
 
@@ -123,7 +136,8 @@ Read-only inspections run automatically unless you enable *"Ask before the AI re
   - You can pin your extension ID with `allowedExtensionIds` in the config.
 - **Network data:** cookies, authorization and API-key headers, and token-like query parameters are redacted. Response bodies are never sent.
 - **Model output:** rendered with `textContent` only, never `innerHTML`. Page content is described to the model as untrusted data.
-- **Claude Code CLI isolation:** the CLI runs in an empty folder with all tools disabled (`--tools ""`, no MCP, `--setting-sources ""`, `--disable-slash-commands`). The model can only answer; it cannot touch your files.
+- **Claude Code CLI isolation:** the CLI runs in an empty folder. Only `WebSearch`/`WebFetch` can be enabled (via the web search setting); no file, shell or MCP tools. It also uses `--permission-mode dontAsk`, `--setting-sources ""` and `--disable-slash-commands`. The model can answer and search the web; it cannot touch your files.
+- **Page content and toggle buttons:** web pages can only ask the service worker for their own toggle buttons and flip them. Every other command is restricted to extension pages.
 
 ## Configuration
 
@@ -234,10 +248,10 @@ Then add the class to `PROVIDERS` in [registry.js](server/src/providers/registry
 npm test
 ```
 
-34 unit tests cover:
+39 unit tests cover:
 - action validation and safety rules
 - auth (Origin, Host, token) and patch scopes
-- CLI argument building and output parsing, including session resume, cost differences, recovery from a lost session, and decoding the streamed reply
+- CLI argument building and output parsing, including session resume, cost differences, recovery from a lost session, and decoding the streamed reply, and enabling only the web tools
 - Anthropic message and tool conversion
 - the orchestrator: inspection round-trips, proposals, decisions reported as tool results, disabled `execute_js`, usage, persistence
 
@@ -246,6 +260,12 @@ These were also checked manually against real Chrome and the real `claude` CLI d
 - `insertCSS`/`removeCSS` under a strict CSP
 - automatic patch reapplication
 - the full panel UI flow: preview, apply, undo, save patch, toggle patch, Explain
+
+## Debugging
+
+- The server console logs every Claude Code call: `[claude-cli] resume 98a8e185: 6.2s, exit 0, prompt 1395 chars`.
+- When a call fails, the full prompt, stdout and stderr are saved in `~/.integratedai/logs/`, and the error message in the panel shows the file path.
+- Panel errors: right-click inside the AI panel, choose **Inspect**, and check its console.
 
 ## Known limitations
 

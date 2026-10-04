@@ -41,7 +41,7 @@ import { buildSystemPrompt } from './system-prompt.js';
 
 /**
  * Settings the panel sends with each message.
- * @typedef {{ executeJs?: boolean }} TurnSettings
+ * @typedef {{ executeJs?: boolean, webTools?: boolean }} TurnSettings
  */
 
 const MAX_TOOL_RESULT_CHARS = 30_000;
@@ -156,18 +156,20 @@ export class Orchestrator {
       const P = /** @type {any} */ (provider.constructor);
 
       const actionNames = enabledActionNames(settings);
-      const system = buildSystemPrompt({ actionNames, structuredEnvelope: Boolean(P.structuredEnvelope) });
+      const webTools = settings.webTools === true;
+      const system = buildSystemPrompt({ actionNames, webTools, structuredEnvelope: Boolean(P.structuredEnvelope) });
 
       this.append(session, this.buildUserMessage(session, text, context));
 
       for (let step = 0; step < this.config.maxStepsPerTurn; step++) {
         const { message, toolCalls, usage, stopReason: sr } = await this.callModel(session, provider, {
-          system, actionNames, signal: abort.signal,
+          system, actionNames, webTools, signal: abort.signal,
         });
         addUsage(turnUsage, usage);
         stopReason = sr;
         this.append(session, message);
-        if (!toolCalls.length) break;
+        // pause_turn: the API paused a long server-side tool run (web search); call again to let it continue.
+        if (!toolCalls.length) { if (sr === 'pause_turn') continue; break; }
 
         // Until results are recorded, these calls are "open" (keeps history valid if we stop early).
         session.openToolCalls = toolCalls.map((c) => c.id);
@@ -197,9 +199,9 @@ export class Orchestrator {
    * Run one provider call and assemble the assistant message.
    * @param {Session} session
    * @param {import('../providers/base.js').Provider} provider
-   * @param {{ system: string, actionNames: string[], signal: AbortSignal }} o
+   * @param {{ system: string, actionNames: string[], webTools: boolean, signal: AbortSignal }} o
    */
-  async callModel(session, provider, { system, actionNames, signal }) {
+  async callModel(session, provider, { system, actionNames, webTools, signal }) {
     const providerId = /** @type {any} */ (provider.constructor).id;
     const state = (session.providerState[providerId] ??= {});
 
@@ -214,7 +216,7 @@ export class Orchestrator {
     let stopReason = 'end_turn';
 
     const events = provider.turn({
-      messages: session.messages, system, actionNames, model: session.model, state, signal,
+      messages: session.messages, system, actionNames, webTools, model: session.model, state, signal,
     });
     for await (const ev of events) {
       if (signal.aborted) throw new Error('Cancelled');

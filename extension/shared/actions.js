@@ -62,6 +62,23 @@ export const ACTIONS = {
     },
   },
 
+  find_elements: {
+    label: 'Find elements',
+    readOnly: true,
+    risk: 'none',
+    description:
+      'Search the page for elements by CSS selector and/or visible text, e.g. to locate the nav bar, a footer or all buttons labelled "Sign in". Returns short descriptions with a usable selector for each match. With neither selector nor text, returns the page landmarks (header, nav, main, footer, …). Use this instead of guessing selectors.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        selector: { type: 'string', description: 'CSS selector to search for.' },
+        text: { type: 'string', description: 'Visible text the element contains (case-insensitive).' },
+        limit: { type: 'integer', description: 'Max results (default 15).' },
+      },
+      additionalProperties: false,
+    },
+  },
+
   inspect_console: {
     label: 'Read console',
     readOnly: true,
@@ -119,12 +136,25 @@ export const ACTIONS = {
     readOnly: false,
     risk: 'low',
     description:
-      'Propose a CSS stylesheet to add to the page. PREFERRED way to change appearance. Fully undoable and can be saved by the user as a persistent per-site patch. Use specific selectors (e.g. the selected element\'s selector from the context) so the change does not leak to unrelated elements.',
+      'Propose a CSS stylesheet to add to the page. PREFERRED way to change appearance. Fully undoable and can be saved by the user as a persistent per-site patch. Use specific selectors (e.g. the selected element\'s selector from the context) so the change does not leak to unrelated elements. ' +
+      'Add `toggle` when the user wants to switch the change on and off from the page itself (theme switch, "show/hide sidebar", reading mode): once the user saves the patch, the extension adds a real button to the page that turns this CSS on/off and remembers the choice. No JavaScript is needed for that.',
     inputSchema: {
       type: 'object',
       properties: {
         description: { type: 'string', description: 'One short sentence: what this change does.' },
-        css: { type: 'string', description: 'Plain CSS rules (no <style> tags).' },
+        css: { type: 'string', description: 'Plain CSS rules (no <style> tags). Applied only while the toggle is on.' },
+        toggle: {
+          type: 'object',
+          description: 'Optional on/off button added to the page for this CSS.',
+          properties: {
+            label: { type: 'string', description: 'Button text while the CSS is OFF, e.g. "🌙" or "Dark mode". Keep it short.' },
+            activeLabel: { type: 'string', description: 'Button text while the CSS is ON, e.g. "☀️". Defaults to label.' },
+            placeSelector: { type: 'string', description: 'Element to put the button in/next to (find it with find_elements). Omit for a floating corner button.' },
+            position: { type: 'string', enum: ['append', 'prepend', 'before', 'after'], description: 'Where relative to placeSelector (default append = last child).' },
+          },
+          required: ['label'],
+          additionalProperties: false,
+        },
       },
       required: ['description', 'css'],
       additionalProperties: false,
@@ -255,6 +285,13 @@ export function validateAction(name, input, settings) {
   }
   if (name === 'inject_css' && /<\/?style/i.test(i.css)) {
     errors.push('css must be plain CSS without <style> tags');
+  }
+  if (name === 'inject_css' && i.toggle) {
+    for (const key of ['label', 'activeLabel']) {
+      if (typeof i.toggle[key] === 'string' && (i.toggle[key].length > 40 || !i.toggle[key].trim())) {
+        errors.push(`toggle.${key} must be 1–40 characters`);
+      }
+    }
   }
   return errors;
 }

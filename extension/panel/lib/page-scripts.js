@@ -261,6 +261,48 @@ export function inspectElement(h, selected, input) {
   return out;
 }
 
+/**
+ * find_elements: search by selector and/or visible text. Without either,
+ * list the page landmarks so the model can find the header/nav/footer.
+ */
+export function findElements(h, selected, input) {
+  const limit = Math.min(Math.max(input.limit || 15, 1), 50);
+  const selector = input.selector
+    || (input.text ? '*' : 'header, nav, main, footer, aside, [role="banner"], [role="navigation"], [role="main"], [role="contentinfo"]');
+  let candidates;
+  try {
+    candidates = [...document.body.querySelectorAll(selector)];
+  } catch {
+    throw new Error(`Invalid selector: ${selector}`);
+  }
+
+  if (input.text) {
+    const needle = input.text.toLowerCase();
+    // Match where the text actually lives: the element's own text nodes, or its value/label.
+    const own = (el) => [...el.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join(' ')
+      + ` ${el.getAttribute('aria-label') || ''} ${el.getAttribute('title') || ''} ${el.value || ''} ${el.getAttribute('placeholder') || ''}`;
+    candidates = candidates.filter((el) => own(el).toLowerCase().includes(needle));
+  }
+  const skip = new Set(['script', 'style', 'noscript', 'template', 'meta', 'link']);
+  candidates = candidates.filter((el) => !skip.has(el.localName));
+
+  return {
+    total: candidates.length,
+    matches: candidates.slice(0, limit).map((el) => {
+      const box = h.rect(el);
+      const text = (el.innerText || el.value || '').trim().replace(/\s+/g, ' ');
+      return {
+        selector: h.cssPath(el),
+        element: h.label(el),
+        box,
+        visible: box.width > 0 && box.height > 0 && getComputedStyle(el).visibility !== 'hidden',
+        children: el.children.length,
+        text: text.length > 80 ? `${text.slice(0, 80)}…` : text,
+      };
+    }),
+  };
+}
+
 /** inspect_console: read the buffer filled by content/console-capture.js. */
 export function readConsole(h, selected, input) {
   const buffer = window[Symbol.for('integratedai.console')];

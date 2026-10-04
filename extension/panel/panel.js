@@ -305,7 +305,7 @@ export class App {
         conversationId: this.session.id,
         text,
         context,
-        settings: { executeJs: this.settings.executeJs },
+        settings: { executeJs: this.settings.executeJs, webTools: this.settings.webTools },
       });
     } catch (err) {
       $('prompt').value = text;
@@ -410,7 +410,9 @@ export class App {
    */
   async saveAsPatch(actionId, { name, scope }) {
     const { input } = this.prepare(actionId);
-    await bg('patches.add', { patch: { name, css: input.css, scope, enabled: true, sourceUrl: this.pageUrl } });
+    await bg('patches.add', {
+      patch: { name, css: input.css, scope, enabled: true, sourceUrl: this.pageUrl, ...(input.toggle ? { toggle: input.toggle } : {}) },
+    });
     // The CSS is already in the page; from now on the patch owns it (toggle/delete in Patches).
     await this.changes.forget(actionId);
     this.reportStatus(actionId, 'saved', `Saved as patch "${name}"`);

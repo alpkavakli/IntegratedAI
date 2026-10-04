@@ -88,7 +88,8 @@ export class ChatView extends HTMLElement {
    */
   renderToolCall(call) {
     if (isReadOnly(call.name) || !ACTIONS[call.name]) {
-      const details = call.input?.include?.join(', ') || call.input?.urlContains || call.input?.readContentOf || call.input?.selector || '';
+      const i = call.input ?? {};
+      const details = i.include?.join(', ') || i.urlContains || i.readContentOf || i.selector || (i.text ? `"${i.text}"` : '') || i.query || '';
       return h('div', { class: 'inspection' }, `${ACTIONS[call.name]?.label ?? call.name}${details ? ` (${details})` : ''}`);
     }
     const card = /** @type {ActionCard} */ (document.createElement('ai-action-card'));

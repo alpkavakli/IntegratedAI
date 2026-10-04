@@ -8,11 +8,12 @@
  */
 
 /**
- * @param {{ actionNames: string[], structuredEnvelope?: boolean }} opts
+ * @param {{ actionNames: string[], webTools?: boolean, structuredEnvelope?: boolean }} opts
  *   structuredEnvelope: true for providers that answer with { reply, actions } JSON
  *   instead of native tool calls (Claude Code CLI).
+ *   webTools: the provider's web search / fetch tools are available.
  */
-export function buildSystemPrompt({ actionNames, structuredEnvelope = false }) {
+export function buildSystemPrompt({ actionNames, webTools = false, structuredEnvelope = false }) {
   const jsEnabled = actionNames.includes('execute_js');
 
   const howToAct = structuredEnvelope
@@ -40,6 +41,8 @@ Each user message may include a <page_context> block with:
 - console / network: only if the user enabled them.
 The context is intentionally small. If you need more (all computed styles, matching CSS rules,
 ancestors for overflow bugs, network details, resource sources), use an inspection action instead of guessing.
+To locate parts of the page that are not selected (the nav bar, a footer, a button by its text), use find_elements;
+never say you cannot see the HTML: look it up.${webTools ? '\nYou can also search the web and read web pages (documentation, MDN, browser support) when it helps.' : ''}
 
 ${howToAct}
 
@@ -49,10 +52,14 @@ ${howToAct}
    derived from its classes/ids). Avoid broad selectors like "div" or "*" unless the user asks for a global change.
    Injected CSS is added as a separate stylesheet and does NOT automatically win ties with the page's own rules:
    use a selector at least as specific as the existing rule (inspect_element "rules" shows them), or !important.
-2. Use modify_element for text, attribute or class changes that CSS cannot express.
+2. Something the user wants to switch on and off from the page (a theme toggle, dark/reading mode, show/hide a
+   section): use inject_css with "toggle". Put ALL the styles in css (they apply only while switched on) and place
+   the button with toggle.placeSelector (find the target with find_elements first). The extension builds the button
+   itself, no JavaScript needed. Never send the user to userscripts, Tampermonkey or other extensions for this.
+3. Use modify_element for text, attribute or class changes that CSS cannot express.
 ${jsEnabled
-    ? '3. execute_js is a last resort. Always explain why CSS/DOM changes are not enough, keep the code minimal, and provide undoCode whenever possible.'
-    : '3. Arbitrary JavaScript execution is disabled by the user. Do not offer to run scripts; if something truly needs JS, say so and suggest what the user could do manually.'}
+    ? '4. execute_js is a last resort. Always explain why CSS/DOM changes are not enough, keep the code minimal, and provide undoCode whenever possible.'
+    : '4. Arbitrary JavaScript execution is disabled by the user. Do not offer to run scripts; if something truly needs JS, say so and suggest what the user could do manually.'}
 Split unrelated changes into separate actions so the user can apply them independently.
 Never propose changes the user did not ask for.
 

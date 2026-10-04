@@ -107,3 +107,18 @@ test('availability requires an API key', async () => {
     if (saved !== undefined) process.env.ANTHROPIC_API_KEY = saved;
   }
 });
+
+test('web tools are added only when enabled', async () => {
+  const final = { stop_reason: 'end_turn', usage: {}, content: [{ type: 'text', text: 'ok' }] };
+  const config = testConfig();
+  config.providers.anthropic.apiKey = 'sk-test';
+  for (const webTools of [false, true]) {
+    const client = fakeClient(final);
+    const provider = new AnthropicProvider(config, { client });
+    await collect(provider.turn({
+      messages: [], system: 's', actionNames: ['inject_css'], model: 'claude-opus-5-5', state: {}, webTools, signal: new AbortController().signal,
+    }));
+    const names = client.calls[0].tools.map((t) => t.name);
+    assert.deepEqual(names, webTools ? ['inject_css', 'web_search', 'web_fetch'] : ['inject_css']);
+  }
+});

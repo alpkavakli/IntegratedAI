@@ -5,7 +5,7 @@
  */
 
 import { callInPage } from './inspected.js';
-import { inspectElement, readConsole } from './page-scripts.js';
+import { findElements, inspectElement, readConsole } from './page-scripts.js';
 
 // Headers that must never be sent to the AI.
 const SENSITIVE_HEADERS = /^(cookie|set-cookie|authorization|proxy-authorization|x-api-key|api-key|x-auth-token|x-csrf-token|x-xsrf-token|x-amz-security-token)$/i;
@@ -22,6 +22,8 @@ export async function runInspection(name, input, ctx) {
   switch (name) {
     case 'inspect_element':
       return callInPage(inspectElement, { ...input, selector: input.selector || ctx.selectedSelector || undefined });
+    case 'find_elements':
+      return callInPage(findElements, input);
     case 'inspect_console':
       return callInPage(readConsole, input);
     case 'inspect_network':

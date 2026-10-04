@@ -172,7 +172,7 @@ export class Connection {
         orchestrator.chat(session, {
           text,
           context: msg.context,
-          settings: { executeJs: msg.settings?.executeJs === true },
+          settings: { executeJs: msg.settings?.executeJs === true, webTools: msg.settings?.webTools === true },
         });
         return;
       }

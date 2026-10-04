@@ -78,7 +78,15 @@ export class ActionCard extends HTMLElement {
       'Target: ', target ? h('code', null, target) : '(element selected in Elements panel)', ' ',
       target ? h('button', { class: 'link', type: 'button', onclick: () => this.app.selectInElements(target) }, 'select') : null);
 
-    if (name === 'inject_css') return h('pre', null, h('code', null, input.css));
+    if (name === 'inject_css') {
+      const t = input.toggle;
+      return h('div', null,
+        h('pre', null, h('code', null, input.css)),
+        t ? h('div', { class: 'note' },
+          `Toggle button "${t.label}"${t.activeLabel ? ` / "${t.activeLabel}"` : ''} `,
+          t.placeSelector ? ['in ', h('code', null, t.placeSelector), t.position && t.position !== 'append' ? ` (${t.position})` : ''] : '(floating in the corner)',
+          '. It appears on the page after you save this as a site patch, and remembers on/off.') : null);
+    }
 
     if (name === 'modify_element') {
       const lines = [
@@ -142,7 +150,8 @@ export class ActionCard extends HTMLElement {
           ? h('button', { type: 'button', disabled, onclick: run(() => app.undoAction(actionId)) }, 'Undo')
           : h('span', { class: 'note' }, 'Cannot be undone automatically; reload the page to revert.'),
         name === 'inject_css'
-          ? h('button', { type: 'button', disabled, onclick: () => { this.showSaveForm = !this.showSaveForm; this.update(); } }, 'Save as site patch…')
+          ? h('button', { type: 'button', disabled, onclick: () => { this.showSaveForm = !this.showSaveForm; this.update(); } },
+            this.input.toggle ? 'Save as site patch + toggle…' : 'Save as site patch…')
           : null,
       ];
     }

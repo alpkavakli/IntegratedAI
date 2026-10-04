@@ -23,6 +23,8 @@ import { scopeMatches } from '../shared/url-scope.js';
  * @property {boolean} enabled
  * @property {number} createdAt
  * @property {string} [sourceUrl]   page where it was created
+ * @property {{ label: string, activeLabel?: string, placeSelector?: string, position?: string }} [toggle]
+ *   optional on/off button shown on matching pages (content/patch-toggles.js)
  */
 
 // ─────────────────────────────────────────────────────────── message router
@@ -49,8 +51,39 @@ const handlers = {
   'options.open': async () => chrome.runtime.openOptionsPage(),
 };
 
+/**
+ * Commands a content script (running inside web pages) may send. They only act
+ * on the sender's own tab, and only on patches that have a toggle button.
+ * Everything else is reserved for extension pages (DevTools panel, options).
+ * @type {Record<string, (msg: any, tab: chrome.tabs.Tab) => Promise<any>>}
+ */
+const contentHandlers = {
+  'toggles.forTab': async (_msg, tab) =>
+    (await getPatches())
+      .filter((p) => p.toggle && tab.url && scopeMatches(p.scope, tab.url))
+      .map(({ id, name, enabled, toggle }) => ({ id, name, enabled, toggle })),
+  'patches.toggle': async ({ id }, tab) => {
+    const patch = (await getPatches()).find((p) => p.id === id);
+    if (!patch?.toggle || !tab.url || !scopeMatches(patch.scope, tab.url)) throw new Error('Not allowed');
+    return updatePatch(id, { enabled: !patch.enabled });
+  },
+};
+
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (sender.id !== chrome.runtime.id) return false; // only our own extension pages
+  if (sender.id !== chrome.runtime.id) return false;
+  const fromExtensionPage = sender.url?.startsWith(`chrome-extension://${chrome.runtime.id}/`);
+  if (!fromExtensionPage) {
+    const handler = sender.tab ? contentHandlers[msg?.cmd] : undefined;
+    if (!handler) {
+      sendResponse({ ok: false, error: 'Not allowed' });
+      return false;
+    }
+    handler(msg, /** @type {chrome.tabs.Tab} */ (sender.tab)).then(
+      (value) => sendResponse({ ok: true, value }),
+      (err) => sendResponse({ ok: false, error: String(err?.message ?? err) }),
+    );
+    return true;
+  }
   const handler = handlers[msg?.cmd];
   if (!handler) {
     sendResponse({ ok: false, error: `Unknown command ${msg?.cmd}` });

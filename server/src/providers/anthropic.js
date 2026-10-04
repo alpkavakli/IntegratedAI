@@ -63,7 +63,7 @@ export class AnthropicProvider extends Provider {
    * @param {import('./base.js').TurnRequest} req
    * @returns {AsyncGenerator<import('./base.js').ProviderEvent>}
    */
-  async *turn({ messages, system, actionNames, model, signal }) {
+  async *turn({ messages, system, actionNames, model, signal, webTools }) {
     const cfg = this.config.providers.anthropic;
     const client = await this.getClient();
 
@@ -72,7 +72,7 @@ export class AnthropicProvider extends Provider {
       model,
       max_tokens: cfg.maxTokens,
       system,
-      tools: toAnthropicTools(actionNames),
+      tools: [...toAnthropicTools(actionNames), ...(webTools ? webToolsFor(model) : [])],
       messages: toAnthropicMessages(messages),
       cache_control: { type: 'ephemeral' }, // automatic prompt caching of the prefix
     };
@@ -124,6 +124,20 @@ export class AnthropicProvider extends Provider {
     yield { type: 'raw', content: message.content };
     yield { type: 'done', stopReason: message.stop_reason };
   }
+}
+
+/**
+ * Anthropic-hosted web tools. They run on Anthropic's servers; results come back
+ * inside the assistant message (kept in `raw`). A long search may end the call
+ * with stop_reason "pause_turn"; the orchestrator then simply calls again.
+ * @param {string} model
+ */
+export function webToolsFor(model) {
+  if (model.startsWith('claude-haiku')) return [{ type: 'web_search_20250305', name: 'web_search', max_uses: 5 }];
+  return [
+    { type: 'web_search_20260209', name: 'web_search', max_uses: 5 },
+    { type: 'web_fetch_20260209', name: 'web_fetch', max_uses: 5 },
+  ];
 }
 
 /**

@@ -10,6 +10,8 @@ export const DEFAULT_SETTINGS = {
   token: '',
   /** Allow the model to propose arbitrary JavaScript (each run still needs approval). */
   executeJs: false,
+  /** Let the model search the web and read web pages (docs, MDN, …). Read-only. */
+  webTools: true,
   /** Ask before running read-only inspections requested by the model. */
   askBeforeInspections: false,
   /** Which context chips start enabled. */

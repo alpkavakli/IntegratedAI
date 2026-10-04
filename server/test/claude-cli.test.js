@@ -166,3 +166,20 @@ test('provider: streams preview deltas, then the validated reply', async () => {
   assert.equal(preview, 'Hello world');
   assert.deepEqual(events.filter((e) => e.type === 'text_delta').map((e) => e.text), ['Hello world']);
 });
+
+test('buildCliArgs: web tools only when enabled; nothing is ever prompted', () => {
+  const base = { sessionId: 'S', resume: false, model: 'default', schema: {}, systemPromptFile: 'f' };
+  const off = buildCliArgs(base);
+  assert.equal(off[off.indexOf('--tools') + 1], '');
+  assert.ok(!off.includes('--allowedTools'));
+  assert.equal(off[off.indexOf('--permission-mode') + 1], 'dontAsk');
+  const on = buildCliArgs({ ...base, webTools: true });
+  assert.equal(on[on.indexOf('--tools') + 1], 'WebSearch,WebFetch');
+  assert.equal(on[on.indexOf('--allowedTools') + 1], 'WebSearch,WebFetch');
+});
+
+test('StreamPreview: shows a status line while searching the web', () => {
+  const p = new StreamPreview();
+  const out = p.feed(streamLine({ type: 'content_block_start', content_block: { type: 'tool_use', name: 'WebSearch' } }));
+  assert.match(out, /Searching the web/);
+});

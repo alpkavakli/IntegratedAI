@@ -19,8 +19,9 @@ function scriptedProvider(steps) {
     static async checkAvailability() { return { available: true }; }
     async *turn({ messages }) {
       seen.push(structuredClone(messages));
-      for (const ev of steps.shift() ?? [{ type: 'text_delta', text: '(no more steps)' }]) yield ev;
-      yield { type: 'done', stopReason: 'end_turn' };
+      const step = steps.shift() ?? [{ type: 'text_delta', text: '(no more steps)' }];
+      for (const ev of step) yield ev;
+      if (!step.some((ev) => ev.type === 'done')) yield { type: 'done', stopReason: 'end_turn' };
     }
   }
   return { Scripted, seen };
@@ -147,4 +148,15 @@ test('conversations are persisted and reloaded', async () => {
   const loaded = await store.get(session.id);
   assert.equal(loaded.messages.length, 2);
   assert.equal(loaded.busy, false);
+});
+
+test('pause_turn (long server-side web search) continues automatically', async () => {
+  const { orchestrator, seen } = setup([
+    [{ type: 'text_delta', text: 'Searching…' }, { type: 'done', stopReason: 'pause_turn' }],
+    [{ type: 'text_delta', text: 'Found it.' }],
+  ]);
+  const session = await orchestrator.openSession({});
+  await orchestrator.chat(session, { text: 'look it up', settings: { webTools: true } });
+  assert.equal(seen.length, 2, 'provider was called again');
+  assert.equal(session.messages.filter((m) => m.role === 'assistant').length, 2);
 });
