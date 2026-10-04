@@ -22,7 +22,7 @@ import { ACTION_STATUS } from '../../../extension/shared/protocol.js';
 import { enabledActionNames, isReadOnly, isServerSide, validateAction } from '../../../extension/shared/actions.js';
 import { siteKey } from '../../../extension/shared/page-groups.js';
 import { createHash } from 'node:crypto';
-import { snapshot } from '../sessions/store.js';
+import { forPanel, snapshot } from '../sessions/store.js';
 import { buildSystemPrompt } from './system-prompt.js';
 import { formatResult } from './page-tools.js';
 
@@ -466,8 +466,7 @@ export class Orchestrator {
   append(session, message) {
     session.messages.push(message);
     this.store.save(session);
-    const { raw, ...visible } = message;
-    this.panel.send(session.id, { type: 'chat.message', conversationId: session.id, message: visible });
+    this.panel.send(session.id, { type: 'chat.message', conversationId: session.id, message: forPanel(message) });
   }
 
   /** @param {Session} session */

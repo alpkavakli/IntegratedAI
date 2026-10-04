@@ -196,3 +196,12 @@ test('orchestrator: screenshot results keep their image for providers that read 
   assert.deepEqual(result.images, [{ mediaType: 'image/png', data: PNG_1PX }]);
   assert.doesNotMatch(result.content, /iVBOR/);
 });
+
+test('panel snapshots and live messages leave out screenshot data', async () => {
+  const { forPanel, snapshot } = await import('../src/sessions/store.js');
+  const msg = { role: 'user', ts: 0, content: [{ type: 'tool_result', toolCallId: 'c1', content: '{"image":"attached"}', images: [{ mediaType: 'image/png', data: PNG_1PX }] }] };
+  assert.equal(forPanel(msg).content[0].images, undefined);
+  assert.equal(msg.content[0].images.length, 1, 'the stored message keeps its image');
+  const snap = snapshot({ id: 's', messages: [msg], actions: {}, usage: {} });
+  assert.doesNotMatch(JSON.stringify(snap), /iVBOR/);
+});

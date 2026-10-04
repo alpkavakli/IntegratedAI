@@ -41,6 +41,11 @@ export async function runInspection(name, input, ctx) {
 // Longest side of a screenshot sent to the AI, and padding around the element (CSS px).
 const SCREENSHOT_MAX_SIDE = 1280;
 const SCREENSHOT_PADDING = 8;
+// Chrome allows 2 captures per second, and two screenshots at once would fight over
+// the scroll position, so screenshots run one after another.
+const CAPTURE_INTERVAL_MS = 550;
+let captureQueue = Promise.resolve();
+let lastCaptureAt = 0;
 
 /**
  * Capture the visible tab and crop it to the element. The image is returned as
@@ -49,12 +54,24 @@ const SCREENSHOT_PADDING = 8;
  * @param {{ selector?: string, fullViewport?: boolean }} input
  * @param {{ selectedSelector?: string, tabId: number }} ctx
  */
-export async function screenshot(input, ctx) {
+export function screenshot(input, ctx) {
+  const run = captureQueue.then(() => takeScreenshot(input, ctx));
+  captureQueue = run.catch(() => {});
+  return run;
+}
+
+/**
+ * @param {{ selector?: string, fullViewport?: boolean }} input
+ * @param {{ selectedSelector?: string, tabId: number }} ctx
+ */
+async function takeScreenshot(input, ctx) {
   const selector = input.fullViewport ? undefined : input.selector || ctx.selectedSelector || undefined;
   const target = await callInPage(prepareScreenshot, { ...input, selector });
   let dataUrl;
   try {
-    if (target.scrolled) await new Promise((r) => setTimeout(r, 150)); // let the page repaint
+    const wait = Math.max(target.scrolled ? 150 : 0, lastCaptureAt + CAPTURE_INTERVAL_MS - Date.now()); // repaint, rate limit
+    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+    lastCaptureAt = Date.now();
     dataUrl = await bg('tab.capture', { tabId: ctx.tabId });
   } finally {
     if (target.scrolled) await callInPage(restoreScroll, target.scroll).catch(() => {});
@@ -71,7 +88,8 @@ export async function screenshot(input, ctx) {
     const x1 = Math.min(target.viewport.width, r.x + r.width + SCREENSHOT_PADDING);
     const y1 = Math.min(target.viewport.height, r.y + r.height + SCREENSHOT_PADDING);
     if (x1 <= x0 || y1 <= y0) throw new Error('The element is not on screen, so it cannot be captured');
-    cutOff = r.x < 0 || r.y < 0 || r.x + r.width > target.viewport.width || r.y + r.height > target.viewport.height;
+    // 1px tolerance: boxes often end at fractional pixels just past the edge.
+    cutOff = r.x < -1 || r.y < -1 || r.x + r.width > target.viewport.width + 1 || r.y + r.height > target.viewport.height + 1;
     crop = {
       x: Math.round(x0 * scale), y: Math.round(y0 * scale),
       w: Math.min(bitmap.width, Math.round((x1 - x0) * scale)), h: Math.min(bitmap.height, Math.round((y1 - y0) * scale)),

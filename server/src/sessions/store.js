@@ -213,6 +213,23 @@ function indexEntry(s) {
 }
 
 /**
+ * A message as the panel sees it: no provider-internal raw content, and no image
+ * data (screenshots are large and the panel shows them live when they are taken).
+ * @param {import('../../../extension/shared/protocol.js').NeutralMessage} message
+ */
+export function forPanel({ raw, ...message }) {
+  if (!message.content.some((b) => b.type === 'tool_result' && b.images)) return message;
+  return {
+    ...message,
+    content: message.content.map((b) => {
+      if (b.type !== 'tool_result' || !b.images) return b;
+      const { images, ...rest } = b;
+      return rest;
+    }),
+  };
+}
+
+/**
  * What the panel is allowed to see: everything except provider internals
  * (raw provider content, CLI session ids).
  * @param {Session} session
@@ -225,7 +242,7 @@ export function snapshot(session) {
     provider: session.provider,
     model: session.model,
     busy: !!session.busy,
-    messages: session.messages.map(({ raw, ...m }) => m),
+    messages: session.messages.map(forPanel),
     actions: Object.fromEntries(
       Object.entries(session.actions).map(([id, { reportedStatus, ...a }]) => [id, a]),
     ),
