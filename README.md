@@ -107,17 +107,22 @@ Defined once in [extension/shared/actions.js](extension/shared/actions.js) and v
 
 Read-only inspections run automatically unless you enable *"Ask before the AI reads page details"* in Options.
 
-**Web search.** The AI can also search the web and read web pages (documentation, MDN, browser support). It is on by default; turn it off in Options. With the Claude Code CLI provider these are Claude Code's / tools, and nothing else is enabled. With the Anthropic API provider, the server-side / tools are used.
+**Web search.** The AI can search the web and read web pages (documentation, MDN, browser support). It is on by default; turn it off in Options.
+- **Claude Code CLI provider:** uses Claude Code's `WebSearch`/`WebFetch` tools, and nothing else is enabled.
+- **Anthropic API provider:** uses the server-side `web_search`/`web_fetch` tools.
 
 ### Toggle buttons (theme switches, reading mode, …)
 
-Ask for something you want to switch on and off from the page, for example *"add a toggle in the nav bar to switch between light and dark theme"* or *"a reading mode button in the header"*:
+Ask for something you want to switch on and off from the page itself, for example:
+- *"add a toggle in the nav bar to switch between light and dark theme"*
+- *"a reading mode button in the header"*
 
-1. The AI uses  to locate the nav bar, writes the CSS, and proposes  with a  such as .
+What happens:
+1. The AI uses `find_elements` to locate the nav bar and writes the CSS. It proposes `inject_css` with a `toggle`, such as `{ label: "🌙 Dark", activeLabel: "☀️ Light", placeSelector: "nav.g_nav" }`.
 2. Apply it, then click **Save as site patch + toggle…**.
 3. A real button appears in the nav bar. Clicking it switches the patch on and off, and the choice is remembered across reloads and visits.
 
-The button is created by the extension's own content script (, in an isolated world), not by model-written JavaScript, so this works with  disabled. If the target element is not found (e.g. the site changed), the button floats in the bottom-right corner instead.
+The button is created by the extension's own content script (`content/patch-toggles.js`, in an isolated world), not by JavaScript the model wrote, so this works with `execute_js` disabled. If the target element isn't found (e.g. the site changed), the button floats in the bottom-right corner instead.
 
 ## Security model
 
@@ -251,7 +256,7 @@ npm test
 39 unit tests cover:
 - action validation and safety rules
 - auth (Origin, Host, token) and patch scopes
-- CLI argument building and output parsing, including session resume, cost differences, recovery from a lost session, and decoding the streamed reply, and enabling only the web tools
+- CLI argument building and output parsing, including session resume, cost differences, recovery from a lost session, decoding the streamed reply, and enabling only the web tools
 - Anthropic message and tool conversion
 - the orchestrator: inspection round-trips, proposals, decisions reported as tool results, disabled `execute_js`, usage, persistence
 
