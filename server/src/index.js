@@ -7,6 +7,7 @@
  * Listens on http://127.0.0.1:7823 (configurable):
  *   GET /health   → { ok: true }               (no data, no auth: lets the panel show "server running")
  *   WS  /ws       → the DevTools panel protocol (see extension/shared/protocol.js)
+ *   POST /mcp     → page inspections as MCP tools for Claude Code (see mcp.js)
  */
 
 import { createServer } from 'node:http';
@@ -15,6 +16,8 @@ import { checkUpgrade } from './auth.js';
 import { loadConfig } from './config.js';
 import { Connection, PanelHub } from './connection.js';
 import { Orchestrator } from './agent/orchestrator.js';
+import { PageTools } from './agent/page-tools.js';
+import { handleMcpRequest } from './mcp.js';
 import { ProviderRegistry } from './providers/registry.js';
 import { SessionStore } from './sessions/store.js';
 import { MemoryStore } from './memory/store.js';
@@ -24,12 +27,20 @@ const store = new SessionStore(config.dataDir);
 const memory = new MemoryStore(config.dataDir);
 const registry = new ProviderRegistry(config);
 const hub = new PanelHub();
-const orchestrator = new Orchestrator({ store, registry, config, panel: hub, memory });
+const pageTools = new PageTools(hub);
+const orchestrator = new Orchestrator({ store, registry, config, panel: hub, memory, pageTools });
 
 const server = createServer((req, res) => {
   if (req.method === 'GET' && req.url === '/health') {
     res.writeHead(200, { 'content-type': 'application/json' });
     res.end(JSON.stringify({ ok: true }));
+    return;
+  }
+  if (req.url === '/mcp') {
+    handleMcpRequest(req, res, { pageTools, port: config.port }).catch((err) => {
+      console.error(`[mcp] ${err?.message ?? err}`);
+      if (!res.headersSent) res.writeHead(500).end();
+    });
     return;
   }
   res.writeHead(404).end();

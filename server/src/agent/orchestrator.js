@@ -61,11 +61,13 @@ const STATUS_TEXT = {
 export class Orchestrator {
   /**
    * @param {{ store: SessionStore, registry: ProviderRegistry, config: import('../config.js').Config, panel: PanelLink,
-   *   memory?: import('../memory/store.js').MemoryStore }} deps
+   *   memory?: import('../memory/store.js').MemoryStore, pageTools?: import('./page-tools.js').PageTools }} deps
+   *   pageTools: offers inspections as real tools to providers that support it (Claude Code via MCP)
    */
-  constructor({ store, registry, config, panel, memory }) {
+  constructor({ store, registry, config, panel, memory, pageTools }) {
     this.store = store;
     this.memory = memory ?? null;
+    this.pageTools = pageTools ?? null;
     this.registry = registry;
     this.config = config;
     this.panel = panel;
@@ -161,14 +163,15 @@ export class Orchestrator {
 
       const actionNames = enabledActionNames(settings);
       const webTools = settings.webTools === true;
-      const system = buildSystemPrompt({ actionNames, webTools, structuredEnvelope: Boolean(P.structuredEnvelope) });
+      const pageTools = Boolean(this.pageTools && P.pageToolsViaMcp);
+      const system = buildSystemPrompt({ actionNames, webTools, pageTools, structuredEnvelope: Boolean(P.structuredEnvelope) });
 
       this.trackPage(session, context, text);
       this.append(session, this.buildUserMessage(session, text, context));
 
       for (let step = 0; step < this.config.maxStepsPerTurn; step++) {
         const { message, toolCalls, usage, stopReason: sr } = await this.callModel(session, provider, {
-          system, actionNames, webTools, signal: abort.signal,
+          system, actionNames, webTools, pageTools, signal: abort.signal,
         });
         addUsage(turnUsage, usage);
         stopReason = sr;
@@ -204,9 +207,9 @@ export class Orchestrator {
    * Run one provider call and assemble the assistant message.
    * @param {Session} session
    * @param {import('../providers/base.js').Provider} provider
-   * @param {{ system: string, actionNames: string[], webTools: boolean, signal: AbortSignal }} o
+   * @param {{ system: string, actionNames: string[], webTools: boolean, pageTools?: boolean, signal: AbortSignal }} o
    */
-  async callModel(session, provider, { system, actionNames, webTools, signal }) {
+  async callModel(session, provider, { system, actionNames, webTools, pageTools = false, signal }) {
     const providerId = /** @type {any} */ (provider.constructor).id;
     const state = (session.providerState[providerId] ??= {});
 
@@ -220,34 +223,41 @@ export class Orchestrator {
     const usage = { inputTokens: 0, outputTokens: 0, costUsd: null };
     let stopReason = 'end_turn';
 
+    // Inspections as real tools: a token valid only while this call runs.
+    const grant = pageTools && this.pageTools ? this.pageTools.grant(session.id, actionNames, signal) : null;
     const events = provider.turn({
       messages: session.messages, system, actionNames, webTools, model: session.model, state, signal,
+      ...(grant ? { pageTools: { url: mcpUrl(this.config), token: grant.token } } : {}),
     });
-    for await (const ev of events) {
-      if (signal.aborted) throw new Error('Cancelled');
-      switch (ev.type) {
-        case 'text_delta':
-          text += ev.text;
-          if (!previewed) this.panel.send(session.id, { type: 'chat.delta', conversationId: session.id, text: ev.text });
-          break;
-        case 'preview_delta':
-          // Live display only; the final text arrives as text_delta (not re-sent, it's already on screen).
-          previewed = true;
-          this.panel.send(session.id, { type: 'chat.delta', conversationId: session.id, text: ev.text });
-          break;
-        case 'tool_call':
-          toolCalls.push({ id: ev.id, name: ev.name, input: ev.input });
-          break;
-        case 'usage':
-          addUsage(usage, ev);
-          break;
-        case 'raw':
-          raw = ev.content;
-          break;
-        case 'done':
-          stopReason = ev.stopReason;
-          break;
+    try {
+      for await (const ev of events) {
+        if (signal.aborted) throw new Error('Cancelled');
+        switch (ev.type) {
+          case 'text_delta':
+            text += ev.text;
+            if (!previewed) this.panel.send(session.id, { type: 'chat.delta', conversationId: session.id, text: ev.text });
+            break;
+          case 'preview_delta':
+            // Live display only; the final text arrives as text_delta (not re-sent, it's already on screen).
+            previewed = true;
+            this.panel.send(session.id, { type: 'chat.delta', conversationId: session.id, text: ev.text });
+            break;
+          case 'tool_call':
+            toolCalls.push({ id: ev.id, name: ev.name, input: ev.input });
+            break;
+          case 'usage':
+            addUsage(usage, ev);
+            break;
+          case 'raw':
+            raw = ev.content;
+            break;
+          case 'done':
+            stopReason = ev.stopReason;
+            break;
+        }
       }
+    } finally {
+      grant?.revoke();
     }
 
     /** @type {NeutralMessage} */
@@ -480,6 +490,15 @@ function addUsage(total, add) {
   total.inputTokens += add.inputTokens;
   total.outputTokens += add.outputTokens;
   if (add.costUsd !== null && add.costUsd !== undefined) total.costUsd = (total.costUsd ?? 0) + add.costUsd;
+}
+
+/**
+ * Where Claude Code reaches the MCP endpoint of this server.
+ * @param {{ host: string, port: number }} config
+ */
+function mcpUrl({ host, port }) {
+  const h = host === '0.0.0.0' || host === '::' ? '127.0.0.1' : host.includes(':') ? `[${host}]` : host;
+  return `http://${h}:${port}/mcp`;
 }
 
 /** @param {string} s */

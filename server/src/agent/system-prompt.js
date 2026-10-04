@@ -8,15 +8,29 @@
  */
 
 /**
- * @param {{ actionNames: string[], webTools?: boolean, structuredEnvelope?: boolean }} opts
+ * @param {{ actionNames: string[], webTools?: boolean, structuredEnvelope?: boolean, pageTools?: boolean }} opts
  *   structuredEnvelope: true for providers that answer with { reply, actions } JSON
  *   instead of native tool calls (Claude Code CLI).
+ *   pageTools: with structuredEnvelope, the inspections are also real (MCP) tools.
  *   webTools: the provider's web search / fetch tools are available.
  */
-export function buildSystemPrompt({ actionNames, webTools = false, structuredEnvelope = false }) {
+export function buildSystemPrompt({ actionNames, webTools = false, structuredEnvelope = false, pageTools = false }) {
   const jsEnabled = actionNames.includes('execute_js');
 
-  const howToAct = structuredEnvelope
+  const howToAct = structuredEnvelope && pageTools
+    ? `## How to respond
+Inspections are real tools: call find_elements, inspect_element, inspect_console, inspect_network and
+inspect_resources directly (their full names start with mcp__page__). They run in the user's page right away and
+return data, so look things up before answering instead of guessing.
+Then answer with the JSON object required by the output schema:
+- "reply": your message to the user (Markdown).
+- "actions": changes to propose and memory updates ([] if none).
+IMPORTANT: changes and memory updates (inject_css, modify_element, remember, forget, define_page_group, …) are NOT
+tools. The ONLY way to use them is to list them in the "actions" array of your JSON answer,
+e.g. "actions": [{ "type": "inject_css", "input": { "description": "…", "css": "…" } }].
+Put your whole message in "reply" and write nothing outside the JSON output (it would be shown twice).
+Proposed changes are NOT applied by you: the user previews them and clicks Apply or Reject.`
+    : structuredEnvelope
     ? `## How to respond
 Answer with the JSON object required by the output schema:
 - "reply": your message to the user (Markdown).

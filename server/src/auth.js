@@ -23,9 +23,7 @@ const LOCAL_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]']);
  */
 export function checkUpgrade(req, config) {
   const host = String(req.headers.host ?? '');
-  const hostname = host.replace(/:\d+$/, '');
-  const port = host.match(/:(\d+)$/)?.[1];
-  if (!LOCAL_HOSTS.has(hostname) || (port && Number(port) !== config.port)) {
+  if (!isLocalHost(host, config.port)) {
     return { ok: false, reason: `Rejected Host header "${host}"` };
   }
 
@@ -38,6 +36,17 @@ export function checkUpgrade(req, config) {
     return { ok: false, reason: `Extension ${match[1]} is not in allowedExtensionIds` };
   }
   return { ok: true };
+}
+
+/**
+ * Is this Host header our own local address? (Blocks DNS rebinding.)
+ * @param {string} host
+ * @param {number} expectedPort
+ */
+export function isLocalHost(host, expectedPort) {
+  const hostname = host.replace(/:\d+$/, '');
+  const port = host.match(/:(\d+)$/)?.[1];
+  return LOCAL_HOSTS.has(hostname) && (!port || Number(port) === expectedPort);
 }
 
 /**

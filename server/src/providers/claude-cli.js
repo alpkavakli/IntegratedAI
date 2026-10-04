@@ -7,7 +7,9 @@
  *     --output-format stream-json …            live events, one JSON object per line; the last is the result
  *     --json-schema '<envelope schema>'        forces { reply, actions[] } → result.structured_output
  *     --system-prompt-file <file>              replaces Claude Code's coding-agent prompt with ours
- *     --tools "" | "WebSearch,WebFetch"         no file/shell/MCP tools; web search only if enabled in Options
+ *     --tools "" | "WebSearch,WebFetch"         no file/shell tools; web search only if enabled in Options
+ *     --mcp-config '{ page: … }'               the page inspections as real tools (mcp__page__find_elements, …),
+ *                                              served by this server's /mcp endpoint (see agent/page-tools.js)
  *     --permission-mode dontAsk                anything not pre-approved is denied, never prompted
  *     --strict-mcp-config --setting-sources "" ignore your MCP servers, hooks and settings files
  *     --disable-slash-commands                 page text can't trigger skills/commands
@@ -19,15 +21,17 @@
  * Instead the CLI runs in an empty working folder (<dataDir>/claude-cli-workspace) so no
  * project CLAUDE.md, .mcp.json or project hooks are picked up.
  *
- * Inspections requested by the model come back as `actions`; the orchestrator runs
- * them and calls turn() again, which resumes the same Claude Code session.
+ * Inspections normally run inside the call, as MCP tool calls. Inspections listed in
+ * `actions` still work too: the orchestrator runs them and calls turn() again, which
+ * resumes the same Claude Code session. Changes and memory updates always come back
+ * as `actions`.
  */
 
 import { spawn } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { mkdirSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { envelopeSchema } from '../../../extension/shared/actions.js';
+import { ACTIONS, envelopeSchema } from '../../../extension/shared/actions.js';
 import { Provider } from './base.js';
 import { newCallId, renderAsText } from './common.js';
 
@@ -38,6 +42,8 @@ export class ClaudeCliProvider extends Provider {
   static capabilities = { streaming: false, nativeTools: false, reportsCost: true, vision: false };
   // The CLI answers in one JSON envelope rather than native tool calls.
   static structuredEnvelope = true;
+  // Inspections are offered as real tools through the server's MCP endpoint.
+  static pageToolsViaMcp = true;
 
   /** @param {import('../config.js').Config} config */
   static defaultModel(config) {
@@ -77,7 +83,7 @@ export class ClaudeCliProvider extends Provider {
    * @returns {AsyncGenerator<import('./base.js').ProviderEvent>}
    */
   async *turn(req) {
-    const { messages, system, actionNames, model, state, signal, webTools } = req;
+    const { messages, system, actionNames, model, state, signal, webTools, pageTools } = req;
     const cfg = this.config.providers['claude-cli'];
 
     // Resume the Claude Code session if we have one; then only the messages it
@@ -97,6 +103,7 @@ export class ClaudeCliProvider extends Provider {
       maxBudgetUsd: cfg.maxBudgetUsdPerCall,
       schema: envelopeSchema(actionNames),
       webTools,
+      pageTools,
       systemPromptFile: this.writeSystemPrompt(system),
     });
 
@@ -149,7 +156,7 @@ export class ClaudeCliProvider extends Provider {
       state.synced = messages.length;
       yield { type: 'usage', inputTokens: out.inputTokens, outputTokens: out.outputTokens, costUsd: this.callCost(state, out.totalCostUsd) };
       yield { type: 'preview_delta', text: '\n↻ Retrying with the page tools…\n' };
-      yield* this.turn({ ...req, correction: correctionFor(preview.misusedTools) });
+      yield* this.turn({ ...req, correction: correctionFor(preview.misusedTools, Boolean(pageTools)) });
       return;
     }
 
@@ -215,32 +222,51 @@ export class ClaudeCliProvider extends Provider {
 }
 
 const WEB_TOOLS = 'WebSearch,WebFetch';
+/** Name of our MCP server in --mcp-config; its tools are called mcp__page__<action>. */
+const MCP_SERVER = 'page';
+const MCP_PREFIX = `mcp__${MCP_SERVER}__`;
 /** Tools that really exist in our Claude Code calls. Anything else the model calls is a mistake. */
 const REAL_TOOLS = new Set(['StructuredOutput', 'WebSearch', 'WebFetch']);
+/** @param {string} name */
+const isRealTool = (name) => REAL_TOOLS.has(name) || name.startsWith(MCP_PREFIX);
 
-/** @param {string[]} names */
-function correctionFor(names) {
-  return `Your previous answer tried to call ${[...new Set(names)].join(', ')} as tools. Those are not callable tools, which is why they failed. The page tools DO work: list them in the "actions" array of your JSON answer, for example "actions": [{ "type": "find_elements", "input": { "text": "Library" } }], and their results will come back in the next message. Ignore your previous answer and answer the user's last message again, using actions.`;
+/**
+ * @param {string[]} names
+ * @param {boolean} pageTools inspections are available as mcp__page__* tools
+ */
+function correctionFor(names, pageTools) {
+  const how = pageTools
+    ? `Inspections are real tools named ${MCP_PREFIX}find_elements, ${MCP_PREFIX}inspect_element and so on: call those. Changes and memory updates (inject_css, modify_element, remember, …) are not tools: list them in the "actions" array of your JSON answer, for example "actions": [{ "type": "inject_css", "input": { … } }].`
+    : 'The page tools DO work: list them in the "actions" array of your JSON answer, for example "actions": [{ "type": "find_elements", "input": { "text": "Library" } }], and their results will come back in the next message.';
+  return `Your previous answer tried to call ${[...new Set(names)].join(', ')} as tools. Those are not callable tools, which is why they failed. ${how} Ignore your previous answer and answer the user's last message again.`;
 }
 
 /**
  * Build the argv for one `claude -p` call. Exported for tests.
  * @param {{ sessionId: string, resume: boolean, model: string, effort?: string | null,
- *   maxBudgetUsd?: number | null, schema: object, systemPromptFile: string, webTools?: boolean }} o
+ *   maxBudgetUsd?: number | null, schema: object, systemPromptFile: string, webTools?: boolean,
+ *   pageTools?: { url: string, token: string } }} o
  */
 export function buildCliArgs(o) {
-  // Only the read-only web tools may ever be enabled: no file, shell or MCP tools.
+  // Only read-only tools may ever be enabled: the web tools and our page inspections,
+  // no file or shell tools and none of your own MCP servers.
   // dontAsk denies anything not pre-approved instead of waiting for a prompt.
   const tools = o.webTools ? WEB_TOOLS : '';
+  const allowed = [tools, o.pageTools ? `mcp__${MCP_SERVER}` : ''].filter(Boolean).join(',');
+  const mcp = o.pageTools
+    ? ['--mcp-config', JSON.stringify({
+      mcpServers: { [MCP_SERVER]: { type: 'http', url: o.pageTools.url, headers: { Authorization: `Bearer ${o.pageTools.token}` } } },
+    })]
+    : ['--disallowedTools', 'mcp__*'];
   const args = [
     '-p',
     '--output-format', 'stream-json', '--verbose', '--include-partial-messages',
     '--json-schema', JSON.stringify(o.schema),
     '--system-prompt-file', o.systemPromptFile,
     '--tools', tools,
-    ...(tools ? ['--allowedTools', tools] : []),
+    ...(allowed ? ['--allowedTools', allowed] : []),
     '--permission-mode', 'dontAsk',
-    '--disallowedTools', 'mcp__*',
+    ...mcp,
     '--strict-mcp-config',
     '--setting-sources', '',
     '--disable-slash-commands',
@@ -426,10 +452,14 @@ export class StreamPreview {
     if (event?.type === 'content_block_start') {
       const block = event.content_block;
       this.inStructuredOutput = block?.type === 'tool_use' && block?.name === 'StructuredOutput';
-      if (block?.type === 'tool_use' && !REAL_TOOLS.has(block.name)) this.misusedTools.push(block.name);
+      if (block?.type === 'tool_use' && !isRealTool(block.name)) this.misusedTools.push(block.name);
       // The live preview is plain text, so no Markdown here.
       if (block?.type === 'tool_use' && block.name === 'WebSearch') return '\n🔎 Searching the web…\n';
       if (block?.type === 'tool_use' && block.name === 'WebFetch') return '\n🔎 Reading a web page…\n';
+      if (block?.type === 'tool_use' && block.name.startsWith(MCP_PREFIX)) {
+        const name = block.name.slice(MCP_PREFIX.length);
+        return `\n🔍 ${ACTIONS[name]?.label ?? name}…\n`;
+      }
       return '';
     }
     if (event?.type !== 'content_block_delta') return '';

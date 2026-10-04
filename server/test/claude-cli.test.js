@@ -225,3 +225,25 @@ test('provider: a model that calls actions as tools is resumed once with a corre
   assert.ok(Math.abs(costs[0] - 0.01) < 1e-9 && Math.abs(costs[1] - 0.02) < 1e-9, 'cost split per call');
   assert.equal(state.synced, messages.length + 1);
 });
+
+test('buildCliArgs: page tools come from our MCP server only, pre-approved', () => {
+  const base = { sessionId: 'S', resume: false, model: 'default', schema: {}, systemPromptFile: 'f' };
+  const off = buildCliArgs(base);
+  assert.ok(!off.includes('--mcp-config'));
+  assert.equal(off[off.indexOf('--disallowedTools') + 1], 'mcp__*');
+
+  const on = buildCliArgs({ ...base, webTools: true, pageTools: { url: 'http://127.0.0.1:7823/mcp', token: 'T' } });
+  const cfg = JSON.parse(on[on.indexOf('--mcp-config') + 1]);
+  assert.deepEqual(cfg.mcpServers.page, { type: 'http', url: 'http://127.0.0.1:7823/mcp', headers: { Authorization: 'Bearer T' } });
+  assert.ok(on.includes('--strict-mcp-config'), 'your own MCP servers stay off');
+  assert.equal(on[on.indexOf('--allowedTools') + 1], 'WebSearch,WebFetch,mcp__page');
+  assert.equal(on[on.indexOf('--tools') + 1], 'WebSearch,WebFetch', 'still no file or shell tools');
+  assert.ok(!on.includes('--disallowedTools'));
+});
+
+test('StreamPreview: page tool calls are real and show what is being inspected', () => {
+  const p = new StreamPreview();
+  const out = p.feed(streamLine({ type: 'content_block_start', content_block: { type: 'tool_use', name: 'mcp__page__find_elements' } }));
+  assert.match(out, /Find elements/);
+  assert.deepEqual(p.misusedTools, []);
+});

@@ -164,7 +164,8 @@ The button is created by the extension's own content script (`content/patch-togg
   - You can pin your extension ID with `allowedExtensionIds` in the config.
 - **Network data:** cookies, authorization and API-key headers, and token-like query parameters are redacted. Response bodies are never sent.
 - **Model output:** rendered with `textContent` only, never `innerHTML`. Page content is described to the model as untrusted data.
-- **Claude Code CLI isolation:** the CLI runs in an empty folder. Only `WebSearch`/`WebFetch` can be enabled (via the web search setting); no file, shell or MCP tools. It also uses `--permission-mode dontAsk`, `--setting-sources ""` and `--disable-slash-commands`. The model can answer and search the web; it cannot touch your files.
+- **Claude Code CLI isolation:** the CLI runs in an empty folder. It gets no file or shell tools. Only `WebSearch`/`WebFetch` can be enabled (via the web search setting), plus this server's own page inspections over MCP. Your own MCP servers are ignored (`--strict-mcp-config`). It also uses `--permission-mode dontAsk`, `--setting-sources ""` and `--disable-slash-commands`. The model can answer, read the page and search the web; it cannot touch your files.
+- **The MCP endpoint (`POST /mcp`):** only offers the read-only inspections, never changes or memory updates. It needs a random token that is created for one Claude Code call and deleted when that call ends, and that token only reaches that conversation's page. Requests with a non-local Host or any Origin header (which every browser request has) are rejected.
 - **Page content and toggle buttons:** web pages can only ask the service worker for their own toggle buttons and flip them. Every other command is restricted to extension pages.
 
 ## Configuration
@@ -228,9 +229,11 @@ extension/                      ← load this folder in chrome://extensions (no 
 server/
   src/index.js                  HTTP + WebSocket server
   src/auth.js                   Origin/Host checks, token comparison
+  src/mcp.js                    POST /mcp: page inspections as MCP tools for Claude Code
   src/connection.js             per-panel socket handling, routing
   src/agent/orchestrator.js     the turn loop and approval rules
   src/agent/system-prompt.js
+  src/agent/page-tools.js       per-call tokens and the inspections offered over MCP
   src/sessions/store.js         conversations as JSON files
   src/providers/
     base.js                     the Provider interface
@@ -246,9 +249,9 @@ server/
 
 1. The panel sends `chat.send` with your text and the small context.
 2. The orchestrator calls the provider:
-   - **Claude CLI** gets `--json-schema` for the `{ reply, actions[] }` envelope and `--session-id`/`--resume`, so one Claude Code session is kept per conversation.
+   - **Claude CLI** gets `--json-schema` for the `{ reply, actions[] }` envelope and `--session-id`/`--resume`, so one Claude Code session is kept per conversation. It also gets `--mcp-config` pointing at this server's `/mcp` endpoint, so the inspections are real tools (`mcp__page__find_elements`, …) it can call while it works.
    - **Anthropic API** gets native `strict` tools.
-3. Inspections are sent to the panel (`tool.request`), run in the page, and their results go back to the model. This loops up to `maxStepsPerTurn` times.
+3. Inspections are sent to the panel (`tool.request`), run in the page, and their results go back to the model. With the Anthropic API, and with Claude CLI inspections listed in `actions`, this loops up to `maxStepsPerTurn` times. Claude CLI's MCP tool calls are answered inside the same call.
 4. Changes are sent as `action.proposed` and nothing more happens. When you apply, reject, undo or save, the panel reports it (`action.status`). The model receives your decision as the tool result at the start of your next message, so it knows what actually happened.
 
 ## Adding a provider
@@ -265,7 +268,6 @@ Then add the class to `PROVIDERS` in [registry.js](server/src/providers/registry
 ## Planned extensions (and where they plug in)
 
 - **Apply to source:** add a provider-side step (or a separate server endpoint) that hands an *applied* `inject_css` and its page URL to Claude Code running in your project folder, with edit tools enabled. The action card would get an "Apply to source" button next to "Save as site patch". The patch data model already records `sourceUrl`.
-- **Claude Code inspecting the page via MCP:** expose the four `inspect_*` actions as an MCP server from the agent server and pass `--mcp-config` in [claude-cli.js](server/src/providers/claude-cli.js). The orchestrator's `PanelLink.requestTool` already does the round-trip.
 - **Element screenshots / vision:** capture `$0`'s box in the service worker (`chrome.tabs.captureVisibleTab` + crop), add an `image` content block to the neutral message format, and map it in providers that declare `capabilities.vision`.
 - **Persistent JS patches:** deliberately left out; they need a stronger review flow.
 
@@ -275,12 +277,13 @@ Then add the class to `PROVIDERS` in [registry.js](server/src/providers/registry
 npm test
 ```
 
-52 unit tests cover:
+58 unit tests cover:
 - action validation and safety rules
 - auth (Origin, Host, token) and patch scopes
-- CLI argument building and output parsing, including session resume, cost differences, recovery from a lost session, decoding the streamed reply, enabling only the web tools, and the one-time correction when a model calls page actions as tools
+- CLI argument building and output parsing, including session resume, cost differences, recovery from a lost session, decoding the streamed reply, enabling only the web tools and our MCP page tools, and the one-time correction when a model calls page actions as tools
 - Anthropic message and tool conversion
 - the orchestrator: inspection round-trips, proposals, decisions reported as tool results, disabled `execute_js`, usage, persistence
+- the MCP endpoint: only inspections are listed, calls reach the right conversation, inputs are validated, and tokens, Origin and Host are checked
 - site memory and page types: URL categorisation, note scopes, renaming groups, memory sent only when it changes, history per site
 
 These were also checked manually against real Chrome and the real `claude` CLI during development:
@@ -288,13 +291,15 @@ These were also checked manually against real Chrome and the real `claude` CLI d
 - `insertCSS`/`removeCSS` under a strict CSP
 - automatic patch reapplication
 - the full panel UI flow: preview, apply, undo, save patch, toggle patch, Explain
+- Claude Code (Sonnet) calling the page inspections over MCP through the real server, on a new and a resumed session (with a scripted panel, not real Chrome)
 
 ## Debugging
 
 - The server console logs every Claude Code call: `[claude-cli] resume 98a8e185: 6.2s, exit 0, prompt 1395 chars`.
 - When a call fails, the full prompt, stdout and stderr are saved in `~/.integratedai/logs/`, and the error message in the panel shows the file path.
 - Panel errors: right-click inside the AI panel, choose **Inspect**, and check its console.
-- `[claude-cli] model called find_elements as tools; asking it to retry` means the model (often Sonnet) tried to call a page action as a Claude Code tool. The server resumes the session once with a correction, and the panel shows "↻ Retrying with the page tools…". If the answer still says it couldn't inspect the page, send the error log or the conversation file from `~/.integratedai/conversations/`.
+- `[mcp] Rejected …` / `Missing or expired token` lines mean something other than the current Claude Code call reached `/mcp`, or the call had already ended.
+- `[claude-cli] model called inject_css as tools; asking it to retry` means the model tried to call an action that isn't a tool (changes and memory updates must go in `actions`). The server resumes the session once with a correction, and the panel shows "↻ Retrying with the page tools…". If the answer still says it couldn't inspect the page, send the error log or the conversation file from `~/.integratedai/conversations/`.
 
 ## Known limitations
 
