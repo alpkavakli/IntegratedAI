@@ -247,6 +247,7 @@ export class App {
         if (session) session.busy = true;
         this.chat.setBusy(true);
         this.updateComposer();
+        this.chat.refreshCards(); // "Check it" waits for the answer
         break;
       case 'chat.delta':
         this.chat.appendDelta(msg.text);

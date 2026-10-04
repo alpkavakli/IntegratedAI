@@ -132,6 +132,7 @@ Defined once in [extension/shared/actions.js](extension/shared/actions.js) and v
 Read-only inspections run automatically unless you enable *"Ask before the AI reads page details"* in Options.
 
 **Screenshots.** The panel captures the inspected tab (`chrome.tabs.captureVisibleTab`) and crops it to the element. An off-screen element is scrolled into view first, and the page is scrolled back afterwards. The image is resized to at most 1280 px and sent as a JPEG, and a thumbnail appears in the chat ("📷 The AI looked at …"; click it to enlarge).
+- **Check it:** an applied or saved change has a **Check it** button. It asks the AI to screenshot the result and propose fixes for anything that still looks wrong, such as areas a dark theme missed or unreadable text.
 - The inspected tab must be the visible tab in its window. With DevTools docked it always is.
 - Only what's on screen can be captured: an element taller than the window is cut off.
 - **Claude Code CLI:** the image comes back from the `mcp__page__screenshot` tool.

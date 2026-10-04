@@ -139,13 +139,22 @@ export class ActionCard extends HTMLElement {
 
     if (status === 'invalid' || (invalid && !appliedHere)) return [];
 
-    if (status === 'saved') return [h('span', { class: 'note' }, 'Manage it in the Patches tab.')];
+    // Ask the AI to look at the result (screenshot) and fix what still looks wrong.
+    const check = name === 'execute_js' ? null : h('button', {
+      type: 'button',
+      disabled: disabled || app.session?.busy,
+      title: 'The AI takes a screenshot of the result and proposes fixes for anything that still looks wrong',
+      onclick: () => app.sendFromUi(checkRequest(this.input?.description || ACTIONS[name]?.label || name)),
+    }, 'Check it');
+
+    if (status === 'saved') return [check, h('span', { class: 'note' }, 'Manage it in the Patches tab.')];
 
     if (status === 'applied') {
       if (!appliedHere) {
         return [h('span', { class: 'note' }, 'No longer active on this page (it was reloaded or DevTools lost track of it).')];
       }
       return [
+        check,
         app.changes.canUndo(actionId)
           ? h('button', { type: 'button', disabled, onclick: run(() => app.undoAction(actionId)) }, 'Undo')
           : h('span', { class: 'note' }, 'Cannot be undone automatically; reload the page to revert.'),
@@ -224,3 +233,11 @@ export class ActionCard extends HTMLElement {
 }
 
 customElements.define('ai-action-card', ActionCard);
+
+/**
+ * The message sent by "Check it".
+ * @param {string} description what the applied change does
+ */
+export function checkRequest(description) {
+  return `I applied "${description}". Take a screenshot to see how it looks now, and propose fixes for anything that still looks wrong (for example areas the change missed, unreadable text or broken layout). If it all looks right, just say so.`;
+}
