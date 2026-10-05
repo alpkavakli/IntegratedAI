@@ -10,7 +10,8 @@
   "scripts": {
     "start": "node server/src/index.js",
     "test": "node --test \"server/test/*.test.js\"",
-    "check": "tsc --noEmit -p jsconfig.json"
+    "check": "tsc --noEmit -p jsconfig.json",
+    "package": "node scripts/package-extension.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",
