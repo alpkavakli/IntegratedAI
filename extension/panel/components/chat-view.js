@@ -4,7 +4,7 @@
  * format, streams the reply as it arrives, and hosts action cards.
  */
 
-import { ACTIONS, isReadOnly, isServerSide, runsLive, validateAction } from '../../shared/actions.js';
+import { ACTIONS, isPageAction, isReadOnly, isServerSide, runsLive, validateAction } from '../../shared/actions.js';
 import { h } from '../lib/dom.js';
 import { renderMarkdown } from '../lib/markdown.js';
 import { ActionCard } from './action-card.js';
@@ -113,7 +113,12 @@ export class ChatView extends HTMLElement {
       this.streamingEl = null;
       const el = h('div', { class: 'msg assistant' });
       for (const block of message.content) {
-        if (block.type === 'inspection') el.append(this.renderToolCall({ id: '', ...block }));
+        // Tools the model already ran during the call (Claude Code over MCP), page steps included.
+        if (block.type === 'inspection') {
+          el.append(isPageAction(block.name)
+            ? this.renderLiveLine({ id: '', ...block }, { status: block.ok === false ? 'failed' : 'applied' })
+            : this.renderToolCall({ id: '', ...block }));
+        }
         if (block.type === 'text') el.append(renderMarkdown(block.text));
         if (block.type === 'tool_call') el.append(this.renderToolCall(block));
       }

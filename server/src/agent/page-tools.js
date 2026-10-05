@@ -22,7 +22,7 @@ import { ACTIONS, isPageAction, isReadOnly, validateAction } from '../../../exte
 
 /**
  * @typedef {{ conversationId: string, names: string[], signal: AbortSignal,
- *   calls: { name: string, input: unknown }[] }} Grant  calls: inspections run so far, for the chat
+ *   calls: { name: string, input: unknown, ok?: boolean }[] }} Grant  calls: inspections and page steps run so far, for the chat
  * @typedef {{ name: string, description: string, inputSchema: object }} ToolInfo
  */
 
@@ -77,8 +77,10 @@ export class PageTools {
     if (!grant.names.includes(name)) return { text: `Unknown tool "${name}"`, isError: true };
     const errors = validateAction(name, input ?? {});
     if (errors.length) return { text: `Invalid input: ${errors.join('; ')}`, isError: true };
-    grant.calls.push({ name, input: input ?? {} });
+    const record = { name, input: input ?? {}, ok: /** @type {boolean | undefined} */ (undefined) };
+    grant.calls.push(record);
     const res = await this.panel.requestTool(grant.conversationId, name, input ?? {}, grant.signal);
+    record.ok = res.ok;
     if (!res.ok) return { text: `${isPageAction(name) ? 'Failed' : 'Inspection failed'}: ${res.error ?? 'unknown error'}`, isError: true };
     return { ...formatResult(res.result), isError: false };
   }

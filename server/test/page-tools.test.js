@@ -133,7 +133,7 @@ test('orchestrator: gives MCP-capable providers a token that works only during t
   // The chat keeps a record of what was inspected, before the reply.
   const reply = session.messages.at(-1);
   assert.deepEqual(reply.content.map((b) => b.type), ['inspection', 'text']);
-  assert.deepEqual(reply.content[0], { type: 'inspection', name: 'find_elements', input: { text: 'Library' } });
+  assert.deepEqual(reply.content[0], { type: 'inspection', name: 'find_elements', input: { text: 'Library' }, ok: true });
 });
 
 test('system prompt: without page tools, inspections go in actions', () => {
