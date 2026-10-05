@@ -1,3 +1,5 @@
+**I made this AI slop which you will be using for more AI slop**
+
 # IntegratedAI: an AI panel for Chrome DevTools
 
 An **"AI" tab inside Chrome DevTools** (not a browser sidebar) that can see the page you are
