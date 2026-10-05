@@ -1,5 +1,5 @@
 <!doctype html>
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8">
     <title>AI</title>
@@ -7,22 +7,23 @@
   </head>
   <body>
     <header class="toolbar">
+      <h1 class="visually-hidden">IntegratedAI</h1>
       <div class="toolbar-main">
         <span id="status-dot" class="dot" title="Disconnected"></span>
         <nav class="tabs" role="tablist">
-          <button type="button" data-tab="chat" class="active">Chat</button>
-          <button type="button" data-tab="patches">Patches <span id="patch-count" class="badge" hidden></span></button>
-          <button type="button" data-tab="console">Console <span id="error-count" class="badge error" hidden></span></button>
-          <button type="button" data-tab="memory">Memory <span id="memory-count" class="badge" hidden></span></button>
+          <button type="button" role="tab" id="tab-chat" aria-controls="view-chat" aria-selected="true" data-tab="chat" class="active">Chat</button>
+          <button type="button" role="tab" id="tab-patches" aria-controls="view-patches" aria-selected="false" tabindex="-1" data-tab="patches">Patches <span id="patch-count" class="badge" hidden></span></button>
+          <button type="button" role="tab" id="tab-console" aria-controls="view-console" aria-selected="false" tabindex="-1" data-tab="console">Console <span id="error-count" class="badge error" hidden></span></button>
+          <button type="button" role="tab" id="tab-memory" aria-controls="view-memory" aria-selected="false" tabindex="-1" data-tab="memory">Memory <span id="memory-count" class="badge" hidden></span></button>
         </nav>
         <span class="spacer"></span>
-        <button type="button" id="history-button" class="icon" title="Earlier conversations on this site"><span class="glyph" aria-hidden="true">🕘</span><span class="label">History</span></button>
-        <button type="button" id="new-chat" class="icon" title="New conversation for this tab"><span class="glyph" aria-hidden="true">＋</span><span class="label">New</span></button>
-        <button type="button" id="open-options" class="icon" title="Settings">⚙</button>
+        <button type="button" id="history-button" class="icon" title="Earlier conversations on this site" aria-label="History"><span class="glyph" aria-hidden="true">🕘</span><span class="label">History</span></button>
+        <button type="button" id="new-chat" class="icon" title="New conversation for this tab" aria-label="New conversation"><span class="glyph" aria-hidden="true">＋</span><span class="label">New</span></button>
+        <button type="button" id="open-options" class="icon" title="Settings" aria-label="Settings">⚙</button>
       </div>
       <div class="toolbar-session" id="session-row" hidden>
-        <select id="provider-select" title="AI provider"></select>
-        <select id="model-select" title="Model"></select>
+        <select id="provider-select" title="AI provider" aria-label="AI provider"></select>
+        <select id="model-select" title="Model" aria-label="Model"></select>
         <span class="spacer"></span>
         <span id="cost" class="cost"></span>
       </div>
@@ -35,11 +36,11 @@
     </div>
 
     <main>
-      <section id="view-chat" class="view">
-        <ai-chat id="chat"></ai-chat>
+      <section id="view-chat" role="tabpanel" aria-labelledby="tab-chat" class="view">
+        <ai-chat id="chat" role="log" aria-live="polite" aria-label="Conversation"></ai-chat>
         <form id="composer" autocomplete="off">
           <div class="composer-box">
-            <textarea id="prompt" rows="1" placeholder="Ask anything about this page…"></textarea>
+            <textarea id="prompt" rows="1" placeholder="Ask anything about this page…" aria-label="Message"></textarea>
             <div class="composer-bar">
               <div class="chips">
                 <label class="chip" title="Send a short description of the element selected in the Elements panel">
@@ -60,15 +61,15 @@
         </form>
       </section>
 
-      <section id="view-patches" class="view" hidden>
+      <section id="view-patches" role="tabpanel" aria-labelledby="tab-patches" class="view" hidden>
         <ai-patches id="patches"></ai-patches>
       </section>
 
-      <section id="view-console" class="view" hidden>
+      <section id="view-console" role="tabpanel" aria-labelledby="tab-console" class="view" hidden>
         <ai-console id="console"></ai-console>
       </section>
 
-      <section id="view-memory" class="view" hidden>
+      <section id="view-memory" role="tabpanel" aria-labelledby="tab-memory" class="view" hidden>
         <ai-memory id="memory"></ai-memory>
       </section>
     </main>

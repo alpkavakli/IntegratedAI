@@ -109,6 +109,14 @@ export class App {
     for (const tab of document.querySelectorAll('.tabs button')) {
       tab.addEventListener('click', () => this.showTab(/** @type {HTMLElement} */ (tab).dataset.tab ?? 'chat'));
     }
+    // Arrow keys move between tabs (the usual keyboard pattern for a tab list).
+    document.querySelector('.tabs')?.addEventListener('keydown', (/** @type {any} */ e) => {
+      if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+      const tabs = /** @type {HTMLElement[]} */ ([...document.querySelectorAll('.tabs button')]);
+      const next = tabs[(tabs.indexOf(e.target) + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
+      this.showTab(next.dataset.tab ?? 'chat');
+      next.focus();
+    });
 
     $('composer').addEventListener('submit', (/** @type {Event} */ e) => {
       e.preventDefault();
@@ -141,7 +149,10 @@ export class App {
   /** @param {string} name */
   showTab(name) {
     for (const tab of document.querySelectorAll('.tabs button')) {
-      tab.classList.toggle('active', /** @type {HTMLElement} */ (tab).dataset.tab === name);
+      const active = /** @type {HTMLElement} */ (tab).dataset.tab === name;
+      tab.classList.toggle('active', active);
+      tab.setAttribute('aria-selected', String(active));
+      tab.setAttribute('tabindex', active ? '0' : '-1');
     }
     for (const view of ['chat', 'patches', 'console', 'memory']) $(`view-${view}`).hidden = view !== name;
     if (name === 'memory') this.refreshMemory();

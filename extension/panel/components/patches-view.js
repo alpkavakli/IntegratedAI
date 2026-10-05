@@ -52,7 +52,7 @@ export class PatchesView extends HTMLElement {
     return h('div', { class: 'item' },
       h('div', { class: 'row' },
         h('input', {
-          type: 'checkbox', checked: patch.enabled, title: patch.enabled ? 'Enabled' : 'Disabled',
+          type: 'checkbox', checked: patch.enabled, title: patch.enabled ? 'Enabled' : 'Disabled', 'aria-label': `Patch "${patch.name}" enabled`,
           onchange: (/** @type {any} */ e) => update({ enabled: e.target.checked }),
         }),
         h('span', { class: 'title', title: patch.name }, patch.name),

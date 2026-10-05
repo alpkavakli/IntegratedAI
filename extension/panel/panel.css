@@ -8,14 +8,16 @@
   --fg-muted: #5f6368;
   --border: #dadce0;
   --accent: #1a73e8;
+  --accent-text: #1967d2; /* blue text on grey backgrounds (4.5:1) */
   --accent-fg: #ffffff;
-  --error: #d93025;
+  --error: #c5221f;
   --error-bg: #fce8e6;
   --warn: #b06000;
   --warn-bg: #fef7e0;
   --ok: #188038;
   --code-bg: #f8f9fa;
   --user-bg: #e8f0fe;
+  --user-caption: #5f6368;
   color-scheme: light;
 }
 
@@ -27,6 +29,7 @@
   --fg-muted: #9aa0a6;
   --border: #3c4043;
   --accent: #8ab4f8;
+  --accent-text: #8ab4f8;
   --accent-fg: #202124;
   --error: #f28b82;
   --error-bg: #3c1f1e;
@@ -35,6 +38,7 @@
   --ok: #81c995;
   --code-bg: #2a2b2e;
   --user-bg: #2d3a4f;
+  --user-caption: #c3c9d1;
   color-scheme: dark;
 }
 
@@ -55,7 +59,7 @@ button, select, input, textarea { font: inherit; color: inherit; }
 button {
   background: var(--bg-alt);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 6px;
   padding: 2px 8px;
   cursor: pointer;
 }
@@ -68,7 +72,7 @@ button.link { background: none; border: none; padding: 0; color: var(--accent); 
 select, input[type="text"], textarea {
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 6px;
   padding: 2px 4px;
 }
 
@@ -76,7 +80,7 @@ code, pre { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11
 pre {
   background: var(--code-bg);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 8px;
   padding: 6px 8px;
   overflow: auto;
   max-height: 260px;
@@ -87,6 +91,7 @@ pre {
 :not(pre) > code { background: var(--code-bg); padding: 0 3px; border-radius: 3px; }
 
 [hidden] { display: none !important; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 /* ── toolbar ─────────────────────────────────────────────── */
 .toolbar {
@@ -116,7 +121,7 @@ pre {
 .dot.disconnected, .dot.unauthorized { background: var(--error); }
 .tabs { display: flex; gap: 2px; }
 .tabs button { border: none; background: none; border-bottom: 2px solid transparent; border-radius: 0; padding: 3px 8px; white-space: nowrap; }
-.tabs button.active { border-bottom-color: var(--accent); color: var(--accent); }
+.tabs button.active { border-bottom-color: var(--accent); color: var(--accent-text); }
 .badge { background: var(--fg-muted); color: var(--bg); border-radius: 8px; padding: 0 5px; font-size: 10px; }
 .badge.error { background: var(--error); }
 .cost { color: var(--fg-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -142,6 +147,7 @@ ai-chat { flex: 1; min-height: 0; overflow-y: auto; padding: 8px; display: block
   background: var(--user-bg); border-radius: 14px 14px 4px 14px; padding: 7px 11px; white-space: pre-wrap;
 }
 .msg .caption { color: var(--fg-muted); font-size: 11px; margin-top: 2px; white-space: normal; }
+.msg.user .caption { color: var(--user-caption); }
 .msg.assistant p { margin: 4px 0; }
 .msg.assistant ul, .msg.assistant ol { margin: 4px 0; padding-left: 20px; }
 .msg.assistant h3, .msg.assistant h4, .msg.assistant h5, .msg.assistant h6 { margin: 8px 0 4px; font-size: 12px; }
@@ -165,22 +171,22 @@ details.steps .inspection::before { content: ""; }
 .source .errors { color: var(--error); margin: 4px 0; }
 .screenshot { margin: 4px 0; }
 .screenshot .caption { color: var(--fg-muted); font-size: 11px; margin-bottom: 2px; }
-.screenshot img { display: block; max-width: min(100%, 320px); max-height: 140px; border: 1px solid var(--border); border-radius: 4px; cursor: zoom-in; }
+.screenshot img { display: block; max-width: min(100%, 320px); max-height: 140px; border: 1px solid var(--border); border-radius: 8px; cursor: zoom-in; }
 .screenshot img.large { max-width: 100%; max-height: none; cursor: zoom-out; }
-.chat-error { color: var(--error); background: var(--error-bg); padding: 4px 8px; border-radius: 4px; margin-bottom: 8px; }
+.chat-error { color: var(--error); background: var(--error-bg); padding: 6px 10px; border-radius: 8px; margin-bottom: 8px; }
 .thinking { color: var(--fg-muted); font-style: italic; margin-bottom: 8px; }
 .empty { color: var(--fg-muted); padding: 15vh 8px 16px; text-align: center; }
 .empty .empty-title { color: var(--fg); font-size: 18px; font-weight: 600; margin-bottom: 4px; }
 .empty .suggestions { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-top: 14px; }
 .empty .suggestions button { border-radius: 16px; padding: 4px 12px; background: var(--bg); }
-.ask-row { display: flex; gap: 6px; align-items: center; padding: 4px 8px; border: 1px dashed var(--border); border-radius: 4px; margin-bottom: 8px; }
+.ask-row { display: flex; gap: 6px; align-items: center; padding: 6px 10px; border: 1px dashed var(--border); border-radius: 8px; margin-bottom: 8px; }
 
 /* ── action cards ────────────────────────────────────────── */
 ai-action-card {
   display: block;
   border: 1px solid var(--border);
   border-left: 3px solid var(--accent);
-  border-radius: 4px;
+  border-radius: 8px;
   padding: 6px 8px;
   margin: 6px 0 10px;
   background: var(--bg);
@@ -197,7 +203,7 @@ ai-action-card .warning { background: var(--warn-bg); color: var(--warn); paddin
 ai-action-card .errors { color: var(--error); margin: 4px 0; padding-left: 16px; }
 ai-action-card .note { color: var(--fg-muted); font-size: 11px; }
 ai-action-card ul.changes { margin: 2px 0; padding-left: 18px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11px; }
-.save-form { display: grid; grid-template-columns: auto 1fr; gap: 4px 6px; align-items: center; margin-top: 6px; padding: 6px; background: var(--bg-alt); border-radius: 4px; }
+.save-form { display: grid; grid-template-columns: auto 1fr; gap: 4px 6px; align-items: center; margin-top: 6px; padding: 6px; background: var(--bg-alt); border-radius: 8px; }
 .save-form .row-buttons { grid-column: 1 / -1; display: flex; gap: 6px; }
 
 /* ── composer ────────────────────────────────────────────── */
@@ -227,7 +233,7 @@ button.send:disabled { background: var(--border); color: var(--fg-muted); opacit
 /* ── patches & console lists ─────────────────────────────── */
 ai-patches, ai-console { display: block; flex: 1; overflow-y: auto; padding: 8px; }
 .list-heading { font-weight: 600; margin: 8px 0 4px; color: var(--fg-muted); }
-.item { border: 1px solid var(--border); border-radius: 4px; padding: 6px 8px; margin-bottom: 6px; }
+.item { border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px; margin-bottom: 6px; }
 .item .row { display: flex; align-items: center; gap: 6px; }
 .item .title { font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .item .meta { color: var(--fg-muted); font-size: 11px; }
@@ -282,3 +288,7 @@ ai-memory .add-note { margin: 4px 0 8px; }
 /* ── welcome (empty conversation) ────────────────────────── */
 .empty .welcome { margin-top: 16px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .empty .welcome .continue { color: var(--fg); }
+
+/* ── keyboard focus ──────────────────────────────────────── */
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+#prompt:focus-visible { outline: none; } /* its box shows focus instead */

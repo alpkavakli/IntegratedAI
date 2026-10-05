@@ -32,6 +32,7 @@ export class MemoryView extends HTMLElement {
     // Which memory this conversation uses.
     const mode = app.memoryMode ?? 'shared';
     const modeSelect = /** @type {HTMLSelectElement} */ (h('select', {
+      'aria-label': 'Memory for this conversation',
       onchange: () => app.configure({ memoryMode: modeSelect.value }),
     },
     h('option', { value: 'shared' }, 'Shared with this site (every conversation here)'),
@@ -83,8 +84,8 @@ export class MemoryView extends HTMLElement {
   /** @param {any} memory */
   renderCurrentGroup(memory) {
     const { group } = memory;
-    const name = /** @type {HTMLInputElement} */ (h('input', { type: 'text', value: group.name ?? '', placeholder: 'e.g. Chapter reader' }));
-    const pattern = /** @type {HTMLInputElement} */ (h('input', { type: 'text', value: group.pattern }));
+    const name = /** @type {HTMLInputElement} */ (h('input', { type: 'text', value: group.name ?? '', placeholder: 'e.g. Chapter reader', 'aria-label': 'Page type name' }));
+    const pattern = /** @type {HTMLInputElement} */ (h('input', { type: 'text', value: group.pattern, 'aria-label': 'Page type URL pattern' }));
     return h('div', null,
       h('div', null,
         'Page type: ',
@@ -105,7 +106,7 @@ export class MemoryView extends HTMLElement {
    */
   renderNote(note, groupLabel) {
     const editing = this.editing.has(note.id);
-    const input = /** @type {HTMLInputElement} */ (h('input', { type: 'text', value: note.text, style: 'flex:1' }));
+    const input = /** @type {HTMLInputElement} */ (h('input', { type: 'text', value: note.text, style: 'flex:1', 'aria-label': 'Note' }));
     return h('div', { class: 'item note' },
       editing
         ? h('div', { class: 'row' },
@@ -122,8 +123,8 @@ export class MemoryView extends HTMLElement {
   }
 
   renderAddNote() {
-    const text = /** @type {HTMLInputElement} */ (h('input', { type: 'text', placeholder: 'Add a note, e.g. "I prefer a serif font for reading"', style: 'flex:1' }));
-    const scope = /** @type {HTMLSelectElement} */ (h('select', null,
+    const text = /** @type {HTMLInputElement} */ (h('input', { type: 'text', placeholder: 'Add a note, e.g. "I prefer a serif font for reading"', style: 'flex:1', 'aria-label': 'New note' }));
+    const scope = /** @type {HTMLSelectElement} */ (h('select', { 'aria-label': 'Applies to' },
       h('option', { value: 'site' }, 'whole site'),
       h('option', { value: 'page_group' }, 'this kind of page')));
     const add = () => text.value.trim() && this.edit({ op: 'addNote', text: text.value, scope: scope.value });
@@ -133,8 +134,8 @@ export class MemoryView extends HTMLElement {
 
   /** @param {any} group */
   renderGroup(group) {
-    const name = /** @type {HTMLInputElement} */ (h('input', { type: 'text', value: group.name }));
-    const pattern = /** @type {HTMLInputElement} */ (h('input', { type: 'text', value: group.pattern }));
+    const name = /** @type {HTMLInputElement} */ (h('input', { type: 'text', value: group.name, 'aria-label': 'Page type name' }));
+    const pattern = /** @type {HTMLInputElement} */ (h('input', { type: 'text', value: group.pattern, 'aria-label': 'Page type URL pattern' }));
     return h('div', { class: 'item' },
       h('div', { class: 'row' },
         name, pattern,

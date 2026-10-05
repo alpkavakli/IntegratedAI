@@ -1,5 +1,5 @@
 <!doctype html>
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8">
     <title>IntegratedAI settings</title>
@@ -62,6 +62,7 @@
     </style>
   </head>
   <body>
+    <main>
     <header class="intro">
       <img src="../icons/icon128.png" alt="">
       <div>
@@ -95,7 +96,7 @@
         <p>Create a key at <a id="key-link" target="_blank" rel="noopener"></a>, copy it, and paste it here.
           It is checked right away.</p>
         <div class="key-row">
-          <input type="password" id="apiKey" spellcheck="false" autocomplete="off" placeholder="Paste your API key">
+          <input type="password" id="apiKey" spellcheck="false" autocomplete="off" placeholder="Paste your API key" aria-label="API key">
         </div>
         <div class="hint">Your key stays in this browser and is only sent to <span id="key-host"></span>. Usage is billed to your account there.</div>
       </div>
@@ -118,7 +119,7 @@
           <li>Paste the pairing token it prints:</li>
         </ol>
         <div class="key-row">
-          <input type="password" id="token" spellcheck="false" autocomplete="off" placeholder="Pairing token">
+          <input type="password" id="token" spellcheck="false" autocomplete="off" placeholder="Pairing token" aria-label="Pairing token">
         </div>
       </div>
 
@@ -200,6 +201,7 @@
         pairing token are never exported.
       </div>
     </details>
+    </main>
 
     <script src="options.js" type="module"></script>
   </body>

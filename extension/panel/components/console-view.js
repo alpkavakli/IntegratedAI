@@ -87,7 +87,7 @@ export class ConsoleView extends HTMLElement {
             onclick: () => chrome.devtools.panels.openResource(location.url, Math.max(location.line - 1, 0), Math.max(location.column - 1, 0), () => {}),
           }, 'Open source')
           : null,
-        h('button', { type: 'button', class: 'primary', onclick: () => this.app?.explainError(entry) }, 'Explain')),
+        h('button', { type: 'button', onclick: () => this.app?.explainError(entry) }, 'Explain')),
       h('div', { class: 'message' }, entry.message),
     );
   }
