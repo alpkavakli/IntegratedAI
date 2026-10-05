@@ -50,7 +50,8 @@ export class ChatView extends HTMLElement {
 
   renderEmpty() {
     this.append(h('div', { class: 'empty' },
-      h('div', null, 'Select an element in the Elements panel, then ask something about it.'),
+      h('div', { class: 'empty-title' }, 'What can I help with?'),
+      h('div', null, 'Select an element in the Elements panel, or just ask about the page.'),
       h('div', { class: 'suggestions' },
         SUGGESTIONS.map((text) => h('button', { type: 'button', onclick: () => this.app?.sendFromUi(text) }, text))),
       h('div', { class: 'welcome' })));
@@ -108,6 +109,7 @@ export class ChatView extends HTMLElement {
         if (block.type === 'text') el.append(renderMarkdown(block.text));
         if (block.type === 'tool_call') el.append(this.renderToolCall(block));
       }
+      foldInspections(el);
       if (el.childNodes.length) this.insert(el);
     }
     if (scroll && stick) this.scrollToBottom();
@@ -248,6 +250,29 @@ export class ChatView extends HTMLElement {
   scrollToBottom() {
     this.scrollTop = this.scrollHeight;
   }
+}
+
+/**
+ * Fold runs of two or more inspection lines ("🔍 Inspect element …") into one
+ * expandable "Looked at the page · 5 steps" line, so the answer stays in front.
+ * @param {HTMLElement} el an assistant message
+ */
+function foldInspections(el) {
+  /** @type {Element[]} */
+  let run = [];
+  const flush = () => {
+    if (run.length >= 2) {
+      const steps = h('details', { class: 'steps' }, h('summary', null, `Looked at the page · ${run.length} steps`));
+      run[0].before(steps);
+      steps.append(...run);
+    }
+    run = [];
+  };
+  for (const child of [...el.children]) {
+    if (child.classList.contains('inspection')) run.push(child);
+    else flush();
+  }
+  flush();
 }
 
 customElements.define('ai-chat', ChatView);

@@ -5,157 +5,201 @@
     <title>IntegratedAI settings</title>
     <link rel="stylesheet" href="../panel/panel.css">
     <style>
-      body { display: block; padding: 16px 24px; max-width: 720px; margin: 0 auto; font-size: 13px; }
-      h1 { font-size: 18px; margin: 0 0 4px; }
-      h2 { font-size: 14px; margin: 20px 0 6px; }
-      .field { margin: 10px 0; }
-      .field label { display: block; font-weight: 600; margin-bottom: 3px; }
-      .field input[type="text"], .field input[type="password"] { width: 100%; padding: 4px 6px; }
-      .hint { color: var(--fg-muted); font-size: 12px; margin-top: 2px; }
-      .check { display: flex; gap: 8px; align-items: flex-start; margin: 8px 0; }
-      .check input { margin-top: 3px; }
-      .danger-box { border: 1px solid var(--error); background: var(--error-bg); border-radius: 6px; padding: 8px 10px; }
-      #test-result { margin-left: 8px; }
+      body { display: block; padding: 24px 24px 48px; max-width: 680px; margin: 0 auto; font-size: 13px; }
+      header.intro { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+      header.intro img { width: 40px; height: 40px; }
+      h1 { font-size: 20px; margin: 0; }
+      header.intro p { margin: 2px 0 0; color: var(--fg-muted); }
+
+      .step { border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; }
+      .step h2 { display: flex; align-items: center; gap: 8px; font-size: 15px; margin: 0 0 10px; }
+      .num {
+        display: inline-flex; align-items: center; justify-content: center; flex: none;
+        width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: var(--accent-fg); font-size: 12px;
+      }
+      .step.done .num { background: var(--ok); }
+      .step.done .num::before { content: "✓"; }
+      .step.done .num span { display: none; }
+      .step p { margin: 0 0 8px; }
+      .step ol { margin: 0 0 10px; padding-left: 20px; }
+      .step ol li { margin-bottom: 6px; }
+
+      .providers { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
+      .provider-card {
+        position: relative; display: flex; flex-direction: column; gap: 2px; cursor: pointer;
+        border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; background: var(--bg);
+      }
+      .provider-card:hover { background: var(--bg-alt); }
+      .provider-card input { position: absolute; opacity: 0; pointer-events: none; }
+      .provider-card:has(input:checked) { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); background: var(--bg-alt); }
+      .provider-card:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+      .provider-card strong { font-size: 14px; }
+      .provider-card span { color: var(--fg-muted); font-size: 12px; }
+
+      .key-row { display: flex; gap: 8px; }
+      .key-row input { flex: 1; min-width: 0; }
+      input[type="text"], input[type="password"], select { padding: 6px 8px; border-radius: 8px; font-size: 13px; }
+      button { padding: 5px 12px; border-radius: 8px; }
+      .status { margin-top: 8px; min-height: 18px; }
       .ok { color: var(--ok); }
       .bad { color: var(--error); }
-      .data-list { padding-left: 18px; }
+      .small-field { display: flex; align-items: center; gap: 8px; margin-top: 10px; color: var(--fg-muted); }
+      .small-field input, .small-field select { flex: 1; min-width: 0; }
+      .hint { color: var(--fg-muted); font-size: 12px; margin-top: 4px; }
+      kbd { border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; font-family: inherit; }
+
+      details.advanced { margin-top: 20px; }
+      details.advanced > summary { cursor: pointer; font-size: 14px; font-weight: 600; padding: 6px 0; }
+      details.advanced h3 { font-size: 13px; margin: 18px 0 6px; }
+      .check { display: flex; gap: 8px; align-items: flex-start; margin: 8px 0; }
+      .check input { margin-top: 3px; }
+      .danger-box { border: 1px solid var(--error); background: var(--error-bg); border-radius: 8px; padding: 4px 10px; }
+      .data-list { padding-left: 18px; margin: 6px 0; }
       .data-list li { margin: 6px 0; }
       .row-buttons { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
-      .button-like { background: var(--bg-alt); border: 1px solid var(--border); border-radius: 4px; padding: 2px 8px; cursor: pointer; }
+      .button-like { background: var(--bg-alt); border: 1px solid var(--border); border-radius: 8px; padding: 5px 12px; cursor: pointer; }
       .button-like:hover { background: var(--bg-hover); }
     </style>
   </head>
   <body>
-    <h1>IntegratedAI settings</h1>
-    <div class="hint">The AI panel lives in Chrome DevTools: press F12 and open the "AI" tab.</div>
+    <header class="intro">
+      <img src="../icons/icon128.png" alt="">
+      <div>
+        <h1>IntegratedAI</h1>
+        <p>An AI assistant inside Chrome DevTools. Three steps, about two minutes.</p>
+      </div>
+    </header>
 
-    <h2>Connection</h2>
-    <label class="check">
-      <input type="radio" name="mode" value="direct" id="mode-direct">
-      <span><strong>Direct, with your own API key or Ollama</strong> (nothing to install). The extension talks to the
-        AI provider you choose. Usage is billed to your account there; Ollama runs free on your computer.</span>
-    </label>
-    <label class="check">
-      <input type="radio" name="mode" value="server" id="mode-server">
-      <span><strong>Local agent server</strong> (for developers). Runs on your computer with <code>npm start</code>.
-        Use your Claude subscription through Claude Code, and move CSS into your project with "Apply to source".
-        <a href="https://github.com/alpkavakli/IntegratedAI#setup" target="_blank" rel="noopener">Setup guide</a></span>
-    </label>
+    <section class="step" id="step-1">
+      <h2><span class="num"><span>1</span></span> Choose your AI</h2>
+      <div class="providers" role="radiogroup" aria-label="AI provider">
+        <label class="provider-card"><input type="radio" name="provider" value="anthropic">
+          <strong>Claude</strong><span>by Anthropic · needs an API key</span></label>
+        <label class="provider-card"><input type="radio" name="provider" value="openai">
+          <strong>GPT</strong><span>by OpenAI · needs an API key</span></label>
+        <label class="provider-card"><input type="radio" name="provider" value="gemini">
+          <strong>Gemini</strong><span>by Google · needs an API key</span></label>
+        <label class="provider-card"><input type="radio" name="provider" value="openrouter">
+          <strong>OpenRouter</strong><span>many models, one API key</span></label>
+        <label class="provider-card"><input type="radio" name="provider" value="ollama">
+          <strong>Ollama</strong><span>free, runs on your computer</span></label>
+        <label class="provider-card"><input type="radio" name="provider" value="server">
+          <strong>Claude Code</strong><span>your Claude subscription · for developers</span></label>
+      </div>
+    </section>
 
-    <div id="direct-section">
-      <div class="field">
-        <label for="directProvider">AI provider</label>
-        <select id="directProvider">
-          <option value="anthropic">Anthropic (Claude)</option>
-          <option value="openai">OpenAI</option>
-          <option value="gemini">Google Gemini</option>
-          <option value="openrouter">OpenRouter (many models, one key)</option>
-          <option value="ollama">Ollama (models on this computer, no key)</option>
-        </select>
-        <div class="hint">New conversations use this provider. You can add keys for several and switch per conversation in the panel.</div>
+    <section class="step" id="step-2">
+      <h2><span class="num"><span>2</span></span> <span id="step2-title">Paste your API key</span></h2>
+
+      <div id="key-setup">
+        <p>Create a key at <a id="key-link" target="_blank" rel="noopener"></a>, copy it, and paste it here.
+          It is checked right away.</p>
+        <div class="key-row">
+          <input type="password" id="apiKey" spellcheck="false" autocomplete="off" placeholder="Paste your API key">
+        </div>
+        <div class="hint">Your key stays in this browser and is only sent to <span id="key-host"></span>. Usage is billed to your account there.</div>
       </div>
 
-      <div id="compat-fields" hidden>
-        <div class="field" id="compat-url-field" hidden>
-          <label for="compatUrl">Ollama address</label>
-          <input type="text" id="compatUrl" spellcheck="false" autocomplete="off" placeholder="http://localhost:11434/v1">
-          <div class="hint">Get Ollama at <a href="https://ollama.com/download" target="_blank" rel="noopener">ollama.com</a>
-            and download a model that supports tools (for example <code>ollama pull qwen3</code>). Nothing leaves your computer.
-            Ollama only accepts browser extensions you allow: set the environment variable <code>OLLAMA_ORIGINS</code> to
-            <code>chrome-extension://*</code> and restart Ollama (Windows: <code>setx OLLAMA_ORIGINS "chrome-extension://*"</code>).</div>
-        </div>
-        <div class="field" id="compat-key-field">
-          <label for="compatKey"><span id="compat-label">Provider</span> API key</label>
-          <input type="password" id="compatKey" spellcheck="false" autocomplete="off">
-          <div class="hint">Create one at <a id="compat-key-link" target="_blank" rel="noopener"></a>.
-            It stays in this browser and is only sent to <span id="compat-host"></span>.</div>
-        </div>
-        <div class="field">
-          <label for="compatModel">Model</label>
-          <input type="text" id="compatModel" list="compatModels" spellcheck="false" autocomplete="off">
-          <datalist id="compatModels"></datalist>
-          <div class="hint" id="compat-model-hint">Any model id from this provider. "Test key" loads the list of models your key can use.</div>
+      <div id="ollama-setup" hidden>
+        <ol>
+          <li>Install Ollama from <a href="https://ollama.com/download" target="_blank" rel="noopener">ollama.com</a>
+            and download a model, for example: <code>ollama pull qwen3</code></li>
+          <li>Allow this extension to use it. On Windows, run <code>setx OLLAMA_ORIGINS "chrome-extension://*"</code>,
+            then quit Ollama and start it again.
+            (<a href="https://github.com/alpkavakli/IntegratedAI#two-ways-to-run-it" target="_blank" rel="noopener">Mac and Linux</a>)</li>
+          <li>Click <strong>Check connection</strong>.</li>
+        </ol>
+      </div>
+
+      <div id="server-setup" hidden>
+        <ol>
+          <li>Install <a href="https://nodejs.org" target="_blank" rel="noopener">Node.js</a> and Claude Code, then start the
+            agent server (<a href="https://github.com/alpkavakli/IntegratedAI#setup" target="_blank" rel="noopener">setup guide</a>).</li>
+          <li>Paste the pairing token it prints:</li>
+        </ol>
+        <div class="key-row">
+          <input type="password" id="token" spellcheck="false" autocomplete="off" placeholder="Pairing token">
         </div>
       </div>
 
-      <div id="anthropic-fields">
-      <div class="field">
-        <label for="anthropicApiKey">Anthropic API key</label>
-        <input type="password" id="anthropicApiKey" spellcheck="false" autocomplete="off" placeholder="sk-ant-…">
-        <div class="hint">Create one at <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>.
-          It stays in this browser and is only sent to api.anthropic.com.</div>
+      <div class="row-buttons">
+        <button type="button" id="test-key" class="primary">Check</button>
       </div>
-      <div class="field">
-        <label for="directModel">Model</label>
+      <div id="test-key-result" class="status" role="status"></div>
+
+      <label class="small-field" id="model-field">Model
         <select id="directModel">
-          <option value="claude-opus-5-5">Claude Opus 5.5 (best, default)</option>
+          <option value="claude-opus-5-5">Claude Opus 5.5 (best, recommended)</option>
           <option value="claude-sonnet-5-5">Claude Sonnet 5.5 (faster, cheaper)</option>
           <option value="claude-haiku-4-5">Claude Haiku 4.5 (fastest, cheapest)</option>
           <option value="claude-fable-5-1">Claude Fable 5.1 (most capable, most expensive)</option>
         </select>
-      </div>
-      </div>
-      <button type="button" id="test-key">Test key</button><span id="test-key-result"></span>
-    </div>
-
-    <div id="server-section">
-    <h2>Agent server</h2>
-    <div class="field">
-      <label for="serverUrl">Server URL</label>
-      <input type="text" id="serverUrl" spellcheck="false">
-    </div>
-    <div class="field">
-      <label for="token">Pairing token</label>
-      <input type="password" id="token" spellcheck="false" autocomplete="off">
-      <div class="hint">Printed by the server on startup, also stored in <code>~/.integratedai/config.json</code>.</div>
-    </div>
-    <button type="button" id="test">Test connection</button><span id="test-result"></span>
-    </div>
-
-    <h2>Context sent by default</h2>
-    <div class="hint">Which context chips are switched on when the panel opens. You can toggle them per message.</div>
-    <label class="check"><input type="checkbox" id="ctx-selected"> <span>Selected element ($0): selector, key computed styles, box, short HTML</span></label>
-    <label class="check"><input type="checkbox" id="ctx-console"> <span>Recent console errors and warnings</span></label>
-    <label class="check"><input type="checkbox" id="ctx-network"> <span>Failed and recent network requests (sensitive headers and query parameters are redacted)</span></label>
-
-    <h2>Permissions</h2>
-    <label class="check">
-      <input type="checkbox" id="webTools">
-      <span>Allow the AI to search the web and read web pages (documentation, MDN, Stack Overflow…). Read-only; it never has access to your files. Cookies and auth headers are never part of what it sees.</span>
-    </label>
-    <label class="check">
-      <input type="checkbox" id="askBeforeInspections">
-      <span>Ask before the AI reads page details (element inspection, console, network, resources). When off, these read-only inspections run automatically.</span>
-    </label>
-    <div class="danger-box">
-      <label class="check">
-        <input type="checkbox" id="executeJs">
-        <span><strong>Allow the AI to propose JavaScript (execute_js).</strong> Every script is shown to you and only runs after you tick "I reviewed this code" and click Run. Scripts run in the page with access to its data and your logged-in session, and may not be undoable. CSS and safe DOM changes are always preferred.</span>
+        <input type="text" id="compatModel" list="compatModels" spellcheck="false" autocomplete="off" hidden>
+        <datalist id="compatModels"></datalist>
       </label>
-    </div>
+    </section>
 
-    <h2>Your data</h2>
-    <div class="hint">
-      Everything stays on your computer. Updates of the extension and the agent server keep all of it.
-    </div>
-    <ul class="data-list">
-      <li><strong>In this browser</strong> (extension storage): <span id="data-extension">…</span>.
-        Kept across updates. Removed if you uninstall the extension, so export it first.</li>
-      <li id="data-server-item"><strong>On the agent server</strong>: <span id="data-server">connect to the server to see this</span>.
-        Kept across updates. Before an update changes the format, the server backs this folder up automatically.</li>
-    </ul>
-    <div class="row-buttons">
-      <button type="button" id="export">Export</button>
-      <label class="button-like">Import… <input type="file" id="import" accept="application/json,.json" hidden></label>
-      <button type="button" id="clear" class="danger">Delete extension data</button>
-      <span id="data-result"></span>
-    </div>
-    <div class="hint">
-      Export/import moves your saved patches, settings and, from direct mode, your conversations and site memory to another
-      copy of the extension (for example from a development copy to the Chrome Web Store version). Importing adds to what is
-      here and never replaces something with an older copy. API keys and the pairing token are never exported. The agent
-      server's conversations and site memory stay in its folder; to back them up, copy that folder.
-    </div>
+    <section class="step" id="step-3">
+      <h2><span class="num"><span>3</span></span> Open the AI tab</h2>
+      <p>On any web page, press <kbd>F12</kbd> (or right-click and choose <strong>Inspect</strong>), then open the
+        <strong>AI</strong> tab. If you don't see it, click <strong>»</strong> in the DevTools tab bar.</p>
+      <p class="hint">Pages that were already open need a reload. Select an element in the Elements panel and ask about
+        it, or just ask about the page. Nothing changes on the page until you approve it.</p>
+    </section>
+
+    <details class="advanced">
+      <summary>Advanced settings</summary>
+
+      <h3>What the AI sees with each message</h3>
+      <div class="hint">These start switched on in the panel. You can switch them per message there.</div>
+      <label class="check"><input type="checkbox" id="ctx-selected"> <span>The element you selected (its look, size and a bit of its HTML)</span></label>
+      <label class="check"><input type="checkbox" id="ctx-console"> <span>Recent errors and warnings from the page's console</span></label>
+      <label class="check"><input type="checkbox" id="ctx-network"> <span>Recent and failed network requests (passwords, cookies and tokens are removed)</span></label>
+
+      <h3>What the AI may do</h3>
+      <label class="check">
+        <input type="checkbox" id="webTools">
+        <span>Search the web and read documentation (Claude only). It never sees your files, cookies or passwords.</span>
+      </label>
+      <label class="check">
+        <input type="checkbox" id="askBeforeInspections">
+        <span>Ask me before it looks at page details. When off, it looks on its own; it can only read, never change.</span>
+      </label>
+      <div class="danger-box">
+        <label class="check">
+          <input type="checkbox" id="executeJs">
+          <span><strong>Let it suggest JavaScript.</strong> You see every script and it only runs after you confirm.
+            Scripts can do anything on the page with your login, and may not be undoable. Leave this off unless you need it.</span>
+        </label>
+      </div>
+
+      <h3>Addresses</h3>
+      <label class="small-field">Ollama
+        <input type="text" id="compatUrl" spellcheck="false" autocomplete="off" placeholder="http://localhost:11434/v1"></label>
+      <label class="small-field">Agent server
+        <input type="text" id="serverUrl" spellcheck="false"></label>
+      <div class="hint">Change these only if Ollama or the agent server runs somewhere else.</div>
+
+      <h3>Your data</h3>
+      <div class="hint">Everything stays on your computer and is kept when the extension updates.</div>
+      <ul class="data-list">
+        <li><strong>In this browser</strong>: <span id="data-extension">…</span>.
+          Removed if you uninstall the extension, so export it first.</li>
+        <li id="data-server-item"><strong>On the agent server</strong>: <span id="data-server">connect to the server to see this</span>.
+          The server backs this folder up before an update changes its format.</li>
+      </ul>
+      <div class="row-buttons">
+        <button type="button" id="export">Export</button>
+        <label class="button-like">Import… <input type="file" id="import" accept="application/json,.json" hidden></label>
+        <button type="button" id="clear" class="danger">Delete extension data</button>
+        <span id="data-result"></span>
+      </div>
+      <div class="hint">
+        Export saves your patches, settings, conversations and memory to a file, for example to move them to another
+        copy of the extension. Importing adds to what's here and never overwrites something newer. API keys and the
+        pairing token are never exported.
+      </div>
+    </details>
 
     <script src="options.js" type="module"></script>
   </body>

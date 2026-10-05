@@ -115,6 +115,14 @@ export class App {
       if (this.session?.busy) this.client.send({ type: 'chat.cancel', conversationId: this.session.id });
       else this.sendFromUi($('prompt').value);
     });
+    // The text box grows with what you type (up to a limit), like other chat apps.
+    const fitPrompt = () => {
+      const el = $('prompt');
+      el.style.height = 'auto';
+      el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
+    };
+    $('prompt').addEventListener('input', fitPrompt);
+    $('composer').addEventListener('submit', () => setTimeout(fitPrompt));
     $('prompt').addEventListener('keydown', (/** @type {KeyboardEvent} */ e) => {
       if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
         e.preventDefault();
@@ -665,7 +673,10 @@ export class App {
 
   updateComposer() {
     const busy = Boolean(this.session?.busy);
-    $('send').textContent = busy ? 'Stop' : 'Send';
+    // Like other chat apps: an arrow to send, a square to stop.
+    $('send').textContent = busy ? '■' : '↑';
+    $('send').title = busy ? 'Stop' : 'Send (Enter)';
+    $('send').setAttribute('aria-label', busy ? 'Stop' : 'Send');
     $('send').disabled = !this.connected || !this.session;
     $('new-chat').disabled = !this.connected || busy;
     $('provider-select').disabled = busy;

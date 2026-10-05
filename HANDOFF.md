@@ -100,13 +100,12 @@ that does it without the AI.
    have only unit tests, plus a real bad-key check for all four. **Ollama** was tested in real Chrome against a
    stand-in server that copies its origin check (`OLLAMA_ORIGINS`), not against Ollama itself. The suggested model ids in `extension/shared/providers/openai-compatible.js` (`PRESETS`)
    were checked against the vendors' model docs and OpenRouter's public model list on 2026-10-05 (gpt-6.1-sol,
-   gemini-3.8-flash, …); models change often, and Options → Test key lists the ones a key can really use.
+   gemini-3.8-flash, …); models change often, and checking a key in Options lists the ones it can really use.
 2. **Publish** (owner's tasks): make the repo public, enable GitHub Pages from `/docs`, and use
    `https://alpkavakli.github.io/IntegratedAI/privacy.html` as the privacy URL. Create the Web Store developer
    account and upload `dist/integratedai-<version>.zip` with the texts and images in `store/SUBMISSION.md`.
    Bump `version` in `extension/manifest.json` for every upload.
 3. **Possible next features:**
-   - Ollama (local models): one more preset in openai-compatible.js plus a base-URL setting.
    - Persistent JS patches (deliberately left out for safety).
    - Providers other than Claude Code in server mode.
 4. **Known limits:** listed at the end of the README (the panel only works while DevTools is open; the network log

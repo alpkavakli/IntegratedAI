@@ -236,8 +236,9 @@ const SCENARIOS = {
   },
 
   // Options: choose how to connect.
+  // The setup page as a new user first sees it (a key would be checked right away, and a made-up one fails).
   '05-options': async () => {
-    await ev(sw, `chrome.storage.local.get('settings').then(({ settings }) => chrome.storage.local.set({ settings: { ...settings, mode: 'direct', anthropicApiKey: 'sk-ant-api03-example-key-for-screenshot' } }))`);
+    await ev(sw, `chrome.storage.local.get('settings').then(({ settings }) => chrome.storage.local.set({ settings: { ...settings, mode: 'direct', directProvider: 'anthropic', anthropicApiKey: '' } }))`);
     const options = await attach(`chrome-extension://${extId}/options/options.html`);
     await viewport(options.session, 1280, 736);
     await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }] }, options.session);

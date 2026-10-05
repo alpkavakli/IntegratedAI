@@ -48,7 +48,7 @@ Both use the **same agent code** (`extension/shared/agent/`: orchestrator, promp
 - macOS: `launchctl setenv OLLAMA_ORIGINS "chrome-extension://*"`, then restart the Ollama app.
 - Linux (systemd): add `Environment="OLLAMA_ORIGINS=chrome-extension://*"` with `systemctl edit ollama`, then restart it.
 
-Then pick **Ollama** in Options and click **Test connection**: it lists your models, checks that Ollama accepts the
+Then pick **Ollama** in Options and click **Check connection**: it lists your models, checks that Ollama accepts the
 extension, and warns if the chosen model can't use tools. Small local models follow the instructions less reliably
 than the hosted ones; larger models give better results.
 
@@ -58,10 +58,12 @@ than the hosted ones; larger models give better results.
 
 ### Quick start (direct mode)
 
-1. Install the extension (from the Chrome Web Store, or: `chrome://extensions` → **Developer mode** → **Load unpacked** → the `extension/` folder). The Options page opens.
-2. Pick a provider, paste your API key (or set up Ollama, above), and click **Test key**.
-3. Reload any tab that was already open, so the console capture starts there.
-4. Open DevTools (F12). There is a new **AI** tab.
+1. Install the extension (from the Chrome Web Store, or: `chrome://extensions` → **Developer mode** → **Load unpacked** → the `extension/` folder). The setup page opens.
+2. **Choose your AI**: Claude, GPT, Gemini, OpenRouter, Ollama, or Claude Code through the local server.
+3. **Paste your API key.** It's saved and checked right away (Ollama and the server have a **Check connection** button instead).
+4. **Open the AI tab:** press F12 on any page. Tabs that were already open need a reload.
+
+Everything else (the model, what the AI sees, permissions, addresses, your data) is under **Advanced settings**.
 
 The rest of this section sets up the local server.
 
@@ -91,7 +93,7 @@ Load the extension:
 
 1. Open `chrome://extensions` and turn on **Developer mode**.
 2. Click **Load unpacked** and pick the `extension/` folder.
-3. Click **Details → Extension options**, choose **Local agent server**, paste the pairing token, then click **Test connection**.
+3. Click **Details → Extension options**, choose **Claude Code**, paste the pairing token, then click **Check connection**.
 4. Reload any tab that was already open, so the console capture starts there.
 5. Open DevTools (F12). There is a new **AI** tab.
 
@@ -191,7 +193,7 @@ The system prompt tells the AI who it works for: the browser's owner, who approv
 - The inspected tab must be the visible tab in its window. With DevTools docked it always is.
 - Only what's on screen can be captured: an element taller than the window is cut off.
 - **Claude Code CLI:** the image comes back from the `mcp__page__screenshot` tool.
-- **API providers:** the image goes with the tool result (OpenAI-compatible APIs: as an image in the next user message). Only the last 3 screenshots are re-sent on later calls, because each one costs about 1–1.5k input tokens every time. Some local Ollama models can't see images; **Test connection** says so.
+- **API providers:** the image goes with the tool result (OpenAI-compatible APIs: as an image in the next user message). Only the last 3 screenshots are re-sent on later calls, because each one costs about 1–1.5k input tokens every time. Some local Ollama models can't see images; **Check connection** says so.
 
 **Web search.** The AI can search the web and read web pages (documentation, MDN, browser support). It is on by default; turn it off in Options.
 - **Claude Code CLI provider:** uses Claude Code's `WebSearch`/`WebFetch` tools, and nothing else is enabled.
@@ -435,7 +437,7 @@ These were also checked against real Chrome and the real `claude` CLI during dev
 - Claude Code (Sonnet) calling the page inspections over MCP: through the real server on a new and a resumed session, and with the real panel code in Chromium on a webnovel-like test page (the panel ran in a tab with a `chrome.devtools` stand-in). There, "Make a toggle button in the nav bar…" found `nav.g_nav`, and Apply, Save as site patch + toggle, reload and the toggle all worked.
 - screenshots with the real panel code in Chromium: of the nav bar, and of a footer 2,400 px below the fold. The page was scrolled to the footer and back, and Sonnet read both images correctly.
 - Apply to source end to end in Chromium with Claude Code (Sonnet) on a small test project. It changed the existing `.main-nav` rules instead of pasting the browser CSS, wrote only after the click, and Undo restored the file.
-- direct mode in Chromium with recorded-style API answers (Anthropic, OpenAI), Test key against the real APIs with invalid keys, Ollama against a stand-in server with Ollama's origin rules, and export / import / delete of the stored data. **Not yet done: direct mode with real API keys and a real Ollama.**
+- direct mode in Chromium with recorded-style API answers (Anthropic, OpenAI), the key check against the real APIs with invalid keys, Ollama against a stand-in server with Ollama's origin rules, and export / import / delete of the stored data. **Not yet done: direct mode with real API keys and a real Ollama.**
 
 ## Debugging
 
