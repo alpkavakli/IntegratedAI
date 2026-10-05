@@ -23,6 +23,8 @@ const POLL_MS = 250;
 /** Long enough for a person to see the outlined target before it is clicked. */
 const FOLLOW_PAUSE_MS = 450;
 const LOAD_TIMEOUT_MS = 20_000;
+/** How long a step looks again for an element that was there a moment ago (re-rendered). */
+const RERENDER_GRACE_MS = 2000;
 
 const sleep = (/** @type {number} */ ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -124,7 +126,9 @@ export class AgentRunner {
       const before = await pageNow().catch(() => null);
       let result;
       try {
-        result = await callInPage(interactStep, { actionId, step });
+        // Pages re-render while you use them (a search box is replaced as you type): look again briefly.
+        const retryUntil = Date.now() + RERENDER_GRACE_MS;
+        while (!(result = await callInPage(interactStep, { actionId, step }))?.found && Date.now() < retryUntil) await sleep(POLL_MS);
       } catch (err) {
         await callInPage(clearHighlight).catch(() => {});
         line.done(`Failed: ${preview.what}`, false);
@@ -134,7 +138,8 @@ export class AgentRunner {
         line.done(`Not found any more: ${preview.what}`, false);
         throw new Error(`Step ${index + 1}: the element disappeared before it could be used.${soFar(done)}`);
       }
-      line.done(capitalize(result.did));
+      // The chat says it the way it was asked; the AI gets the precise version (selectors, values).
+      line.done(/^(couldn't|.* was already)/.test(result.did) ? capitalize(result.did) : capitalize(preview.what));
       done.push(result.did);
       await settle(before?.url);
     }

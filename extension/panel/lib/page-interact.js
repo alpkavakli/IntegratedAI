@@ -140,11 +140,36 @@ export function interactStep(h, selected, { actionId, step, dry = false, hold = 
     return '';
   };
 
+  /**
+   * What a person would call an element: its role and visible name, e.g. 'the "Search Wikipedia" field',
+   * 'button "Send"', 'link "Pricing"' (the CSS-like label is for the AI, not for the questions we ask people).
+   */
+  const humanName = (target) => {
+    if (!target || target === document.body || target === document.documentElement) return 'the page';
+    const quote = (s) => `"${s.length > 40 ? `${s.slice(0, 40)}…` : s}"`;
+    const clean = (s) => String(s || '').replace(/\s+/g, ' ').trim();
+    const labelled = clean(target.getAttribute('aria-label') || (target.labels && target.labels[0] && target.labels[0].innerText)
+      || target.getAttribute('placeholder') || target.getAttribute('title') || target.getAttribute('alt'));
+    if (target.matches('input:not([type=button]):not([type=submit]):not([type=checkbox]):not([type=radio]), textarea, [contenteditable=""], [contenteditable="true"], [role=textbox], [role=searchbox]')) {
+      return labelled ? `the ${quote(labelled)} field` : target.matches('[type=search], [role=searchbox]') ? 'the search field' : 'a text field';
+    }
+    if (target.tagName === 'SELECT') return labelled ? `the ${quote(labelled)} menu` : 'a menu';
+    if (target.matches('input[type=checkbox], [role=checkbox]')) return labelled ? `the ${quote(labelled)} checkbox` : 'a checkbox';
+    if (target.matches('input[type=radio], [role=radio]')) return labelled ? `the ${quote(labelled)} option` : 'an option';
+    const name = labelled || clean(target.innerText || target.value);
+    const role = target.closest('a[href]') ? 'link' : target.closest('button, [role=button], input[type=submit], input[type=button]') ? 'button'
+      : target.matches('li, [role=listitem], [role=option], [role=row], [role=menuitem], [role=tab]') ? 'item' : 'element';
+    return name ? `${role} ${quote(name)}` : `${role} ${h.label(target)}`;
+  };
+  const VERBS = { click: 'click', type: 'type into', select: 'choose in', check: 'tick', uncheck: 'untick', submit: 'submit the form of', scroll: 'scroll', press: 'press', wait: 'wait for' };
+
   // Steps that don't need a target: scroll the page, press a key on what has focus, pause.
   const targetless = !step.selector && !step.text;
   if (targetless && ['scroll', 'press', 'wait'].includes(step.action)) {
     if (dry) {
-      const what = step.action === 'scroll' ? `scroll the page ${step.value}` : step.action === 'press' ? `press ${step.value}` : `wait ${step.value} s`;
+      const focused = document.activeElement;
+      const what = step.action === 'scroll' ? `scroll the page ${step.value}`
+        : step.action === 'press' ? `press ${step.value}${focused && focused !== document.body ? ` in ${humanName(focused)}` : ''}` : `wait ${step.value} s`;
       if (step.action !== 'wait') highlight(step.action === 'press' ? document.activeElement : null, what);
       return { found: true, what, risky: riskOf(document.activeElement) };
     }
@@ -156,9 +181,13 @@ export function interactStep(h, selected, { actionId, step, dry = false, hold = 
   const el = find();
   if (!el) return { found: false };
   if (dry) {
-    // Name it the way a person would: by its visible text, also when the step targets it by selector.
-    const shown = step.text || (['type', 'select'].includes(step.action) ? '' : textOf(el).slice(0, 40));
-    const what = `${step.action} ${h.label(el)}${shown ? ` "${shown}"` : ''}${step.action === 'type' || step.action === 'select' ? ` → "${String(step.value).slice(0, 40)}"` : ''}`;
+    // Said the way a person would: 'type "NTU" into the "Search" field', 'press Enter in …', 'click button "Send"'.
+    const value = String(step.value ?? '').slice(0, 40);
+    const what = step.action === 'type' ? `type "${value}" into ${humanName(field(el))}`
+      : step.action === 'select' ? `choose "${value}" in ${humanName(field(el))}`
+        : step.action === 'press' ? `press ${step.value} in ${humanName(el)}`
+          : step.action === 'scroll' ? (step.value ? `scroll ${humanName(el)} ${step.value}` : `scroll to ${humanName(el)}`)
+            : `${VERBS[step.action] ?? step.action} ${humanName(el)}`;
     if (step.action !== 'scroll' || step.value === undefined) el.scrollIntoView({ block: 'center', inline: 'nearest' });
     highlight(el, what);
     return { found: true, what, risky: riskOf(el) };
@@ -205,9 +234,12 @@ export function interactStep(h, selected, { actionId, step, dry = false, hold = 
   state.interact = state.interact || {};
   const undo = (state.interact[actionId] = state.interact[actionId] || []);
   const name = `${h.label(el)}${step.text ? ` "${step.text}"` : ''}`;
-  const field = (node) => (node.matches('input, textarea, select, [contenteditable=""], [contenteditable="true"]')
-    ? node
-    : node.control || node.querySelector('input, textarea, select, [contenteditable=""], [contenteditable="true"]') || node);
+  /** The form field an element stands for (itself, its label's control, or a field inside it). Hoisted: the dry run uses it. */
+  function field(node) {
+    return node.matches('input, textarea, select, [contenteditable=""], [contenteditable="true"]')
+      ? node
+      : node.control || node.querySelector('input, textarea, select, [contenteditable=""], [contenteditable="true"]') || node;
+  }
 
   switch (step.action) {
     case 'click':
