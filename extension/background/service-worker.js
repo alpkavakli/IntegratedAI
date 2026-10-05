@@ -14,7 +14,9 @@
  */
 
 import { scopeMatches } from '../shared/url-scope.js';
-import { buildExport, mergePatches, parseImport } from '../shared/data-transfer.js';
+import { buildExport, conversationsToWrite, mergeMemory, mergePatches, parseImport } from '../shared/data-transfer.js';
+import { indexEntry } from '../shared/agent/session-model.js';
+import { DB_NAME as DIRECT_DB, openDb as openDirectDb } from '../panel/direct/stores.js';
 
 /**
  * @typedef {object} Patch
@@ -68,12 +70,15 @@ const handlers = {
     extensionVersion: chrome.runtime.getManifest().version,
     // Direct mode keeps conversations (IndexedDB) and site memory ("memory:<site>" keys) in the extension.
     conversations: await countDirectConversations(),
-    memorySites: Object.keys(await chrome.storage.local.get(null)).filter((k) => k.startsWith('memory:')).length,
+    memorySites: Object.keys(await chrome.storage.local.get(null)).filter((k) => k.startsWith(MEMORY_PREFIX)).length,
   }),
   'data.export': async () => buildExport({
     patches: await getPatches(),
     settings: (await chrome.storage.local.get('settings')).settings ?? {},
     extensionVersion: chrome.runtime.getManifest().version,
+    conversations: await readDirectConversations(),
+    memory: Object.entries(await chrome.storage.local.get(null))
+      .filter(([key]) => key.startsWith(MEMORY_PREFIX)).map(([, record]) => record),
   }),
   'data.import': async ({ data }) => importData(data),
   'data.clear': async () => clearData(),
@@ -288,18 +293,30 @@ chrome.runtime.onInstalled.addListener(async ({ reason }) => {
 chrome.runtime.onStartup.addListener(() => { migrateStorage(); });
 
 /**
- * Import patches (merged) and settings (never the pairing token).
+ * Import patches (merged), settings (never the pairing token), and direct mode's
+ * conversations and site memory (merged; nothing here is replaced by an older copy).
  * @param {unknown} data parsed export file
  */
 async function importData(data) {
-  const { patches, settings } = parseImport(data);
+  const { patches, settings, conversations, memory } = parseImport(data);
+  const imported = conversations.length ? await importDirectConversations(conversations) : { added: 0, updated: 0 };
+  let notes = 0;
+  for (const record of memory) {
+    const key = MEMORY_PREFIX + record.site;
+    const { merged, added } = mergeMemory((await chrome.storage.local.get(key))[key] ?? null, record);
+    await chrome.storage.local.set({ [key]: merged });
+    notes += added;
+  }
   const result = mergePatches(await getPatches(), patches);
   await savePatches(result.merged);
   const current = (await chrome.storage.local.get('settings')).settings ?? {};
   await chrome.storage.local.set({ settings: { ...current, ...settings } });
   // Show enabled imported patches right away in open tabs that match.
   for (const patch of patches.filter((p) => p.enabled)) await forMatchingTabs(patch, (tabId) => insertCss(tabId, patchCss(patch)));
-  return { added: result.added, updated: result.updated, skipped: result.skipped, settings: Object.keys(settings) };
+  return {
+    added: result.added, updated: result.updated, skipped: result.skipped, settings: Object.keys(settings),
+    conversations: imported.added + imported.updated, notes,
+  };
 }
 
 /** Delete everything the extension stored (patches, settings, direct-mode conversations and memory, per-tab data). */
@@ -314,8 +331,45 @@ async function clearData() {
   await chrome.storage.local.set({ storageVersion: STORAGE_VERSION });
 }
 
-/** Direct mode's IndexedDB (see panel/direct/stores.js). */
-const DIRECT_DB = 'integratedai';
+/** Direct mode's site memory keys in chrome.storage.local (see panel/direct/stores.js). */
+const MEMORY_PREFIX = 'memory:';
+
+/** @template T @param {IDBRequest<T>} req @returns {Promise<T>} */
+const idb = (req) => new Promise((resolve, reject) => { req.onsuccess = () => resolve(req.result); req.onerror = () => reject(req.error); });
+
+/** All direct-mode conversations ([] if direct mode was never used; doesn't create the database). */
+async function readDirectConversations() {
+  if (!(await indexedDB.databases()).some((d) => d.name === DIRECT_DB)) return [];
+  const db = await openDirectDb();
+  try {
+    return await idb(db.transaction('conversations').objectStore('conversations').getAll());
+  } finally {
+    db.close();
+  }
+}
+
+/**
+ * Write imported conversations (and their History entries) unless the copy here is newer.
+ * An open panel shows them in its History list.
+ * @param {any[]} incoming
+ */
+async function importDirectConversations(incoming) {
+  const db = await openDirectDb();
+  try {
+    const here = await idb(db.transaction('conversations').objectStore('conversations').getAll());
+    const result = conversationsToWrite(new Map(here.map((s) => [s.id, s.updatedAt])), incoming);
+    const tx = db.transaction(['conversations', 'history'], 'readwrite');
+    for (const session of result.write) {
+      tx.objectStore('conversations').put(session);
+      const entry = indexEntry(session);
+      if (entry) tx.objectStore('history').put(entry);
+    }
+    await new Promise((resolve, reject) => { tx.oncomplete = resolve; tx.onerror = tx.onabort = () => reject(tx.error); });
+    return result;
+  } finally {
+    db.close();
+  }
+}
 
 /** Number of direct-mode conversations with at least one message (0 if direct mode was never used). */
 async function countDirectConversations() {

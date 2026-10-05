@@ -136,15 +136,16 @@
         Kept across updates. Before an update changes the format, the server backs this folder up automatically.</li>
     </ul>
     <div class="row-buttons">
-      <button type="button" id="export">Export patches &amp; settings</button>
+      <button type="button" id="export">Export</button>
       <label class="button-like">Import… <input type="file" id="import" accept="application/json,.json" hidden></label>
       <button type="button" id="clear" class="danger">Delete extension data</button>
       <span id="data-result"></span>
     </div>
     <div class="hint">
-      Export/import moves your saved patches and settings to another copy of the extension (for example from a development
-      copy to the Chrome Web Store version). The pairing token is never exported. Conversations and site memory stay in the
-      server's folder; to back them up, copy that folder.
+      Export/import moves your saved patches, settings and, from direct mode, your conversations and site memory to another
+      copy of the extension (for example from a development copy to the Chrome Web Store version). Importing adds to what is
+      here and never replaces something with an older copy. API keys and the pairing token are never exported. The agent
+      server's conversations and site memory stay in its folder; to back them up, copy that folder.
     </div>
 
     <script src="options.js" type="module"></script>

@@ -201,6 +201,9 @@ async function showDataSummary() {
   }
 }
 
+/** "1 patch", "3 patches" @param {number} n @param {string} one @param {string} [many] */
+const count = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
 /** @param {string} text @param {boolean} [ok] */
 function dataResult(text, ok = true) {
   $('data-result').className = ok ? 'ok' : 'bad';
@@ -216,7 +219,8 @@ $('export').addEventListener('click', async () => {
     a.download = `integratedai-export-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 10_000);
-    dataResult(`Exported ${data.patches.length} patch${data.patches.length === 1 ? '' : 'es'} and your settings.`);
+    dataResult(`Exported ${count(data.patches.length, 'patch', 'patches')}, ${count(data.conversations.length, 'conversation')}, `
+      + `site memory for ${count(data.memory.length, 'site')}, and your settings.`);
   } catch (err) {
     dataResult(String(/** @type {any} */ (err).message ?? err), false);
   }
@@ -229,6 +233,7 @@ $('import').addEventListener('change', async () => {
   try {
     const result = await worker('data.import', { data: JSON.parse(await file.text()) });
     dataResult(`Imported: ${result.added} new patch${result.added === 1 ? '' : 'es'}, ${result.updated} updated, ${result.skipped} already here`
+      + `; ${count(result.conversations, 'conversation')} and ${count(result.notes, 'memory note')}`
       + (result.settings.length ? '; settings restored.' : '.'));
     setTimeout(() => location.reload(), 1500); // show the imported settings
   } catch (err) {

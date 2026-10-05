@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { backupDataDir, dataInfo, prepareDataDir } from '../src/storage/data-version.js';
-import { buildExport, mergePatches, parseImport } from '../../extension/shared/data-transfer.js';
+import { buildExport, conversationsToWrite, mergeMemory, mergePatches, parseImport } from '../../extension/shared/data-transfer.js';
+import { newSession } from '../../extension/shared/agent/session-model.js';
 import { testConfig } from './helpers.js';
 
 const version = (dir) => JSON.parse(readFileSync(join(dir, 'data-version.json'), 'utf8')).version;
@@ -85,4 +86,55 @@ test('import rejects foreign, newer and damaged files; ignores the token', () =>
   assert.throws(() => parseImport({ format: 'integratedai-extension-data', version: 1, patches: [{ id: 'x' }] }), /damaged/);
   const { settings } = parseImport({ format: 'integratedai-extension-data', version: 1, patches: [], settings: { token: 't', webTools: false } });
   assert.deepEqual(settings, { webTools: false });
+});
+
+const note = (id, text, createdAt = 1, scope = 'site') => ({ id, text, scope, by: 'assistant', createdAt });
+
+test('export v2 carries direct-mode conversations and memory; a version 1 file still imports', () => {
+  const session = { ...newSession({ provider: 'openai', model: 'gpt-6.1-sol' }), busy: true };
+  const memory = { site: 'a.com', groups: [], notes: [note('n1', 'Login is at /signin')] };
+  const file = JSON.parse(JSON.stringify(buildExport({ patches: [], settings: {}, extensionVersion: '1', conversations: [session], memory: [memory] })));
+  assert.equal(file.version, 2);
+  assert.equal('busy' in file.conversations[0], false, 'runtime-only state is not exported');
+  const parsed = parseImport(file);
+  assert.equal(parsed.conversations[0].id, session.id);
+  assert.deepEqual(parsed.memory, [memory]);
+  const v1 = parseImport({ format: 'integratedai-extension-data', version: 1, patches: [patch('1')] });
+  assert.deepEqual([v1.patches.length, v1.conversations, v1.memory], [1, [], []]);
+});
+
+test('import rejects damaged conversations and memory', () => {
+  const base = { format: 'integratedai-extension-data', version: 2, patches: [] };
+  assert.throws(() => parseImport({ ...base, conversations: [{ id: '../../etc', messages: [] }] }), /Conversation 1 is damaged/);
+  const session = newSession({ provider: 'anthropic', model: 'm' });
+  assert.throws(() => parseImport({ ...base, conversations: [{ ...session, messages: [{ role: 'user' }] }] }), /Conversation 1 is damaged/);
+  assert.throws(() => parseImport({ ...base, memory: [{ site: 'a.com', groups: [], notes: [{ id: 'x', text: 1 }] }] }), /Site memory 1 is damaged/);
+});
+
+test('imported conversations: new and newer are written, older copies never overwrite', () => {
+  const here = new Map([['a', 10], ['b', 10]]);
+  const result = conversationsToWrite(here, [{ id: 'a', updatedAt: 5 }, { id: 'b', updatedAt: 20 }, { id: 'c', updatedAt: 1 }]);
+  assert.deepEqual(result.write.map((s) => s.id), ['b', 'c']);
+  assert.deepEqual([result.added, result.updated, result.skipped], [1, 1, 1]);
+});
+
+test('imported memory is joined with what is here, without duplicates or going over the limit', () => {
+  const existing = { site: 'a.com', groups: [{ id: 'g1', name: 'Reader', pattern: '/book/*' }], notes: [note('n1', 'Dark theme', 5)] };
+  const incoming = {
+    site: 'a.com',
+    groups: [{ id: 'g2', name: 'Reader again', pattern: '/book/*' }, { id: 'g3', name: 'Cart', pattern: '/cart' }],
+    notes: [note('n1', 'Dark theme', 5), note('zz', 'Dark theme', 9), note('n2', 'Prices exclude tax', 1, '/cart')],
+  };
+  const { merged, added } = mergeMemory(existing, incoming);
+  assert.equal(added, 1);
+  assert.deepEqual(merged.groups.map((g) => g.id), ['g1', 'g3'], 'same pattern is not added twice');
+  assert.deepEqual(merged.notes.map((n) => n.id), ['n2', 'n1'], 'oldest first');
+  assert.equal(mergeMemory(null, incoming).merged.notes.length, 2, 'duplicates within the file are joined too');
+  assert.equal(existing.notes.length, 1, 'the existing record is not modified');
+
+  const many = { site: 'a.com', groups: [], notes: Array.from({ length: 120 }, (_, i) => note(`m${i}`, `note ${i}`, i)) };
+  const capped = mergeMemory(null, { ...many, notes: many.notes.slice(0, 100) });
+  const over = mergeMemory(capped.merged, { ...many, notes: many.notes.slice(100) }).merged;
+  assert.equal(over.notes.length, 100);
+  assert.equal(over.notes[0].id, 'm20', 'the oldest notes are dropped');
 });

@@ -50,7 +50,7 @@ scripts/                        package-extension.js, store-screenshots.mjs, bui
 
 ```bash
 npm install
-npm test                                   # 95 unit tests (node:test)
+npm test                                   # 99 unit tests (node:test)
 npm start                                  # local agent server
 npm run package                            # store checks + dist/integratedai-<version>.zip
 npm run site                               # docs/index.html and docs/privacy.html from store/PRIVACY.md
@@ -97,15 +97,15 @@ that does it without the AI.
 ## Open items / next steps
 
 1. **Test direct mode with real keys** (Anthropic first, then OpenAI/Gemini/OpenRouter). Gemini and OpenRouter
-   have only unit tests. Check that the default model ids in `extension/shared/providers/openai-compatible.js`
-   (`PRESETS`) still exist; Options → Test key lists the real ones.
+   have only unit tests. The suggested model ids in `extension/shared/providers/openai-compatible.js` (`PRESETS`)
+   were checked against the vendors' model docs and OpenRouter's public model list on 2026-10-05 (gpt-6.1-sol,
+   gemini-3.8-flash, …); models change often, and Options → Test key lists the ones a key can really use.
 2. **Publish** (owner's tasks): make the repo public, enable GitHub Pages from `/docs`, and use
    `https://alpkavakli.github.io/IntegratedAI/privacy.html` as the privacy URL. Create the Web Store developer
    account and upload `dist/integratedai-<version>.zip` with the texts and images in `store/SUBMISSION.md`.
    Bump `version` in `extension/manifest.json` for every upload.
 3. **Possible next features:**
    - Ollama (local models): one more preset in openai-compatible.js plus a base-URL setting.
-   - Export/import of direct-mode conversations and memory (export currently covers patches and settings only).
    - Persistent JS patches (deliberately left out for safety).
    - Providers other than Claude Code in server mode.
 4. **Known limits:** listed at the end of the README (the panel only works while DevTools is open; the network log

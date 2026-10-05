@@ -214,6 +214,7 @@ Everything stays on your computer.
 | Server settings, pairing token | server: `~/.integratedai/config.json` | kept | kept |
 | Claude Code's own session history | `~/.claude/projects/…claude-cli-workspace/` | kept | kept |
 | Saved patches, extension settings | Chrome's storage for this extension | kept | **deleted**: export first |
+| Direct mode: conversations, site memory | Chrome's storage for this extension (IndexedDB, `memory:<site>` keys) | kept | **deleted**: export first |
 | Tab ↔ conversation map, undo info | Chrome session storage | — | cleared on browser restart by design |
 
 **Updates never lose data:**
@@ -221,13 +222,13 @@ Everything stays on your computer.
 - **Extension:** Chrome keeps extension storage across updates. The extension stamps it with a version (`storageVersion`) and migrates it in `chrome.runtime.onInstalled`.
 - **First install:** the Options page opens automatically so you can connect to the server.
 
-**Moving to another copy of the extension.** A development copy (Load unpacked) and the Chrome Web Store version are *different* extensions to Chrome, with separate storage. Your conversations and memory are shared, because they're on the server. Your patches are not.
-1. In the old copy, open **Options → Your data → Export patches & settings**.
-2. In the new copy, click **Import…**.
+**Moving to another copy of the extension.** A development copy (Load unpacked) and the Chrome Web Store version are *different* extensions to Chrome, with separate storage. In server mode your conversations and memory are shared, because they're on the server; your patches are not. In direct mode, nothing is shared.
+1. In the old copy, open **Options → Your data → Export**. The file holds your patches and settings, and in direct mode also your conversations and site memory (shared and private).
+2. In the new copy, click **Import…**. Importing adds to what's there: a conversation is only replaced by a newer copy of itself, and memory notes are joined without duplicates.
 
-The pairing token is never exported.
+API keys and the pairing token are never exported.
 
-**Options → Your data** shows what's stored on both sides and has **Delete extension data**. To back up or remove conversations and memory, copy or delete the server's folder.
+**Options → Your data** shows what's stored on both sides and has **Delete extension data**. To back up or remove the server's conversations and memory, copy or delete its folder.
 
 ## Security model
 

@@ -55,7 +55,7 @@
 <h2>What is stored, and where</h2>
 <p>All storage is local to your computer:</p>
 <ul>
-<li><strong>In Chrome</strong> (extension storage): your settings, your API keys (direct mode), the pairing token (local server mode) and saved CSS patches. In direct mode also your conversations (IndexedDB) and site memory, including private per-conversation memory. Removed when you uninstall the extension, or via <em>Options → Your data → Delete extension data</em>. Each API key is only ever sent to its own provider.</li>
+<li><strong>In Chrome</strong> (extension storage): your settings, your API keys (direct mode), the pairing token (local server mode) and saved CSS patches. In direct mode also your conversations (IndexedDB) and site memory, including private per-conversation memory. Removed when you uninstall the extension, or via <em>Options → Your data → Delete extension data</em>. Each API key is only ever sent to its own provider. <em>Options → Your data → Export</em> saves this data (without API keys or the pairing token) to a file on your computer, only when you click it.</li>
 <li><strong>Local server mode, on your computer, in the agent server's folder</strong> (<code>~/.integratedai</code>): conversations, site memory notes and page types, logs of failed calls, and automatic backups made before data-format updates. You can view, back up or delete this folder at any time; individual memory notes can be edited or deleted in the panel's Memory tab.</li>
 </ul>
 <h2>What the extension does on pages</h2>
