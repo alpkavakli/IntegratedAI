@@ -16,7 +16,7 @@
 
 import { ACTIONS } from '../actions.js';
 import { Provider } from './base.js';
-import { renderContext, renderMemory } from './common.js';
+import { MAX_IMAGES_SENT, renderContext, renderMemory } from './common.js';
 import { estimateCost } from './pricing.js';
 
 /** @typedef {import('../protocol.js').NeutralMessage} NeutralMessage */
@@ -195,8 +195,7 @@ export function toAnthropicTools(actionNames) {
   }));
 }
 
-/** Only the most recent screenshots are sent again; older ones become a short note. */
-export const MAX_IMAGES_SENT = 3;
+export { MAX_IMAGES_SENT };
 
 /**
  * Neutral conversation → Anthropic `messages`.

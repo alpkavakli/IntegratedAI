@@ -50,7 +50,7 @@ scripts/                        package-extension.js, store-screenshots.mjs, bui
 
 ```bash
 npm install
-npm test                                   # 104 unit tests (node:test)
+npm test                                   # 105 unit tests (node:test)
 npm start                                  # local agent server
 npm run package                            # store checks + dist/integratedai-<version>.zip
 npm run site                               # docs/index.html and docs/privacy.html from store/PRIVACY.md

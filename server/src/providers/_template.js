@@ -39,8 +39,8 @@ export class ExampleProvider extends Provider {
   }
 
   /**
-   * @param {import('./base.js').TurnRequest} req
-   * @returns {AsyncGenerator<import('./base.js').ProviderEvent>}
+   * @param {import('../../../extension/shared/providers/base.js').TurnRequest} req
+   * @returns {AsyncGenerator<import('../../../extension/shared/providers/base.js').ProviderEvent>}
    */
   async *turn({ messages, system, actionNames, model, signal }) {
     // 1. Convert messages (see toAnthropicMessages in anthropic.js for a full example).

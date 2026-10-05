@@ -7,18 +7,21 @@ inspecting, especially the element selected in the Elements panel (`$0`). It exp
 styling and console problems, and proposes changes. You preview each change, apply it, undo it,
 and can save CSS fixes as **persistent per-site patches**.
 
-The AI runs through a **local Node.js agent server**. By default it uses your **Claude Code
-subscription login** (`claude -p`), so no API key is needed.
+The AI runs in one of two ways (see [Two ways to run it](#two-ways-to-run-it)):
 
 ```
-Chrome DevTools ── "AI" panel (extension)
+Direct mode (default): nothing to install
+  Chrome DevTools ── "AI" panel (extension, runs the agent itself)
+        └── your own API key: Anthropic, OpenAI, Google Gemini, OpenRouter
+            or Ollama on your computer (no key)
+
+Local server mode (for developers)
+  Chrome DevTools ── "AI" panel (extension)
         │  ws://127.0.0.1:7823  (Origin check + pairing token)
         ▼
-Local agent server (Node.js, plain ESM JavaScript)
-        │
-        ├── Claude Code CLI provider   (claude -p, your subscription)   ← default
+  Local agent server (Node.js, plain ESM JavaScript)
+        ├── Claude Code CLI provider   (claude -p, your Claude subscription)   ← default
         └── Anthropic API provider     (only if you configure an API key)
-            (+ OpenAI / Gemini / Ollama / OpenRouter / … later: one file each)
 ```
 
 **The model never runs anything by itself.** It can only *read* the page (inspections) and
@@ -53,6 +56,13 @@ than the hosted ones; larger models give better results.
 
 **Copy text:** the button next to the context chips copies the selected element's text to the clipboard. The extension does this itself; no AI is involved.
 
+### Quick start (direct mode)
+
+1. Install the extension (from the Chrome Web Store, or: `chrome://extensions` → **Developer mode** → **Load unpacked** → the `extension/` folder). The Options page opens.
+2. Pick a provider, paste your API key (or set up Ollama, above), and click **Test key**.
+3. Reload any tab that was already open, so the console capture starts there.
+4. Open DevTools (F12). There is a new **AI** tab.
+
 The rest of this section sets up the local server.
 
 ## Requirements (local server)
@@ -81,7 +91,7 @@ Load the extension:
 
 1. Open `chrome://extensions` and turn on **Developer mode**.
 2. Click **Load unpacked** and pick the `extension/` folder.
-3. Click **Details → Extension options**, paste the pairing token, then click **Test connection**.
+3. Click **Details → Extension options**, choose **Local agent server**, paste the pairing token, then click **Test connection**.
 4. Reload any tab that was already open, so the console capture starts there.
 5. Open DevTools (F12). There is a new **AI** tab.
 
@@ -115,12 +125,15 @@ Defaults can be changed in Options.
 | **Chat** | Conversation, action cards, provider/model picker, cost meter |
 | **Patches** | Saved CSS patches: enable/disable, edit, delete. Enabled patches are reapplied whenever a matching page loads, even when DevTools is closed. Patches with a **toggle** also get an on/off button on the page itself. |
 | **Console** | Errors and warnings captured on the page, each with **Explain** (asks the AI) and **Open source** (jumps to Sources) |
+| **Memory** | What the AI remembers about this site (see below): notes and page types, to edit, delete or add to; and whether this conversation uses the shared memory, a private one, or none |
+
+**History** in the toolbar lists earlier conversations on the site.
 
 ### Memory: what it remembers between conversations
 
-Memory has two layers, both stored by the server in `~/.integratedai/`, so it survives browser restarts.
+Memory has two layers. In local server mode both are stored by the server in `~/.integratedai/`; in direct mode, in the extension's storage in the browser. Either way they survive browser restarts.
 
-**1. Site memory** (`memory/<site>.json`): short notes per site and per **page type**.
+**1. Site memory** (server: `memory/<site>.json`): short notes per site and per **page type**.
 - The AI saves notes with the `remember` action when it learns something reusable, such as key selectors (`nav bar: nav.g_nav`), how the site is built, or your preferences (e.g. a dark theme you saved). It fixes wrong notes with `forget`.
 - Notes are saved without asking, never touch the page, and show in the chat as **📝 Remembered …**.
 - **Whole site** notes apply to every page of the site. **This kind of page** notes apply only to pages of the same page type.
@@ -133,16 +146,16 @@ Memory has two layers, both stored by the server in `~/.integratedai/`, so it su
 - The AI names page types and fixes patterns with `define_page_group`. You can edit them in the Memory tab.
 - Saved patches can also be scoped to a page type: **Save as site patch → "Pages like this: Chapter reader"**.
 
-**2. Conversation history** (`conversations/`): every conversation is kept.
-- **History** in the toolbar lists the conversations on this site, those about the same page type first. Clicking one continues it, and the Claude Code session is resumed too.
+**2. Conversation history** (server: `conversations/`; direct mode: IndexedDB): every conversation is kept.
+- **History** in the toolbar lists the conversations on this site, those about the same page type first. Clicking one continues it (with the Claude Code CLI, its session is resumed too).
 - A new conversation on a known site starts fresh but already knows the site memory. It offers **Continue "…"** for the latest conversation on that site, and shows how many things it remembers.
 
 Notes come partly from page content, so they are treated as data, never as instructions. They are only shown for their own site, and you can see and delete every one.
 
 **Conversations are per tab.** They survive closing DevTools, reloads and navigation in the same
-tab. A browser restart starts fresh. Conversations are never merged just because two tabs share
-an origin. **New** starts a new conversation for the tab. Old conversations stay on disk in
-`~/.integratedai/conversations/` for a future "resume" feature.
+tab. After a browser restart a tab starts with a new conversation; earlier ones are under **History**.
+Conversations are never merged just because two tabs share an origin. **New** starts a new
+conversation for the tab.
 
 ## Actions (what the model can do)
 
@@ -178,11 +191,12 @@ The system prompt tells the AI who it works for: the browser's owner, who approv
 - The inspected tab must be the visible tab in its window. With DevTools docked it always is.
 - Only what's on screen can be captured: an element taller than the window is cut off.
 - **Claude Code CLI:** the image comes back from the `mcp__page__screenshot` tool.
-- **Anthropic API:** the image goes in the tool result. Only the last 3 screenshots are re-sent on later calls, because each one costs about 1–1.5k input tokens every time.
+- **API providers:** the image goes with the tool result (OpenAI-compatible APIs: as an image in the next user message). Only the last 3 screenshots are re-sent on later calls, because each one costs about 1–1.5k input tokens every time. Some local Ollama models can't see images; **Test connection** says so.
 
 **Web search.** The AI can search the web and read web pages (documentation, MDN, browser support). It is on by default; turn it off in Options.
 - **Claude Code CLI provider:** uses Claude Code's `WebSearch`/`WebFetch` tools, and nothing else is enabled.
-- **Anthropic API provider:** uses the server-side `web_search`/`web_fetch` tools.
+- **Anthropic API** (server or direct mode): uses Anthropic's server-side `web_search`/`web_fetch` tools.
+- **OpenAI, Gemini, OpenRouter, Ollama:** no web search.
 
 ### Apply to source (your own websites)
 
@@ -232,7 +246,7 @@ Everything stays on your computer.
 **Updates never lose data:**
 - **Server:** the data folder has a version (`data-version.json`). When a new version needs a different format, the server first copies the folder to `~/.integratedai/backups/before-v<N>-<date>/`, then migrates it. If you run an *older* server on *newer* data, it refuses to start rather than damage it.
 - **Extension:** Chrome keeps extension storage across updates. The extension stamps it with a version (`storageVersion`) and migrates it in `chrome.runtime.onInstalled`.
-- **First install:** the Options page opens automatically so you can connect to the server.
+- **First install:** the Options page opens automatically so you can add an API key or connect to the server.
 
 **Moving to another copy of the extension.** A development copy (Load unpacked) and the Chrome Web Store version are *different* extensions to Chrome, with separate storage. In server mode your conversations and memory are shared, because they're on the server; your patches are not. In direct mode, nothing is shared.
 1. In the old copy, open **Options → Your data → Export**. The file holds your patches and settings, and in direct mode also your conversations and site memory (shared and private).
@@ -245,13 +259,14 @@ API keys and the pairing token are never exported.
 ## Security model
 
 - **Approval:** changes are never executed by the server. The panel runs them only after a click. `execute_js` also requires ticking "I reviewed this code", and its card says whether it can be undone.
-- **Validation:** every action is validated against its JSON Schema on the server *and* again in the panel just before it runs, with extra rules:
+- **Validation:** every action is validated against its JSON Schema by the agent (on the server, or in the panel in direct mode) *and* again in the panel just before it runs, with extra rules:
   - no `on*` event-handler attributes
   - no `javascript:` URLs
   - no `srcdoc`
   - no `<style>` tags inside CSS
   - length limits on all inputs
-- **Server access:**
+- **API keys (direct mode):** stored in the extension's storage in this browser, never exported, and each is sent only to its own provider.
+- **Server access** (local server mode):
   - The server listens on `127.0.0.1` only.
   - It rejects any Origin other than `chrome-extension://…`, which blocks websites.
   - It rejects non-local Host headers, which blocks DNS rebinding.
@@ -298,7 +313,8 @@ API keys and the pairing token are never exported.
 
 **Cost meter.** The cost comes from what the provider reports:
 - **Claude Code:** its own estimate (`total_cost_usd`). With a subscription this is usage against your plan, not a separate bill.
-- **Anthropic API:** computed from token usage and the prices in [pricing.js](server/src/providers/pricing.js).
+- **Anthropic API:** computed from token usage and the prices in [pricing.js](extension/shared/providers/pricing.js).
+- **OpenAI, Gemini, OpenRouter, Ollama:** token counts only (where the API reports them), no cost.
 
 ## Project layout
 
@@ -308,61 +324,84 @@ extension/                      ← load this folder in chrome://extensions (no 
   shared/                       ← used by BOTH extension and server
     actions.js                  action catalog + schemas + safety validation
     validate.js                 tiny JSON-Schema validator (no dependencies)
-    protocol.js                 WebSocket message types (documented)
-    url-scope.js                patch scopes (origin / prefix / glob)
+    protocol.js                 panel ↔ agent message types (documented)
+    url-scope.js, page-groups.js  patch scopes (origin / prefix / glob / page type), URL categorisation
+    css-boost.js                makes injected CSS win specificity ties with page rules
+    data-transfer.js            Options → Export / Import
+    agent/
+      orchestrator.js           the turn loop and approval rules (memory modes too)
+      requests.js               panel requests, answered the same way by server and direct mode
+      system-prompt.js, memory.js, session-model.js, format-result.js
+    providers/
+      base.js                   the Provider interface
+      anthropic.js              Anthropic API (official SDK)
+      openai-compatible.js      OpenAI, Gemini, OpenRouter, Ollama (one preset each)
+      common.js, pricing.js
   devtools/devtools.{html,js}   registers the "AI" panel
   panel/
     panel.html / panel.css / panel.js   UI controller ("App")
-    components/                 <ai-chat>, <ai-action-card>, <ai-patches>, <ai-console>
+    components/                 <ai-chat>, <ai-action-card>, <ai-patches>, <ai-console>, <ai-memory>, <ai-history>
+    direct/                     direct mode: the agent inside the panel, IndexedDB and memory storage
     lib/
       page-scripts.js           functions that run INSIDE the inspected page
-      inspected.js              inspectedWindow.eval wrappers
+      page-interact.js          the interact action's steps (real events)
+      inspected.js              inspectedWindow.eval wrappers (approved scripts are awaited)
       context.js                small per-message context ($0, console, network)
       inspections.js            read-only tools (+ header/URL redaction)
       changes.js                apply / preview / undo
       ws-client.js, settings.js, bg.js, dom.js, markdown.js
-  background/service-worker.js  tab→conversation map, insertCSS/removeCSS, patches
+  background/service-worker.js  tab→conversation map, insertCSS/removeCSS, patches, data export/import
   content/console-capture.js    MAIN-world console/error recorder (document_start)
+  content/patch-toggles.js      on/off buttons for saved patches with a toggle
   options/                      settings page
+  vendor/anthropic-sdk.mjs      the official Anthropic SDK, bundled (npm run vendor:sdk)
 server/
   src/index.js                  HTTP + WebSocket server
   src/auth.js                   Origin/Host checks, token comparison
   src/mcp.js                    POST /mcp: page inspections as MCP tools for Claude Code
   src/connection.js             per-panel socket handling, routing
-  src/agent/orchestrator.js     the turn loop and approval rules
-  src/agent/system-prompt.js
+  src/config.js                 ~/.integratedai/config.json
   src/agent/page-tools.js       per-call tokens and the inspections offered over MCP
   src/source/source-editor.js   Apply to source: read-only Claude Code call, edit checks, write, undo
   src/sessions/store.js         conversations as JSON files
+  src/memory/store.js           site memory as JSON files
+  src/storage/data-version.js   data folder versions, backups and migrations
   src/providers/
-    base.js                     the Provider interface
-    registry.js                 list of providers
+    registry.js                 list of server providers
     claude-cli.js               claude -p provider
-    anthropic.js                Anthropic API provider
     _template.js                start here for a new provider
-    common.js, pricing.js
   test/                         node:test unit tests
+store/                          Chrome Web Store kit: privacy policy, listing texts, screenshots
+docs/                           public site with the privacy policy (npm run site)
+scripts/                        packaging, store screenshots, site and SDK builds
 ```
 
 ## How a turn works
 
+Described for local server mode. In direct mode the same orchestrator runs inside the panel, and the messages
+below are passed in memory instead of over the WebSocket.
+
 1. The panel sends `chat.send` with your text and the small context.
 2. The orchestrator calls the provider:
    - **Claude CLI** gets `--json-schema` for the `{ reply, actions[] }` envelope and `--session-id`/`--resume`, so one Claude Code session is kept per conversation. It also gets `--mcp-config` pointing at this server's `/mcp` endpoint, so the inspections are real tools (`mcp__page__find_elements`, …) it can call while it works.
-   - **Anthropic API** gets native `strict` tools.
+   - **API providers** (Anthropic, OpenAI-compatible) get the actions as native tools.
 3. Inspections are sent to the panel (`tool.request`), run in the page, and their results go back to the model. With the Anthropic API, and with Claude CLI inspections listed in `actions`, this loops up to `maxStepsPerTurn` times. Claude CLI's MCP tool calls are answered inside the same call.
 4. Changes are sent as `action.proposed` and nothing more happens. When you apply, reject, undo or save, the panel reports it (`action.status`). The model receives your decision as the tool result at the start of your next message, so it knows what actually happened.
 
 ## Adding a provider
 
-Copy [server/src/providers/_template.js](server/src/providers/_template.js), implement:
-- `checkAvailability()`
-- `turn()`, which yields `text_delta` / `tool_call` / `usage` / `done` events.
+- **A service with an OpenAI-compatible API** (Groq, Mistral, LM Studio, …): add one preset to `PRESETS` in
+  [openai-compatible.js](extension/shared/providers/openai-compatible.js), add it to `DIRECT_PROVIDERS` in
+  [direct-client.js](extension/panel/direct/direct-client.js) and to the provider list in Options, and name the
+  service in `store/PRIVACY.md`.
+- **Anything else:** copy [server/src/providers/_template.js](server/src/providers/_template.js) and implement
+  `checkAvailability()` and `turn()`, which yields `text_delta` / `tool_call` / `usage` / `done` events. For the
+  server, add the class to `PROVIDERS` in [registry.js](server/src/providers/registry.js); for direct mode, put it in
+  `extension/shared/providers/` (no Node APIs) and add it to `DIRECT_PROVIDERS`.
 
-Then add the class to `PROVIDERS` in [registry.js](server/src/providers/registry.js). Approval, validation, page inspection and storage are handled for every provider by the orchestrator.
-
-- **Providers with function calling** (OpenAI, Gemini, Ollama, OpenRouter, Grok) can pass `ACTIONS[name].inputSchema` directly as tool parameters.
-- **Providers without tool calling** can reuse `envelopeSchema()` like the CLI provider does.
+Approval, validation, page inspection and storage are handled for every provider by the orchestrator.
+Providers with function calling pass `ACTIONS[name].inputSchema` directly as tool parameters; providers without
+tool calling can reuse `envelopeSchema()` like the CLI provider does.
 
 ## Planned extensions (and where they plug in)
 
@@ -374,7 +413,7 @@ Then add the class to `PROVIDERS` in [registry.js](server/src/providers/registry
 npm test
 ```
 
-95 unit tests cover:
+105 unit tests cover:
 - action validation and safety rules
 - auth (Origin, Host, token) and patch scopes
 - CLI argument building and output parsing, including session resume, cost differences, recovery from a lost session, decoding the streamed reply, enabling only the web tools and our MCP page tools, and the one-time correction when a model calls page actions as tools
@@ -383,9 +422,12 @@ npm test
 - the MCP endpoint: only inspections are listed, calls reach the right conversation, inputs are validated, and tokens, Origin and Host are checked
 - screenshots: images are split out of results (never sent as text), invalid ones dropped, returned as MCP image content, and sent to the Anthropic API as images, only the most recent few
 - Apply to source: exact unique replacements, new files, CRLF files, paths kept inside the project (including through symlinks), project matching by URL, propose → write → undo (also after a restart), refusing files changed in between, and the read-only Claude Code arguments
-- site memory and page types: URL categorisation, note scopes, renaming groups, memory sent only when it changes, history per site
+- site memory and page types: URL categorisation, note scopes, renaming groups, memory sent only when it changes, history per site, and shared / private / no memory per conversation
+- direct mode: the shared request handler, provider choice, and the OpenAI-compatible providers (streamed tool calls, cut-off answers, readable errors for bad keys, Ollama's address, missing server and refused origin)
+- export / import (no secrets, version 1 files, merging conversations and memory), data folder versions and backups
+- CSS boosting, screenshots re-sent only for the last 3, and approved scripts that use `await` (timeouts, reloads)
 
-These were also checked manually against real Chrome and the real `claude` CLI during development:
+These were also checked against real Chrome and the real `claude` CLI during development:
 - page scripts and console capture
 - `insertCSS`/`removeCSS` under a strict CSP
 - automatic patch reapplication
@@ -393,6 +435,7 @@ These were also checked manually against real Chrome and the real `claude` CLI d
 - Claude Code (Sonnet) calling the page inspections over MCP: through the real server on a new and a resumed session, and with the real panel code in Chromium on a webnovel-like test page (the panel ran in a tab with a `chrome.devtools` stand-in). There, "Make a toggle button in the nav bar…" found `nav.g_nav`, and Apply, Save as site patch + toggle, reload and the toggle all worked.
 - screenshots with the real panel code in Chromium: of the nav bar, and of a footer 2,400 px below the fold. The page was scrolled to the footer and back, and Sonnet read both images correctly.
 - Apply to source end to end in Chromium with Claude Code (Sonnet) on a small test project. It changed the existing `.main-nav` rules instead of pasting the browser CSS, wrote only after the click, and Undo restored the file.
+- direct mode in Chromium with recorded-style API answers (Anthropic, OpenAI), Test key against the real APIs with invalid keys, Ollama against a stand-in server with Ollama's origin rules, and export / import / delete of the stored data. **Not yet done: direct mode with real API keys and a real Ollama.**
 
 ## Debugging
 

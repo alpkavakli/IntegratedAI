@@ -18,7 +18,7 @@ const HELLO_TIMEOUT_MS = 5_000;
 const TOOL_TIMEOUT_MS = 120_000; // the user may be asked to confirm an inspection
 const MAX_TEXT = 20_000;
 
-/** @typedef {import('./agent/orchestrator.js').Orchestrator} Orchestrator */
+/** @typedef {import('../../extension/shared/agent/orchestrator.js').Orchestrator} Orchestrator */
 
 export class PanelHub {
   constructor() {

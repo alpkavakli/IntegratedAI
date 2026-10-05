@@ -26,7 +26,7 @@ import { ACTIONS, isReadOnly, validateAction } from '../../../extension/shared/a
  */
 
 export class PageTools {
-  /** @param {Pick<import('./orchestrator.js').PanelLink, 'requestTool'>} panel */
+  /** @param {Pick<import('../../../extension/shared/agent/orchestrator.js').PanelLink, 'requestTool'>} panel */
   constructor(panel) {
     this.panel = panel;
     /** @type {Map<string, Grant>} token → grant */

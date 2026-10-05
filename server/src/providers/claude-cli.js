@@ -79,8 +79,8 @@ export class ClaudeCliProvider extends Provider {
   }
 
   /**
-   * @param {import('./base.js').TurnRequest} req
-   * @returns {AsyncGenerator<import('./base.js').ProviderEvent>}
+   * @param {import('../../../extension/shared/providers/base.js').TurnRequest} req
+   * @returns {AsyncGenerator<import('../../../extension/shared/providers/base.js').ProviderEvent>}
    */
   async *turn(req) {
     const { messages, system, actionNames, model, state, signal, webTools, pageTools } = req;

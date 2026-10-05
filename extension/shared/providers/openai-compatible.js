@@ -13,7 +13,7 @@
 
 import { ACTIONS } from '../actions.js';
 import { Provider } from './base.js';
-import { newCallId, renderBlockAsText } from './common.js';
+import { MAX_IMAGES_SENT, newCallId, renderBlockAsText } from './common.js';
 
 /** @typedef {import('../protocol.js').NeutralMessage} NeutralMessage */
 
@@ -230,11 +230,24 @@ export function openAICompatibleProvider(id) {
  * Neutral conversation → Chat Completions messages.
  * - tool results become role "tool" messages right after the assistant's tool calls
  * - the rest of a user message (context, memory, text) becomes a user message
- * - screenshots from tool results follow as an image in a user message ("tool" messages can't hold images)
+ * - screenshots from tool results follow as an image in a user message ("tool" messages can't hold images);
+ *   only the last MAX_IMAGES_SENT are attached (each costs ~1–1.5k tokens on every call), as for Anthropic
  * @param {string} system
  * @param {NeutralMessage[]} messages
  */
 export function toOpenAIMessages(system, messages) {
+  /** @type {Set<unknown>} tool_result blocks whose images are still sent */
+  const keepImages = new Set();
+  let imagesLeft = MAX_IMAGES_SENT;
+  for (const m of [...messages].reverse()) {
+    for (const b of m.content) {
+      if (b.type === 'tool_result' && b.images?.length && imagesLeft >= b.images.length) {
+        keepImages.add(b);
+        imagesLeft -= b.images.length;
+      }
+    }
+  }
+
   /** @type {any[]} */
   const out = [{ role: 'system', content: system }];
   for (const m of messages) {
@@ -252,8 +265,9 @@ export function toOpenAIMessages(system, messages) {
     for (const b of m.content) {
       if (b.type !== 'tool_result') continue;
       const r = /** @type {any} */ (b);
-      out.push({ role: 'tool', tool_call_id: r.toolCallId, content: r.isError ? `Error: ${r.content}` : r.content });
-      if (r.images) images.push(...r.images);
+      const dropped = r.images?.length && !keepImages.has(b) ? '\n(The screenshot from this result is no longer attached.)' : '';
+      out.push({ role: 'tool', tool_call_id: r.toolCallId, content: (r.isError ? `Error: ${r.content}` : r.content) + dropped });
+      if (r.images && keepImages.has(b)) images.push(...r.images);
     }
     const parts = m.content
       .filter((b) => b.type !== 'tool_result')

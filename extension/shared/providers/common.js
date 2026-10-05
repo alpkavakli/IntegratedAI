@@ -11,6 +11,9 @@
 /** @typedef {import('../protocol.js').NeutralMessage} NeutralMessage */
 /** @typedef {import('../protocol.js').ContentBlock} ContentBlock */
 
+/** Only the most recent screenshots are sent again; older ones become a short note. */
+export const MAX_IMAGES_SENT = 3;
+
 /** Tool call ids look like "call_3f9a1c2b4d5e" (valid for every provider's id rules). */
 export function newCallId() {
   // Web Crypto works in Node 20+ and in the extension alike.

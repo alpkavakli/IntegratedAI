@@ -77,6 +77,18 @@ test('provider: streams text, assembles tool calls from pieces, reports usage', 
   assert.equal(body.messages[0].role, 'system');
 });
 
+test('messages: only the last 3 screenshots are sent again; older ones become a note', () => {
+  const shot = (i) => [
+    { role: 'assistant', ts: 0, content: [{ type: 'tool_call', id: 's' + i, name: 'screenshot', input: {} }] },
+    { role: 'user', ts: 0, content: [{ type: 'tool_result', toolCallId: 's' + i, content: 'shot ' + i, images: [{ mediaType: 'image/jpeg', data: 'IMG' + i }] }] },
+  ];
+  const out = toOpenAIMessages('S', [1, 2, 3, 4, 5].flatMap(shot));
+  const sent = out.flatMap((m) => Array.isArray(m.content) ? m.content.filter((p) => p.type === 'image_url').map((p) => p.image_url.url.slice(-4)) : []);
+  assert.deepEqual(sent, ['IMG3', 'IMG4', 'IMG5']);
+  assert.match(out.find((m) => m.tool_call_id === 's1').content, /no longer attached/);
+  assert.equal(out.find((m) => m.tool_call_id === 's5').content, 'shot 5');
+});
+
 test('provider: a cut-off answer never runs its tool calls; Gemini gets no stream_options', async () => {
   const Gemini = openAICompatibleProvider('gemini');
   let sent;

@@ -6,7 +6,7 @@
 import { AnthropicProvider } from '../../../extension/shared/providers/anthropic.js';
 import { ClaudeCliProvider } from './claude-cli.js';
 
-/** @typedef {typeof import('./base.js').Provider} ProviderClass */
+/** @typedef {typeof import('../../../extension/shared/providers/base.js').Provider} ProviderClass */
 
 /** @type {ProviderClass[]} */
 export const PROVIDERS = [ClaudeCliProvider, AnthropicProvider];
@@ -76,7 +76,7 @@ export class ProviderRegistry {
 
   /**
    * @param {string} id
-   * @returns {import('./base.js').Provider}
+   * @returns {import('../../../extension/shared/providers/base.js').Provider}
    */
   create(id) {
     const P = this.get(id);
