@@ -24,6 +24,8 @@ AI panel in Chrome DevTools: explains layout and console errors, previews CSS fi
 > - **Proposes, you approve:** every change is a card you preview, apply or undo. Nothing runs on its own.
 > - **CSS fixes and themes**, saved as per-site patches with optional on/off buttons on the page.
 > - **Does things for you:** fills in forms, chooses options and clicks through flows with real browser events.
+> - **Agent modes:** let it work through a task on the page by itself, step by step while you watch. It asks before
+>   each step, or only before risky ones (submitting, sending, paying, deleting); you choose.
 > - **Remembers each site:** key selectors and your preferences, so the next conversation starts informed.
 > - **Explains console errors** and jumps to the source.
 > - **Your key, your choice:** paste an API key for Anthropic (Claude), OpenAI, Google Gemini or OpenRouter and go,
@@ -53,8 +55,9 @@ AI calls), or a single one with e.g. `node scripts/store-screenshots.mjs 03-form
 
 **Single purpose:**
 > An AI assistant in Chrome DevTools that helps the user understand and change the web page they are
-> inspecting: explaining layout, styling and console errors, and proposing CSS, element and form changes
-> that run only after the user approves them.
+> inspecting: explaining layout, styling and console errors, proposing CSS, element and form changes, and,
+> only when the user turns on an agent mode for a conversation, operating that page for them (clicking, typing,
+> opening pages) with the confirmations the user chose.
 
 **Permission justifications:**
 

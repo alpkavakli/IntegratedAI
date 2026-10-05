@@ -107,7 +107,10 @@ export class ActionCard extends HTMLElement {
     }
 
     if (name === 'interact') {
-      const VERB = { click: 'Click', type: 'Type into', select: 'Choose in', check: 'Check', uncheck: 'Uncheck', submit: 'Submit the form of' };
+      const VERB = {
+        click: 'Click', type: 'Type into', select: 'Choose in', check: 'Check', uncheck: 'Uncheck', submit: 'Submit the form of',
+        scroll: 'Scroll', press: 'Press', wait: 'Wait for',
+      };
       const steps = /** @type {any[]} */ (input.steps ?? []);
       const clicks = steps.some((s) => s.action === 'click' || s.action === 'submit');
       return h('div', null,
@@ -117,10 +120,16 @@ export class ActionCard extends HTMLElement {
           s.text && s.selector ? ' in ' : null,
           s.selector ? h('code', null, s.selector) : null,
           s.action === 'type' || s.action === 'select' ? ` → "${String(s.value ?? '').slice(0, 120)}"` : null,
+          s.action === 'scroll' || s.action === 'press' ? ` ${s.value ?? 'into view'}` : null,
+          s.action === 'wait' && !s.selector && !s.text ? `${s.value} s` : null,
           s.selector ? [' ', h('button', { class: 'link', type: 'button', onclick: () => this.app.highlight(s.selector) }, 'show')] : null))),
         h('div', { class: 'note' }, clicks
           ? 'Uses real clicks and typing, like you would. Clicks and submits cannot be undone.'
           : 'Uses real typing and selection, like you would. Can be undone.'));
+    }
+
+    if (name === 'navigate') {
+      return h('div', null, input.url ? ['Open ', h('code', null, input.url)] : `Go ${input.go}`);
     }
 
     if (name === 'execute_js') {
@@ -208,9 +217,9 @@ export class ActionCard extends HTMLElement {
           ' I reviewed this code'),
         h('button', { type: 'button', class: 'primary', disabled: disabled || !this.reviewed, onclick: run(() => app.applyAction(actionId)) }, 'Run script'),
       );
-    } else if (name === 'interact') {
+    } else if (name === 'interact' || name === 'navigate') {
       buttons.push(h('button', { type: 'button', class: 'primary', disabled, onclick: run(() => app.applyAction(actionId)) },
-        status === 'proposed' ? 'Run steps' : 'Run again'));
+        name === 'navigate' ? (status === 'proposed' ? 'Go' : 'Go again') : status === 'proposed' ? 'Run steps' : 'Run again'));
     } else {
       buttons.push(
         h('button', { type: 'button', disabled, onclick: run(() => (previewing ? app.stopPreview(actionId) : app.previewAction(actionId))) },

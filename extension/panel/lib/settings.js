@@ -34,6 +34,12 @@ export const DEFAULT_SETTINGS = {
   webTools: true,
   /** Ask before running read-only inspections requested by the model. */
   askBeforeInspections: false,
+  /**
+   * What the AI may do on the page in new conversations: 'suggest' (proposals only), 'ask' (operates
+   * the page, asks before each step) or 'auto' (asks only before risky steps). Full auto is per conversation.
+   * @type {'suggest' | 'ask' | 'auto'}
+   */
+  defaultAgentMode: 'suggest',
   /** Which context chips start enabled. */
   contextDefaults: { selected: true, console: false, network: false },
 };

@@ -45,8 +45,23 @@ const pages = http.createServer((req, res) => {
 }).listen(PORTS.pages);
 
 /**
- * Speaks the part of Ollama's API the extension uses. Every chat answer is the same:
- * an explanation, a site-memory note and a CSS proposal, streamed like the real thing.
+ * Steps the stand-in takes in an agent mode, one per model call (it counts the tool results so far):
+ * fill in the sign-up form, click "Reserve my spot" (a risky step: Auto mode asks), open another page, answer.
+ */
+const AGENT_SCRIPT = [
+  ['interact', { description: 'Fill in the form', steps: [
+    { action: 'type', selector: '#name', value: 'Sam Rivera' },
+    { action: 'type', selector: '#email', value: 'sam@example.com' },
+    { action: 'select', selector: '#workshop', value: 'Screen printing (Sun)' },
+  ] }],
+  ['interact', { description: 'Reserve the spot', steps: [{ action: 'click', text: 'Reserve my spot' }] }],
+  ['navigate', { description: 'Open the pricing page', url: `http://127.0.0.1:${PORTS.pages}/pricing.html` }],
+];
+
+/**
+ * Speaks the part of Ollama's API the extension uses. In Suggest mode every chat answer is the
+ * same: an explanation, a site-memory note and a CSS proposal, streamed like the real thing.
+ * In an agent mode it works through AGENT_SCRIPT.
  */
 const ollama = http.createServer((req, res) => {
   let body = '';
@@ -58,6 +73,20 @@ const ollama = http.createServer((req, res) => {
     if (!req.url?.endsWith('/chat/completions')) return res.writeHead(404).end();
     const send = (/** @type {unknown} */ chunk) => res.write(`data: ${JSON.stringify(chunk)}\n\n`);
     res.writeHead(200, { 'content-type': 'text/event-stream' });
+    const request = JSON.parse(body);
+    if (/Working on the page yourself/.test(request.messages[0].content)) {
+      // Tool results since the user's message (screenshots come as user messages that start with an image note).
+      const lastAsk = request.messages.findLastIndex((/** @type {any} */ m) => m.role === 'user' && typeof m.content === 'string');
+      const step = AGENT_SCRIPT[request.messages.slice(lastAsk).filter((/** @type {any} */ m) => m.role === 'tool').length];
+      if (step) {
+        send({ choices: [{ delta: { tool_calls: [{ index: 0, id: `call_${Date.now()}`, type: 'function', function: { name: step[0], arguments: JSON.stringify(step[1]) } }] } }] });
+        send({ choices: [{ delta: {}, finish_reason: 'tool_calls' }] });
+      } else {
+        send({ choices: [{ delta: { content: 'Done: you are signed up for screen printing, and the pricing page is open.' } }] });
+        send({ choices: [{ delta: {}, finish_reason: 'stop' }] });
+      }
+      return res.end('data: [DONE]\n\n');
+    }
     const text = "**Why it's cut off:** `.plan .badge` sets `white-space: nowrap`, so the label stays on one line and is "
       + "**294px** wide, while its card only has **162px** inside and hides the overflow.\n\n**Fix:** let the badge wrap.";
     for (const piece of text.match(/.{1,40}/gs) ?? []) send({ choices: [{ delta: { content: piece } }] });
@@ -187,7 +216,8 @@ async function openPanel(file, select, theme) {
   const page = await attach(url);
   await cdp('DOM.enable', {}, page.session);
   await sleep(1200);
-  const tabId = await ev(sw, `chrome.tabs.query({}).then(t => t.find(x => x.url === ${JSON.stringify(url)}).id)`);
+  // The newest tab with this page (an earlier scenario may have the same page open).
+  const tabId = await ev(sw, `chrome.tabs.query({}).then(t => t.findLast(x => x.url === ${JSON.stringify(url)}).id)`);
   const { root: doc } = (await cdp('DOM.getDocument', {}, page.session)).result;
   const node = (await cdp('DOM.querySelector', { nodeId: doc.nodeId, selector: select }, page.session)).result.nodeId;
   await cdp('DOM.setInspectedNode', { nodeId: node }, page.session);
@@ -262,6 +292,30 @@ try {
   await shot(light.panel, 'panel-07-answer-light-narrow', 360, 700);
   await audit(light.panel.session, 'panel answer (light, narrow)');
   await checkLayout(light.panel.session, 'panel answer (light, narrow)', PANEL_LAYOUT);
+
+  // Agent mode: the AI fills in a form, asks before the risky click, then opens another page.
+  const agent = await openPanel('signup.html', '#signup', 'default');
+  await viewport(agent.page.session, 700, 600); // before the steps, so the outline matches the page in the screenshot
+  await agent.ui(`(() => { const s = document.getElementById('agent-mode'); s.value = 'auto'; s.dispatchEvent(new Event('change')); })()`);
+  await sleep(800);
+  await shot(agent.panel, 'panel-09-auto-mode-start-light');
+  await agent.ui(`document.getElementById('prompt').value = 'Sign me up for screen printing as Sam Rivera, sam@example.com'; document.getElementById('composer').requestSubmit()`);
+  for (let i = 0; i < 60 && !(await agent.ui(`!!document.querySelector('.ask-step')`)); i++) await sleep(250);
+  const asked = await agent.ui(`document.querySelector('.ask-step')?.innerText ?? ''`);
+  const typedWithoutAsking = await ev(agent.page.session, `document.getElementById('name').value + ' / ' + document.getElementById('email').value`);
+  await shot(agent.panel, 'panel-10-auto-mode-asks-light');
+  await shot(agent.page, 'page-10-highlight', 700, 600);
+  await agent.ui(`[...document.querySelectorAll('.ask-step button')].find((b) => b.textContent === 'Allow').click()`);
+  for (let i = 0; i < 80 && !(await agent.ui(`!document.querySelector('.thinking') && /Done: you are signed up/.test(document.getElementById('chat').innerText)`)); i++) await sleep(250);
+  await shot(agent.panel, 'panel-11-auto-mode-done-light');
+  const pageNow = await ev(agent.page.session, 'location.pathname');
+  const lines = await agent.ui(`[...document.querySelectorAll('.activity')].map((l) => l.textContent)`);
+  log(`agent: asked "${asked.replace(/\s+/g, ' ')}"; typed "${typedWithoutAsking}"; now on ${pageNow}`);
+  for (const line of lines) log(`  ${line}`);
+  if (!/Reserve my spot/.test(asked) || !/submits a form/.test(asked)) violations.push(`agent: the risky click was not asked about (${asked})`);
+  if (typedWithoutAsking !== 'Sam Rivera / sam@example.com') violations.push(`agent: typing didn't run on its own (${typedWithoutAsking})`);
+  if (pageNow !== '/pricing.html') violations.push(`agent: it didn't open the next page (${pageNow})`);
+  await audit(agent.panel.session, 'panel, Auto mode (light)');
 
   // Nothing set up yet: the panel's first-run screen.
   await ev(sw, `chrome.storage.local.set({ settings: { mode: 'direct', directProvider: 'anthropic' } })`);

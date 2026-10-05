@@ -15,7 +15,7 @@ import { dataInfo } from './storage/data-version.js';
 import { createRequestHandler } from '../../extension/shared/agent/requests.js';
 
 const HELLO_TIMEOUT_MS = 5_000;
-const TOOL_TIMEOUT_MS = 120_000; // the user may be asked to confirm an inspection
+const TOOL_TIMEOUT_MS = 10 * 60_000; // the user may be asked to allow an inspection or a page step (Stop cancels at once)
 const MAX_TEXT = 20_000;
 
 /** @typedef {import('../../extension/shared/agent/orchestrator.js').Orchestrator} Orchestrator */

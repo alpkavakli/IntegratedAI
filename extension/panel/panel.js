@@ -12,7 +12,8 @@
  * and navigation in the same tab.
  */
 
-import { ACTIONS, validateAction } from '../shared/actions.js';
+import { ACTIONS, isPageAction, validateAction } from '../shared/actions.js';
+import { AgentRunner } from './lib/agent-runner.js';
 import './components/action-card.js';
 import './components/chat-view.js';
 import './components/console-view.js';
@@ -60,6 +61,11 @@ export class App {
     this.sourceProject = null;
 
     this.chat = $('chat').bind(this);
+    /** Runs page actions in the agent modes, asking in the chat when the mode says so. */
+    this.agent = new AgentRunner({
+      ask: (what, risky, offerAll) => this.chat.askStep(what, risky, offerAll),
+      activity: (text) => this.chat.activity(text),
+    });
     this.patchesView = /** @type {any} */ (null);
     this.consoleView = /** @type {any} */ (null);
   }
@@ -71,6 +77,10 @@ export class App {
     this.client = this.settings.mode === 'direct' ? new DirectClient(() => loadSettings()) : new ServerClient(() => loadSettings());
     this.applyContextDefaults();
     onSettingsChanged((s) => {
+      if (s.defaultAgentMode !== this.settings.defaultAgentMode) {
+        this.settings = s;
+        this.renderProviderPicker(); // shows the new default if this conversation hasn't chosen
+      }
       // Switching between direct mode and the local server: start the panel over.
       if (s.mode !== this.settings.mode) {
         location.reload();
@@ -143,6 +153,16 @@ export class App {
     $('history-button').addEventListener('click', () => this.historyView.toggle());
     $('open-options').addEventListener('click', () => bg('options.open'));
     $('provider-select').addEventListener('change', () => this.configure({ provider: $('provider-select').value }));
+    $('agent-mode').addEventListener('change', () => {
+      const mode = $('agent-mode').value;
+      if (mode !== 'full') { this.hideBanner(); this.configure({ agentMode: mode }); return; }
+      $('agent-mode').value = this.agentMode(); // not yet: confirm first
+      this.showBanner('Full auto: the AI clicks, types, submits forms and moves between pages without asking you. '
+        + 'Use it for tasks you would trust someone else with, and watch it; ■ stops it.', false, 'Turn on Full auto', () => {
+        this.hideBanner();
+        this.configure({ agentMode: 'full' });
+      });
+    });
     $('model-select').addEventListener('change', () => this.configure({ model: $('model-select').value }));
   }
 
@@ -265,7 +285,12 @@ export class App {
     await this.setSession(reply.session);
   }
 
-  /** @param {{ provider?: string, model?: string, memoryMode?: string }} change */
+  /** How the AI may operate the page in this conversation (its own choice, else the user's default). */
+  agentMode() {
+    return this.session?.agentMode ?? this.settings.defaultAgentMode ?? 'suggest';
+  }
+
+  /** @param {{ provider?: string, model?: string, memoryMode?: string, agentMode?: string }} change */
   async configure(change) {
     if (!this.session) return;
     try {
@@ -292,6 +317,7 @@ export class App {
         await this.setSession(msg.session);
         break;
       case 'turn.started':
+        this.agent.reset();
         if (session) session.busy = true;
         this.chat.setBusy(true);
         this.updateComposer();
@@ -312,7 +338,12 @@ export class App {
       case 'tool.request':
         await this.handleToolRequest(msg);
         break;
+      case 'action.live':
+        if (session) session.actions[msg.actionId] = msg.record;
+        this.chat.refreshLiveLine(msg.actionId);
+        break;
       case 'turn.done':
+        this.chat.cancelAsks();
         if (session) {
           session.busy = false;
           session.usage = msg.sessionUsage;
@@ -339,7 +370,14 @@ export class App {
     const reply = (/** @type {object} */ payload) => this.client.send({ type: 'tool.result', requestId, ...payload });
     try {
       const errors = validateAction(name, input);
-      if (errors.length || ACTIONS[name]?.readOnly !== true) throw new Error(errors.join('; ') || 'Not an inspection');
+      if (errors.length) throw new Error(errors.join('; '));
+      if (isPageAction(name)) {
+        // The panel enforces the mode itself: nothing runs here in Suggest mode.
+        await this.navigationReset;
+        reply({ ok: true, result: await this.agent.run(/** @type {any} */ (name), input, this.agentMode()) });
+        return;
+      }
+      if (ACTIONS[name]?.readOnly !== true) throw new Error('Not an inspection');
       if (this.settings.askBeforeInspections) {
         const allowed = await this.chat.askPermission(`${ACTIONS[name].label} ${JSON.stringify(input)}`);
         if (!allowed) throw new Error('The user denied this inspection');
@@ -373,7 +411,7 @@ export class App {
         conversationId: this.session.id,
         text,
         context,
-        settings: { executeJs: this.settings.executeJs, webTools: this.settings.webTools },
+        settings: { executeJs: this.settings.executeJs, webTools: this.settings.webTools, agentMode: this.settings.defaultAgentMode },
       });
     } catch (err) {
       $('prompt').value = text;
@@ -692,6 +730,7 @@ export class App {
     $('new-chat').disabled = !this.connected || busy;
     $('provider-select').disabled = busy;
     $('model-select').disabled = busy;
+    $('agent-mode').disabled = busy;
   }
 
   renderProviderPicker() {
@@ -712,6 +751,8 @@ export class App {
     modelSelect.replaceChildren(...models.map((m) => new Option(m, m)));
     modelSelect.value = this.session?.model ?? '';
     $('session-row').hidden = !this.providers.length;
+    $('agent-mode').value = this.agentMode();
+    document.body.dataset.agentMode = this.agentMode();
 
     if (current && !current.available) {
       const other = this.providers.find((p) => p.available);

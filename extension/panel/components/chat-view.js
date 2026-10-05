@@ -4,19 +4,19 @@
  * format, streams the reply as it arrives, and hosts action cards.
  */
 
-import { ACTIONS, isReadOnly, isServerSide, validateAction } from '../../shared/actions.js';
+import { ACTIONS, isReadOnly, isServerSide, runsLive, validateAction } from '../../shared/actions.js';
 import { h } from '../lib/dom.js';
 import { renderMarkdown } from '../lib/markdown.js';
 import { ActionCard } from './action-card.js';
 
 /** @typedef {import('../../shared/protocol.js').NeutralMessage} NeutralMessage */
 
+/** Starting points on a new conversation: [icon, text]. */
 const SUGGESTIONS = [
-  'Why is this overflowing?',
-  'Make this look better',
-  'Hide this',
-  'Make this dark',
-  'Explain the console errors',
+  ['🔍', 'Why is this overflowing?'],
+  ['✨', 'Make this look better'],
+  ['🌙', 'Make this dark'],
+  ['🐞', 'Explain the console errors'],
 ];
 
 export class ChatView extends HTMLElement {
@@ -31,6 +31,8 @@ export class ChatView extends HTMLElement {
     this.thinkingEl = null;
     /** @type {number | undefined} */
     this.thinkingTimer = undefined;
+    /** Open "Allow?" questions, answered "deny" when the turn ends. @type {Set<(answer: 'deny') => void>} */
+    this.pendingAsks = new Set();
     return this;
   }
 
@@ -39,6 +41,7 @@ export class ChatView extends HTMLElement {
     const session = this.app?.session;
     this.cards.clear();
     this.replaceChildren();
+    document.body.classList.remove('fresh');
     this.streamingEl = null;
     if (!session || !session.messages.some((m) => m.role === 'user' && m.content.some((b) => b.type === 'text'))) {
       this.renderEmpty();
@@ -49,11 +52,14 @@ export class ChatView extends HTMLElement {
   }
 
   renderEmpty() {
+    document.body.classList.add('fresh');
     this.append(h('div', { class: 'empty' },
+      h('img', { class: 'logo', src: '../icons/icon128.png', alt: '' }),
       h('div', { class: 'empty-title' }, 'What can I help with?'),
       h('div', null, 'Select an element in the Elements panel, or just ask about the page.'),
       h('div', { class: 'suggestions' },
-        SUGGESTIONS.map((text) => h('button', { type: 'button', onclick: () => this.app?.sendFromUi(text) }, text))),
+        SUGGESTIONS.map(([icon, text]) => h('button', { type: 'button', onclick: () => this.app?.sendFromUi(text) },
+          h('span', { class: 'icon', 'aria-hidden': 'true' }, icon), text))),
       h('div', { class: 'welcome' })));
     this.app?.updateWelcome();
   }
@@ -63,6 +69,7 @@ export class ChatView extends HTMLElement {
    * @param {() => void} openSettings
    */
   renderSetup(openSettings) {
+    document.body.classList.remove('fresh');
     this.cards.clear();
     this.streamingEl = null;
     this.replaceChildren(h('div', { class: 'setup' },
@@ -92,6 +99,7 @@ export class ChatView extends HTMLElement {
   appendMessage(message, scroll = true) {
     const stick = this.isNearBottom();
     this.querySelector('.empty')?.remove();
+    document.body.classList.remove('fresh');
 
     if (message.role === 'user') {
       const text = message.content.filter((b) => b.type === 'text').map((b) => /** @type {any} */ (b).text).join('\n');
@@ -120,6 +128,11 @@ export class ChatView extends HTMLElement {
    */
   renderToolCall(call) {
     if (isServerSide(call.name)) return this.renderMemoryLine(call);
+    // A page action the AI ran itself (agent mode): one line. While it runs, activity lines show the steps.
+    const record = /** @type {any} */ (this.app?.session?.actions[call.id]);
+    if (record?.live) return this.renderLiveLine(call, record);
+    // Not run yet: the message arrives before the step runs. In an agent mode it runs now, not as a card.
+    if (!record && this.app && runsLive(call.name, this.app.agentMode())) return this.renderLiveLine(call, { status: 'running' });
     if (isReadOnly(call.name) || !ACTIONS[call.name]) {
       const i = call.input ?? {};
       const details = i.include?.join(', ') || i.urlContains || i.readContentOf || i.selector || (i.text ? `"${i.text}"` : '') || i.query
@@ -130,6 +143,75 @@ export class ChatView extends HTMLElement {
     card.bind(/** @type {any} */ (this.app), call.id, call.name, call.input);
     this.cards.set(call.id, card);
     return card;
+  }
+
+  /**
+   * A page action the AI ran during its turn, as one line (with what happened).
+   * @param {{ id: string, name: string, input: any }} call
+   * @param {any} record
+   */
+  renderLiveLine(call, record) {
+    const icon = { applied: '✓', rejected: '✋', failed: '⚠', invalid: '⚠' }[/** @type {string} */ (record.status)] ?? '…';
+    const what = call.input?.description || ACTIONS[call.name]?.label || call.name;
+    return h('div', { class: `activity ${record.status}`, 'data-action': call.id },
+      `${icon} ${what}`, record.detail ? h('span', { class: 'detail' }, ` · ${record.detail}`) : null);
+  }
+
+  /** Replace a page action's line once its result is known (action.live). @param {string} actionId */
+  refreshLiveLine(actionId) {
+    const old = this.querySelector(`[data-action="${CSS.escape(actionId)}"]`);
+    const record = /** @type {any} */ (this.app?.session?.actions[actionId]);
+    if (old && record) old.replaceWith(this.renderLiveLine({ id: actionId, name: record.name, input: record.input }, record));
+  }
+
+  /**
+   * One line of what the AI is doing on the page right now ("Clicking …"), updated when the step is done.
+   * @param {string} text
+   */
+  activity(text) {
+    const stick = this.isNearBottom();
+    const line = h('div', { class: 'activity running' }, `▶ ${text}…`);
+    this.insert(line);
+    if (stick) this.scrollToBottom();
+    return {
+      done: (/** @type {string} */ result, ok = true) => {
+        line.className = `activity ${ok ? 'applied' : 'failed'}`;
+        line.textContent = `${ok ? '✓' : '⚠'} ${result}`;
+      },
+    };
+  }
+
+  /**
+   * Ask before a page step (agent modes). Resolves 'allow', 'all' (stop asking for this task) or 'deny'.
+   * @param {string} what  e.g. 'click button "Send"'
+   * @param {string} risky why it needs a yes even in Auto mode, or ''
+   * @param {boolean} offerAll show "Allow all for this task"
+   * @returns {Promise<'allow' | 'all' | 'deny'>}
+   */
+  askStep(what, risky, offerAll) {
+    return new Promise((resolve) => {
+      const done = (/** @type {'allow' | 'all' | 'deny'} */ answer) => {
+        this.pendingAsks.delete(done);
+        box.remove();
+        resolve(answer);
+      };
+      const box = h('div', { class: `ask-step${risky ? ' risky' : ''}` },
+        h('div', { class: 'ask-what' }, `Allow the AI to ${what}?`),
+        risky ? h('div', { class: 'ask-why' }, `This ${risky}.`) : null,
+        h('div', { class: 'buttons' },
+          h('button', { type: 'button', class: 'primary', onclick: () => done('allow') }, 'Allow'),
+          offerAll && !risky ? h('button', { type: 'button', onclick: () => done('all') }, 'Allow all for this task') : null,
+          h('button', { type: 'button', onclick: () => done('deny') }, 'Deny')));
+      this.pendingAsks.add(done);
+      this.insert(box);
+      this.scrollToBottom();
+      /** @type {HTMLElement | null} */ (box.querySelector('button.primary'))?.focus();
+    });
+  }
+
+  /** The turn ended (or was stopped): unanswered questions count as "no". */
+  cancelAsks() {
+    for (const done of [...this.pendingAsks]) done('deny');
   }
 
   /**

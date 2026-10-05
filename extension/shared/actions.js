@@ -10,8 +10,13 @@
  * Two kinds of actions:
  *   - readOnly: true   → inspections. They only read from the page and can run
  *                        automatically (the user can turn on "ask first").
- *   - readOnly: false  → mutations. They are NEVER run automatically. The panel
- *                        shows them as a card and the user must click Apply.
+ *   - readOnly: false  → mutations. In "Suggest" mode they are NEVER run automatically:
+ *                        the panel shows them as a card and the user must click Apply.
+ *
+ * Page actions (pageAction: true: interact, navigate) operate the page like the user
+ * does. In the agent modes the user can choose per conversation (AGENT_MODES), they
+ * run during the turn (after the panel asks, if the mode says so) and their result
+ * goes back to the model, so it can work through a task step by step.
  *
  * Schemas use only features supported by Anthropic "strict" tool schemas:
  * every object has additionalProperties:false, no min/max constraints.
@@ -32,7 +37,20 @@ import { validate } from './validate.js';
  * @property {'executeJs'} [requiresSetting]  Only offered when that setting is on
  * @property {boolean} [serverSide]  Runs on the server (site memory), never touches the page,
  *                                   needs no approval; shown in the chat and undoable in the Memory tab
+ * @property {boolean} [pageAction]  Operates the page like the user (clicks, typing, going to pages);
+ *                                   runs during the turn in the agent modes
  */
+
+/**
+ * How the AI may operate the page, chosen per conversation (like Claude Code's permission modes):
+ *   suggest → every change is a proposal card the user applies (default)
+ *   ask     → page actions run during the turn; the panel asks before each step
+ *   auto    → page actions run on their own; the panel still asks before risky steps
+ *             (submitting, sending, paying, deleting, password fields, another site)
+ *   full    → page actions never ask (switched on explicitly per conversation)
+ * Style changes, element edits and scripts stay proposals in every mode.
+ */
+export const AGENT_MODES = /** @type {const} */ (['suggest', 'ask', 'auto', 'full']);
 
 const selectorProp = {
   type: 'string',
@@ -278,9 +296,10 @@ export const ACTIONS = {
     label: 'Interact with the page',
     readOnly: false,
     risk: 'medium',
+    pageAction: true,
     description:
-      'Propose clicking, typing, choosing options and ticking boxes on the page, like the user would: select a radio answer, fill in a form, pick from a dropdown, press a button, submit. ' +
-      'Uses real browser events, so React/Vue/Angular/MUI apps register the change (unlike modify_element). Runs only after the user approves; no JavaScript needed. ' +
+      'Click, type, choose options, tick boxes, scroll and press keys on the page, like the user would: select a radio answer, fill in a form, pick from a dropdown, press a button, submit, scroll a list. ' +
+      'Uses real browser events, so React/Vue/Angular/MUI apps register the change (unlike modify_element); no JavaScript needed. ' +
       'Steps run in order with a short pause, and each waits up to 5 s for its element (so a dropdown can open first). Target each step by CSS selector (find it with find_elements) or by its visible text. ' +
       'Typed values and checkbox/select changes can be undone; clicks and submits cannot.',
     inputSchema: {
@@ -293,10 +312,17 @@ export const ACTIONS = {
           items: {
             type: 'object',
             properties: {
-              action: { type: 'string', enum: ['click', 'type', 'select', 'check', 'uncheck', 'submit'], description: 'click: click the element. type: replace the text of an input/textarea/contenteditable with value. select: choose the <select> option whose value or visible text is value. check/uncheck: set a checkbox or radio. submit: submit the form containing the element.' },
+              action: {
+                type: 'string',
+                enum: ['click', 'type', 'select', 'check', 'uncheck', 'submit', 'scroll', 'press', 'wait'],
+                description: 'click: click the element. type: replace the text of an input/textarea/contenteditable with value. select: choose the <select> option whose value or visible text is value. check/uncheck: set a checkbox or radio. submit: submit the form containing the element. ' +
+                  'scroll: scroll the element\'s scrollable area (or the page, without a target) by value "down", "up", "top" or "bottom"; without value, scroll the element into view. ' +
+                  'press: press the key in value ("Enter", "Escape", "Tab", "ArrowDown", …) on the element (or on whatever has focus). ' +
+                  'wait: wait until the element appears (up to 10 s), or without a target for value seconds (max 10).',
+              },
               selector: { type: 'string', description: 'CSS selector of the element.' },
               text: { type: 'string', description: 'Or: the element\'s visible text / label (e.g. "Register", "A."). Combined with selector, searches inside matches of selector.' },
-              value: { type: 'string', description: 'Text to type, or the option to select.' },
+              value: { type: 'string', description: 'Text to type, the option to select, the scroll direction, the key to press, or seconds to wait.' },
             },
             required: ['action'],
             additionalProperties: false,
@@ -304,6 +330,26 @@ export const ACTIONS = {
         },
       },
       required: ['description', 'steps'],
+      additionalProperties: false,
+    },
+  },
+
+  navigate: {
+    label: 'Go to a page',
+    readOnly: false,
+    risk: 'medium',
+    pageAction: true,
+    description:
+      'Open a URL in the inspected tab, or go back, forward or reload. Waits until the new page has loaded. ' +
+      'Use it to move between pages while working on a task; links you can click are better followed with interact.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        description: { type: 'string', description: 'One short sentence: where and why.' },
+        url: { type: 'string', description: 'Absolute http(s) URL to open.' },
+        go: { type: 'string', enum: ['back', 'forward', 'reload'], description: 'Or: go back, forward, or reload the page.' },
+      },
+      required: ['description'],
       additionalProperties: false,
     },
   },
@@ -343,6 +389,21 @@ export function isReadOnly(name) {
 /** Site-memory actions handled by the server itself. @param {string} name */
 export function isServerSide(name) {
   return isKnownAction(name) && ACTIONS[name].serverSide === true;
+}
+
+/** Actions that operate the page like the user (interact, navigate). @param {string} name */
+export function isPageAction(name) {
+  return isKnownAction(name) && ACTIONS[name].pageAction === true;
+}
+
+/**
+ * Does this action run during the turn (with the result going back to the model)
+ * rather than as a proposal card? Page actions do in the agent modes.
+ * @param {string} name
+ * @param {string | undefined} mode one of AGENT_MODES
+ */
+export function runsLive(name, mode) {
+  return isPageAction(name) && !!mode && mode !== 'suggest' && AGENT_MODES.includes(/** @type {any} */ (mode));
 }
 
 /**
@@ -394,9 +455,26 @@ export function validateAction(name, input, settings) {
   if (name === 'interact') {
     if (!i.steps.length || i.steps.length > 25) errors.push('interact needs 1–25 steps');
     i.steps.forEach((/** @type {any} */ s, /** @type {number} */ n) => {
-      if (!s.selector && !s.text) errors.push(`step ${n + 1}: give a selector or text`);
-      if ((s.action === 'type' || s.action === 'select') && typeof s.value !== 'string') errors.push(`step ${n + 1}: ${s.action} needs a value`);
+      // scroll, press and wait can work without a target (the page, the focused element, a pause).
+      if (!s.selector && !s.text && !['scroll', 'press', 'wait'].includes(s.action)) errors.push(`step ${n + 1}: give a selector or text`);
+      if ((s.action === 'type' || s.action === 'select' || s.action === 'press') && typeof s.value !== 'string') errors.push(`step ${n + 1}: ${s.action} needs a value`);
+      if (s.action === 'scroll' && s.value !== undefined && !['down', 'up', 'top', 'bottom'].includes(s.value)) {
+        errors.push(`step ${n + 1}: scroll value must be down, up, top or bottom`);
+      }
+      if (s.action === 'scroll' && s.value === undefined && !s.selector && !s.text) errors.push(`step ${n + 1}: scroll needs a direction or a target`);
+      if (s.action === 'press' && typeof s.value === 'string' && !/^[A-Za-z0-9]{1,12}$/.test(s.value)) errors.push(`step ${n + 1}: press needs a key name like Enter or ArrowDown`);
+      if (s.action === 'wait' && !s.selector && !s.text && !(Number(s.value) > 0 && Number(s.value) <= 10)) {
+        errors.push(`step ${n + 1}: wait needs a target, or seconds (up to 10) as value`);
+      }
     });
+  }
+  if (name === 'navigate') {
+    if ((i.url === undefined) === (i.go === undefined)) errors.push('navigate needs either url or go');
+    if (i.url !== undefined) {
+      let ok = false;
+      try { ok = ['http:', 'https:'].includes(new URL(i.url).protocol); } catch { /* not a URL */ }
+      if (!ok) errors.push('url must be an absolute http(s) URL');
+    }
   }
   if (name === 'inject_css' && /<\/?style/i.test(i.css)) {
     errors.push('css must be plain CSS without <style> tags');

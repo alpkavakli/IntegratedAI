@@ -58,7 +58,7 @@ export function createRequestHandler({ orchestrator, store, registry, memory, on
 
       case 'session.config': {
         const session = await load(msg.conversationId);
-        orchestrator.configure(session, { provider: msg.provider, model: msg.model, memoryMode: msg.memoryMode });
+        orchestrator.configure(session, { provider: msg.provider, model: msg.model, memoryMode: msg.memoryMode, agentMode: msg.agentMode });
         return { type: 'session.state', session: orchestrator.snapshot(session) };
       }
 
@@ -74,7 +74,12 @@ export function createRequestHandler({ orchestrator, store, registry, memory, on
         orchestrator.chat(session, {
           text,
           context: msg.context,
-          settings: { executeJs: msg.settings?.executeJs === true, webTools: msg.settings?.webTools === true },
+          settings: {
+            executeJs: msg.settings?.executeJs === true,
+            webTools: msg.settings?.webTools === true,
+            // The default mode for this conversation; "full" can only be chosen per conversation.
+            agentMode: ['suggest', 'ask', 'auto'].includes(msg.settings?.agentMode) ? msg.settings.agentMode : 'suggest',
+          },
         });
         return null;
       }

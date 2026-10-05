@@ -40,9 +40,7 @@
         <ai-chat id="chat" role="log" aria-live="polite" aria-label="Conversation"></ai-chat>
         <form id="composer" autocomplete="off">
           <div class="composer-box">
-            <textarea id="prompt" rows="1" placeholder="Ask anything about this page…" aria-label="Message"></textarea>
-            <div class="composer-bar">
-              <div class="chips">
+            <div class="chips">
                 <label class="chip" title="Send a short description of the element selected in the Elements panel">
                   <input type="checkbox" id="ctx-selected"> <span id="selected-label">$0 (nothing selected)</span>
                 </label>
@@ -53,7 +51,17 @@
                   <input type="checkbox" id="ctx-network"> Network
                 </label>
                 <button type="button" id="copy-text" class="chip-button" title="Copy the text of the selected element to the clipboard (no AI involved)">Copy text</button>
-              </div>
+            </div>
+            <textarea id="prompt" rows="2" placeholder="Ask anything about this page…" aria-label="Message"></textarea>
+            <div class="composer-bar">
+              <select id="agent-mode" class="mode-select" aria-label="What the AI may do on the page"
+                title="What the AI may do on the page">
+                <option value="suggest" title="It suggests changes; nothing happens until you click">✋ Suggest</option>
+                <option value="ask" title="It works on the page itself and asks before each step">🙋 Ask each step</option>
+                <option value="auto" title="It works on the page itself and only asks before risky steps">⚡ Auto</option>
+                <option value="full" title="It works on the page itself and never asks">🚀 Full auto</option>
+              </select>
+              <span class="spacer"></span>
               <button type="submit" id="send" class="send" title="Send (Enter)" aria-label="Send">↑</button>
             </div>
           </div>

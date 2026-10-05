@@ -22,7 +22,8 @@ import { AnthropicProvider } from '../../shared/providers/anthropic.js';
 import { PRESETS, openAICompatibleProvider } from '../../shared/providers/openai-compatible.js';
 import { IdbSessionStore, loadMemoryBackend, openDb } from './stores.js';
 
-const TOOL_TIMEOUT_MS = 120_000;
+// Long enough to wait for the user to answer an "Allow?" question (Stop cancels at once).
+const TOOL_TIMEOUT_MS = 10 * 60_000;
 
 /** Provider classes available in direct mode (Anthropic via the official SDK; the rest via the OpenAI-compatible API). */
 export const DIRECT_PROVIDERS = [

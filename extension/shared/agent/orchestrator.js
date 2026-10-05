@@ -6,6 +6,8 @@
  *   user message ─► provider.turn() ─► assistant message
  *                        ▲                 │ tool calls?
  *                        │                 ├─ inspection (read-only) ─► run in the panel ─► result
+ *                        │                 ├─ page action, agent mode ─► run in the panel (it asks the user
+ *                        │                 │   first if the mode says so) ─► result
  *                        │                 ├─ change (mutation)      ─► PROPOSED to the panel, never run here
  *                        │                 └─ invalid                ─► error result for the model
  *                        └── loop again while there were inspection results to feed back
@@ -19,7 +21,7 @@
  */
 
 import { ACTION_STATUS } from '../protocol.js';
-import { enabledActionNames, isReadOnly, isServerSide, validateAction } from '../actions.js';
+import { AGENT_MODES, enabledActionNames, isReadOnly, isServerSide, runsLive, validateAction } from '../actions.js';
 import { siteKey } from '../page-groups.js';
 import { formatResult } from './format-result.js';
 import { fingerprint, forPanel, snapshot } from './session-model.js';
@@ -58,9 +60,13 @@ import { buildSystemPrompt } from './system-prompt.js';
  */
 
 /**
- * Settings the panel sends with each message.
- * @typedef {{ executeJs?: boolean, webTools?: boolean }} TurnSettings
+ * Settings the panel sends with each message. agentMode: the user's default for
+ * conversations that haven't chosen one (never "full", see requests.js).
+ * @typedef {{ executeJs?: boolean, webTools?: boolean, agentMode?: string }} TurnSettings
  */
+
+/** Model calls per turn in the agent modes, where each page step is one call (config.maxAgentSteps overrides). */
+const AGENT_STEPS = 40;
 
 export const MEMORY_MODES = ['shared', 'private', 'off'];
 
@@ -108,11 +114,11 @@ export class Orchestrator {
   }
 
   /**
-   * Change provider/model/memory mode for a conversation (history is kept).
+   * Change provider/model/memory mode/agent mode for a conversation (history is kept).
    * @param {Session} session
-   * @param {{ provider?: string, model?: string, memoryMode?: string }} p
+   * @param {{ provider?: string, model?: string, memoryMode?: string, agentMode?: string }} p
    */
-  configure(session, { provider, model, memoryMode }) {
+  configure(session, { provider, model, memoryMode, agentMode }) {
     if (session.busy) throw new Error('Wait for the current answer to finish');
     if (provider && provider !== session.provider) {
       const P = this.registry.get(provider);
@@ -125,6 +131,10 @@ export class Orchestrator {
       if (!MEMORY_MODES.includes(memoryMode)) throw new Error(`Unknown memory mode "${memoryMode}"`);
       session.memoryMode = /** @type {any} */ (memoryMode);
       session.memoryHash = undefined; // send the (other) memory with the next message
+    }
+    if (agentMode !== undefined) {
+      if (!AGENT_MODES.includes(/** @type {any} */ (agentMode))) throw new Error(`Unknown agent mode "${agentMode}"`);
+      session.agentMode = /** @type {any} */ (agentMode);
     }
     this.store.save(session);
   }
@@ -198,14 +208,17 @@ export class Orchestrator {
       const actionNames = enabledActionNames(settings);
       const webTools = settings.webTools === true;
       const pageTools = Boolean(this.pageTools && P.pageToolsViaMcp);
-      const system = buildSystemPrompt({ actionNames, webTools, pageTools, structuredEnvelope: Boolean(P.structuredEnvelope) });
+      const agentMode = this.agentModeFor(session, settings);
+      const system = buildSystemPrompt({ actionNames, webTools, pageTools, structuredEnvelope: Boolean(P.structuredEnvelope), agentMode });
+      // Working through a task on the page takes one model call per step.
+      const maxSteps = agentMode === 'suggest' ? this.config.maxStepsPerTurn : (this.config.maxAgentSteps ?? AGENT_STEPS);
 
       this.trackPage(session, context, text);
       this.append(session, this.buildUserMessage(session, text, context));
 
-      for (let step = 0; step < this.config.maxStepsPerTurn; step++) {
+      for (let step = 0; step < maxSteps; step++) {
         const { message, toolCalls, usage, stopReason: sr } = await this.callModel(session, provider, {
-          system, actionNames, webTools, pageTools, signal: abort.signal,
+          system, actionNames, webTools, pageTools, agentMode, signal: abort.signal,
         });
         addUsage(turnUsage, usage);
         stopReason = sr;
@@ -215,12 +228,12 @@ export class Orchestrator {
 
         // Until results are recorded, these calls are "open" (keeps history valid if we stop early).
         session.openToolCalls = toolCalls.map((c) => c.id);
-        const continueLoop = await this.handleToolCalls(session, toolCalls, settings, abort.signal);
+        const continueLoop = await this.handleToolCalls(session, toolCalls, settings, abort.signal, agentMode);
         if (!continueLoop) break; // only proposals: wait for the user's decisions
 
-        if (step === this.config.maxStepsPerTurn - 1) {
+        if (step === maxSteps - 1) {
           stopReason = 'max_steps';
-          this.panel.send(id, { type: 'error', conversationId: id, message: `Stopped after ${this.config.maxStepsPerTurn} steps. Send a message to continue.` });
+          this.panel.send(id, { type: 'error', conversationId: id, message: `Stopped after ${maxSteps} steps. Send a message to continue.` });
         }
       }
     } catch (err) {
@@ -238,12 +251,22 @@ export class Orchestrator {
   }
 
   /**
+   * The conversation's agent mode: its own choice, else the user's default (never "full" by default).
+   * @param {Session} session
+   * @param {TurnSettings} settings
+   */
+  agentModeFor(session, settings) {
+    if (session.agentMode) return session.agentMode;
+    return ['ask', 'auto'].includes(/** @type {any} */ (settings.agentMode)) ? /** @type {any} */ (settings.agentMode) : 'suggest';
+  }
+
+  /**
    * Run one provider call and assemble the assistant message.
    * @param {Session} session
    * @param {import('../providers/base.js').Provider} provider
-   * @param {{ system: string, actionNames: string[], webTools: boolean, pageTools?: boolean, signal: AbortSignal }} o
+   * @param {{ system: string, actionNames: string[], webTools: boolean, pageTools?: boolean, agentMode?: string, signal: AbortSignal }} o
    */
-  async callModel(session, provider, { system, actionNames, webTools, pageTools = false, signal }) {
+  async callModel(session, provider, { system, actionNames, webTools, pageTools = false, agentMode = 'suggest', signal }) {
     const providerId = /** @type {any} */ (provider.constructor).id;
     const state = (session.providerState[providerId] ??= {});
 
@@ -258,7 +281,9 @@ export class Orchestrator {
     let stopReason = 'end_turn';
 
     // Inspections as real tools: a token valid only while this call runs.
-    const grant = pageTools && this.pageTools ? this.pageTools.grant(session.id, actionNames, signal) : null;
+    // In the agent modes, the page actions are real tools too.
+    const live = actionNames.filter((name) => runsLive(name, agentMode));
+    const grant = pageTools && this.pageTools ? this.pageTools.grant(session.id, actionNames, signal, live) : null;
     const events = provider.turn({
       messages: session.messages, system, actionNames, webTools, model: session.model, state, signal,
       ...(grant ? { pageTools: { url: mcpUrl(this.config), token: grant.token } } : {}),
@@ -315,9 +340,10 @@ export class Orchestrator {
    * @param {{ id: string, name: string, input: unknown }[]} calls
    * @param {TurnSettings} settings
    * @param {AbortSignal} signal
+   * @param {string} [agentMode]
    * @returns {Promise<boolean>} true if the model should be called again with results
    */
-  async handleToolCalls(session, calls, settings, signal) {
+  async handleToolCalls(session, calls, settings, signal, agentMode = 'suggest') {
     /** @type {ContentBlock[]} */
     const results = [];
     /** @type {string[]} */
@@ -331,7 +357,10 @@ export class Orchestrator {
       if (errors.length) {
         needsResults = true;
         if (!isReadOnly(call.name)) {
-          session.actions[call.id] = { name: call.name, input: call.input, status: 'invalid', errors, reportedStatus: 'invalid' };
+          session.actions[call.id] = {
+            name: call.name, input: call.input, status: 'invalid', errors, reportedStatus: 'invalid',
+            ...(runsLive(call.name, agentMode) ? { live: true } : {}),
+          };
         }
         results.push({ type: 'tool_result', toolCallId: call.id, isError: true, content: `Invalid action: ${errors.join('; ')}` });
         continue;
@@ -342,6 +371,27 @@ export class Orchestrator {
         // or (if nothing else needs an answer) at the start of the next user message.
         const result = this.runMemoryAction(session, call);
         serverResults.push({ type: 'tool_result', toolCallId: call.id, ...result });
+        continue;
+      }
+
+      if (runsLive(call.name, agentMode)) {
+        // Agent mode: the panel runs it now (asking the user first if the mode says so).
+        needsResults = true;
+        const res = await this.panel.requestTool(session.id, call.name, call.input, signal);
+        const denied = !res.ok && /denied/i.test(res.error ?? '');
+        session.actions[call.id] = {
+          name: call.name, input: call.input, live: true,
+          status: res.ok ? 'applied' : denied ? 'rejected' : 'failed',
+          detail: res.ok ? undefined : String(res.error ?? 'unknown error').slice(0, 2000),
+        };
+        session.actions[call.id].reportedStatus = session.actions[call.id].status;
+        if (res.ok) {
+          const { text, images } = formatResult(res.result);
+          results.push({ type: 'tool_result', toolCallId: call.id, content: text, ...(images ? { images } : {}) });
+        } else {
+          results.push({ type: 'tool_result', toolCallId: call.id, isError: true, content: denied ? `${res.error} Don't try it again; ask the user how to continue.` : `Failed: ${res.error ?? 'unknown error'}` });
+        }
+        this.panel.send(session.id, { type: 'action.live', conversationId: session.id, actionId: call.id, record: session.actions[call.id] });
         continue;
       }
 

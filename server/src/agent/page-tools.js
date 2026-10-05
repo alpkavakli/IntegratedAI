@@ -10,14 +10,15 @@
  *   claude -p ──MCP tools/call──► /mcp ──► PageTools.call() ──► panel.requestTool() ──► result
  *
  * Every model call gets its own random token (a "grant"), which only works while that
- * call runs and only for inspections of that conversation. Changes (inject_css, …) and
- * site memory are never offered here: they still go through the JSON answer and the
- * user's approval.
+ * call runs and only for inspections of that conversation. In the agent modes the page
+ * actions (interact, navigate) are offered too; the panel asks the user before each step
+ * if the mode says so. Other changes (inject_css, …) and site memory are never offered
+ * here: they still go through the JSON answer and the user's approval.
  */
 
 import { randomBytes } from 'node:crypto';
 import { formatResult } from '../../../extension/shared/agent/format-result.js';
-import { ACTIONS, isReadOnly, validateAction } from '../../../extension/shared/actions.js';
+import { ACTIONS, isPageAction, isReadOnly, validateAction } from '../../../extension/shared/actions.js';
 
 /**
  * @typedef {{ conversationId: string, names: string[], signal: AbortSignal,
@@ -38,11 +39,12 @@ export class PageTools {
    * @param {string} conversationId
    * @param {string[]} names enabled action names; only the read-only ones are offered
    * @param {AbortSignal} signal
+   * @param {string[]} [live] page actions to offer too (agent modes)
    */
-  grant(conversationId, names, signal) {
+  grant(conversationId, names, signal, live = []) {
     const token = randomBytes(24).toString('base64url');
     /** @type {Grant} */
-    const grant = { conversationId, names: names.filter(isReadOnly), signal, calls: [] };
+    const grant = { conversationId, names: names.filter((n) => isReadOnly(n) || (live.includes(n) && isPageAction(n))), signal, calls: [] };
     this.grants.set(token, grant);
     return { token, calls: grant.calls, revoke: () => { this.grants.delete(token); } };
   }
@@ -77,7 +79,7 @@ export class PageTools {
     if (errors.length) return { text: `Invalid input: ${errors.join('; ')}`, isError: true };
     grant.calls.push({ name, input: input ?? {} });
     const res = await this.panel.requestTool(grant.conversationId, name, input ?? {}, grant.signal);
-    if (!res.ok) return { text: `Inspection failed: ${res.error ?? 'unknown error'}`, isError: true };
+    if (!res.ok) return { text: `${isPageAction(name) ? 'Failed' : 'Inspection failed'}: ${res.error ?? 'unknown error'}`, isError: true };
     return { ...formatResult(res.result), isError: false };
   }
 }

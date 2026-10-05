@@ -259,6 +259,10 @@ function checkServer() {
 
 // ── Advanced settings
 
+for (const input of /** @type {NodeListOf<HTMLInputElement>} */ (document.querySelectorAll('input[name="defaultAgentMode"]'))) {
+  input.checked = input.value === settings.defaultAgentMode;
+  input.addEventListener('change', () => saveSettings({ defaultAgentMode: /** @type {any} */ (input.value) }));
+}
 for (const id of ['executeJs', 'askBeforeInspections', 'webTools']) {
   $(id).addEventListener('change', () => saveSettings({ [id]: $(id).checked }));
 }

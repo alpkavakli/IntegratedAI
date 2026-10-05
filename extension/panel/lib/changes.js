@@ -22,7 +22,7 @@
  */
 
 import { bg } from './bg.js';
-import { callInPage, runApprovedScript } from './inspected.js';
+import { callInPage, evalInPage, runApprovedScript } from './inspected.js';
 import { applyModify, revertModify } from './page-scripts.js';
 import { interactStep, revertInteract } from './page-interact.js';
 import { boostCss } from '../../shared/css-boost.js';
@@ -86,7 +86,7 @@ export class ChangeManager {
     const change = this.data.changes[id];
     if (!change?.committed) return false;
     if (change.name === 'execute_js') return Boolean(change.undoCode);
-    if (change.name === 'interact') return Boolean(change.undoable);
+    if (change.name === 'interact' || change.name === 'navigate') return Boolean(change.undoable);
     return true;
   }
 
@@ -122,6 +122,12 @@ export class ChangeManager {
     let undoable;
     if (name === 'interact') {
       ({ detail, undoable } = await this.runSteps(id, input.steps));
+    } else if (name === 'navigate') {
+      if (input.url) await evalInPage(`location.href = ${JSON.stringify(input.url)}`);
+      else if (input.go === 'reload') chrome.devtools.inspectedWindow.reload({});
+      else await evalInPage(input.go === 'back' ? 'history.back()' : 'history.forward()');
+      detail = input.url ? `Opened ${input.url}` : `Went ${input.go}`;
+      undoable = false;
     } else if (!this.isPreviewing(id)) {
       detail = await this.execute(id, name, input);
     }
@@ -181,7 +187,9 @@ export class ChangeManager {
     const done = [];
     let undoable = true;
     for (const [index, step] of steps.entries()) {
-      const deadline = Date.now() + STEP_TIMEOUT_MS;
+      // A plain pause (wait without a target).
+      if (step.action === 'wait' && !step.selector && !step.text) await sleep(Math.min(Number(step.value) * 1000, 10_000));
+      const deadline = Date.now() + (step.action === 'wait' ? 10_000 : STEP_TIMEOUT_MS);
       let result;
       try {
         while (true) {

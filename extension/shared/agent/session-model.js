@@ -35,6 +35,7 @@
  * @property {boolean} [titleFromUser] title was taken from the first message
  * @property {string} [memoryHash]    hash of the site memory last sent to the model
  * @property {'shared' | 'private' | 'off'} [memoryMode]  which memory this conversation uses (default shared)
+ * @property {'suggest' | 'ask' | 'auto' | 'full'} [agentMode]  how the AI may operate the page (unset: the user's default)
  * @property {Record<string, { content: string, isError?: boolean }>} [pendingResults]
  *   results of server-side actions (memory) waiting to be sent with the next user message
  * @property {boolean} [busy]          runtime only, not persisted
@@ -123,6 +124,7 @@ export function snapshot(session) {
     site: session.site,
     groupPattern: session.groupPattern,
     memoryMode: session.memoryMode ?? 'shared',
+    agentMode: session.agentMode, // undefined: the panel shows the user's default
   };
 }
 

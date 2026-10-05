@@ -159,6 +159,15 @@
       <label class="check"><input type="checkbox" id="ctx-network"> <span>Recent and failed network requests (passwords, cookies and tokens are removed)</span></label>
 
       <h3>What the AI may do</h3>
+      <div class="hint">On the page, in new conversations (you can change it per conversation, next to the message box):</div>
+      <label class="check"><input type="radio" name="defaultAgentMode" value="suggest">
+        <span><strong>Suggest.</strong> It proposes clicks and changes; nothing happens until you click.</span></label>
+      <label class="check"><input type="radio" name="defaultAgentMode" value="ask">
+        <span><strong>Ask each step.</strong> It works on the page by itself and asks before every click, typing or page change.</span></label>
+      <label class="check"><input type="radio" name="defaultAgentMode" value="auto">
+        <span><strong>Auto.</strong> It works on the page by itself and only asks before risky steps: submitting, sending,
+          paying, deleting, password fields, or going to another site.</span></label>
+      <div class="hint">Full auto (never asks) can only be switched on per conversation. Style changes and scripts always wait for your click.</div>
       <label class="check">
         <input type="checkbox" id="webTools">
         <span>Search the web and read documentation (Claude only). It never sees your files, cookies or passwords.</span>

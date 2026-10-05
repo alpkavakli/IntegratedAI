@@ -38,6 +38,7 @@
  *   chat.message     { conversationId, message }               (a finished message appended to history)
  *   tool.request     { conversationId, requestId, name, input }  (read-only inspection to run in the page)
  *   action.proposed  { conversationId, actionId, name, input }   (mutation awaiting approval)
+ *   action.live      { conversationId, actionId, record }        (a page action run during the turn, agent mode)
  *   turn.done        { conversationId, usage, sessionUsage, stopReason }
  *   sessions         { replyTo, site, items: [{ id, title, lastUrl, groupPattern, updatedAt, messageCount, sameGroup }] }
  *   memory           { replyTo, memory: { site, path, group, groups, notes } | null }
@@ -103,6 +104,7 @@ export const ACTION_STATUS = /** @type {const} */ ({
  * @property {keyof typeof ACTION_STATUS} status
  * @property {string} [detail]
  * @property {string[]} [errors]
+ * @property {boolean} [live]  a page action the AI ran during its turn (agent mode), not a proposal card
  * @property {{ proposalId: string, status: 'proposed'|'written'|'undone', files: string[] }} [source]
  *   "Apply to source" edits for an applied inject_css
  */

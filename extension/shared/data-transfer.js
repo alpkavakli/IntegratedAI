@@ -89,7 +89,7 @@ const MEMORY_SCHEMA = {
 };
 
 /** Settings that may be imported (never the token). */
-const IMPORTABLE_SETTINGS = ['serverUrl', 'executeJs', 'webTools', 'askBeforeInspections', 'contextDefaults'];
+const IMPORTABLE_SETTINGS = ['serverUrl', 'executeJs', 'webTools', 'askBeforeInspections', 'contextDefaults', 'defaultAgentMode'];
 
 /**
  * @param {{ patches: any[], settings: Record<string, any>, extensionVersion: string,

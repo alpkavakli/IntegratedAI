@@ -173,7 +173,8 @@ Defined once in [extension/shared/actions.js](extension/shared/actions.js) and v
 | `screenshot` | read: an image of an element or of the visible page, so the AI can see colours and layout (shown to you in the chat too) | — |
 | `inject_css` | **change**: add a stylesheet (preferred). Optional `toggle`: an on/off button on the page | full (removeCSS) |
 | `modify_element` | **change**: styles, attributes, classes or text of one element | full (snapshot restore) |
-| `interact` | **change**: click, type, choose options, tick boxes, submit, with real events, one step at a time | typed values, selections and checkboxes yes; clicks and submits no |
+| `interact` | **page action**: click, type, choose options, tick boxes, submit, scroll, press keys, wait, with real events, one step at a time | typed values, selections and checkboxes yes; clicks and submits no |
+| `navigate` | **page action**: open a URL, go back/forward, reload, and wait for the page to load | no |
 | `execute_js` | **change**: arbitrary JS. **Off by default.** | only if the model provided `undoCode` (best effort) |
 
 Read-only inspections run automatically unless you enable *"Ask before the AI reads page details"* in Options.
@@ -187,6 +188,28 @@ Read-only inspections run automatically unless you enable *"Ask before the AI re
 - No JavaScript setting is needed.
 
 The system prompt tells the AI who it works for: the browser's owner, who approves every change, so everyday tasks on their own accounts are normal requests.
+
+### Let it work on the page (agent modes)
+
+By default the AI only **suggests**: a click or a page change is a card you run. Pick a mode in the menu at the bottom
+left of the message box (or a default in Options → Advanced settings) to let it operate the page itself, step by
+step, like Claude Code's permission modes:
+
+| Mode | What happens |
+|---|---|
+| ✋ **Suggest** (default) | Every change is a card; nothing happens until you click. |
+| 🙋 **Ask each step** | It clicks, types, scrolls and opens pages itself, and asks **Allow / Allow all for this task / Deny** in the chat before each step. |
+| ⚡ **Auto** | Steps run on their own. It still asks before **risky** ones: submitting a form, pressing Enter, clicking Send / Pay / Buy / Delete / Post-like buttons, typing into a password field, or going to another site. |
+| 🚀 **Full auto** | Never asks. Only per conversation, after confirming a warning. |
+
+How it works: in the agent modes `interact` and `navigate` run **during** the AI's turn and their result (what was done, and
+the page's URL and title afterwards) goes back to it, so it looks, acts, checks and continues until the task is done
+(up to 40 steps per message, `maxAgentSteps`). Before each step the target is outlined on the page with a label
+("IntegratedAI: click button "Send""), and the chat lists every step as it happens. **■** stops it at any time.
+Style changes, element edits and scripts stay cards in every mode. Page content is treated as untrusted data: the AI
+is told never to follow instructions found on pages, and the panel (not the AI) decides what needs your OK.
+With the Claude Code CLI, the page actions are offered as MCP tools (`mcp__page__interact`, `mcp__page__navigate`) in
+the agent modes only.
 
 **Screenshots.** The panel captures the inspected tab (`chrome.tabs.captureVisibleTab`) and crops it to the element. An off-screen element is scrolled into view first, and the page is scrolled back afterwards. The image is resized to at most 1280 px and sent as a JPEG, and a thumbnail appears in the chat ("📷 The AI looked at …"; click it to enlarge).
 - **Check it:** an applied or saved change has a **Check it** button. It asks the AI to screenshot the result and propose fixes for anything that still looks wrong, such as areas a dark theme missed or unreadable text.
@@ -261,6 +284,7 @@ API keys and the pairing token are never exported.
 ## Security model
 
 - **Approval:** changes are never executed by the server. The panel runs them only after a click. `execute_js` also requires ticking "I reviewed this code", and its card says whether it can be undone.
+- **Agent modes:** only the page actions (`interact`, `navigate`) can run without a card, and only in the mode you picked for the conversation. The panel enforces the mode itself and decides which steps are risky (by looking at the real element, not at what the AI says); Full auto needs an explicit confirmation per conversation and is never a default.
 - **Validation:** every action is validated against its JSON Schema by the agent (on the server, or in the panel in direct mode) *and* again in the panel just before it runs, with extra rules:
   - no `on*` event-handler attributes
   - no `javascript:` URLs
@@ -293,6 +317,7 @@ API keys and the pairing token are never exported.
   "allowedExtensionIds": [],          // e.g. ["abcdefghijklmnopabcdefghijklmnop"]
   "defaultProvider": "claude-cli",
   "maxStepsPerTurn": 8,               // max model calls per message (inspection round-trips)
+  "maxAgentSteps": 40,                // the same in the agent modes, where each page step is one call
   "projects": [],                     // your own sites' source folders for "Apply to source" (see above)
   "providers": {
     "claude-cli": {
@@ -415,7 +440,7 @@ tool calling can reuse `envelopeSchema()` like the CLI provider does.
 npm test
 ```
 
-105 unit tests cover:
+112 unit tests cover:
 - action validation and safety rules
 - auth (Origin, Host, token) and patch scopes
 - CLI argument building and output parsing, including session resume, cost differences, recovery from a lost session, decoding the streamed reply, enabling only the web tools and our MCP page tools, and the one-time correction when a model calls page actions as tools
@@ -427,6 +452,7 @@ npm test
 - site memory and page types: URL categorisation, note scopes, renaming groups, memory sent only when it changes, history per site, and shared / private / no memory per conversation
 - direct mode: the shared request handler, provider choice, and the OpenAI-compatible providers (streamed tool calls, cut-off answers, readable errors for bad keys, Ollama's address, missing server and refused origin)
 - export / import (no secrets, version 1 files, merging conversations and memory), data folder versions and backups
+- agent modes: which actions run live, denied steps, more steps per turn, Full auto never a default, the new steps and navigate, MCP tools only in agent modes
 - CSS boosting, screenshots re-sent only for the last 3, and approved scripts that use `await` (timeouts, reloads)
 
 **UI check:** `npm run ui-check` opens the panel and the setup page in headless Chrome against a scripted stand-in

@@ -51,7 +51,7 @@ scripts/                        package-extension.js, store-screenshots.mjs, ui-
 
 ```bash
 npm install
-npm test                                   # 105 unit tests (node:test)
+npm test                                   # 112 unit tests (node:test)
 npm start                                  # local agent server
 npm run package                            # store checks + dist/integratedai-<version>.zip
 npm run site                               # docs/index.html and docs/privacy.html from store/PRIVACY.md
@@ -87,6 +87,12 @@ Load the extension from `chrome://extensions` → Developer mode → Load unpack
   input box with the context chips and a round send/stop button. Two-row toolbar (tabs + History/New/settings;
   provider/model/cost). With nothing set up, a setup screen instead of an error. Runs of page inspections fold
   into one expandable line.
+- **New chat screen:** logo, "What can I help with?", suggestion cards, and the input box in the middle until the
+  first message (then it moves to the bottom). Brand gradient on the send button and headline.
+- **Agent modes** (the menu in the input box): Suggest (default) / Ask each step / Auto / Full auto. In the agent
+  modes `interact` and `navigate` run during the turn (orchestrator: `runsLive()`; panel: `lib/agent-runner.js`),
+  each step outlined on the page and listed in the chat; the panel asks before steps as the mode says (risky steps
+  are detected on the real element in `page-interact.js`). `npm run ui-check` runs an Auto-mode scenario.
 - No accessibility violations (axe-core) in either; keep it that way with `npm run ui-check`.
 
 ## Rules the owner set (please keep them)
@@ -125,6 +131,10 @@ that does it without the AI.
    account and upload `dist/integratedai-<version>.zip` with the texts and images in `store/SUBMISSION.md`
    (the screenshots show the current UI). Bump `version` in `extension/manifest.json` for every upload.
 3. **Possible next features:**
+   - Agent modes: try them on real sites with a real model (Telegram Web, forms, shops); tune the risky-step
+     words in `page-interact.js` and the "Working on the page yourself" prompt from what goes wrong. Ideas: a
+     Stop button on the page itself, an accessibility-tree snapshot after each step instead of only URL/title,
+     cross-frame support (iframes).
    - Persistent JS patches (deliberately left out for safety).
    - Providers other than Claude Code in server mode.
 4. **Known limits:** listed at the end of the README (the panel only works while DevTools is open; the network log
