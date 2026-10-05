@@ -31,7 +31,7 @@ import { spawn } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { mkdirSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { ACTIONS, envelopeSchema } from '../../../extension/shared/actions.js';
+import { ACTIONS, envelopeSchema, isPageAction } from '../../../extension/shared/actions.js';
 import { Provider } from '../../../extension/shared/providers/base.js';
 import { newCallId, renderAsText } from '../../../extension/shared/providers/common.js';
 
@@ -458,6 +458,8 @@ export class StreamPreview {
       if (block?.type === 'tool_use' && block.name === 'WebFetch') return '\n🔎 Reading a web page…\n';
       if (block?.type === 'tool_use' && block.name.startsWith(MCP_PREFIX)) {
         const name = block.name.slice(MCP_PREFIX.length);
+        // Page steps (agent modes) show up as their own lines in the chat while they run.
+        if (isPageAction(name)) return '';
         return `\n🔍 ${ACTIONS[name]?.label ?? name}…\n`;
       }
       return '';

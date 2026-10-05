@@ -23,11 +23,12 @@
  *
  * With dry: true nothing happens: the step's target is found, outlined on the page with a
  * label (so the user can follow the AI working), and described, including whether the step
- * is risky (the agent modes ask before those).
+ * is risky (the agent modes ask before those). With hold: true the outline stays until the
+ * step runs (or clearHighlight), so it marks the target while the user is asked.
  * @returns {{ found: false } | { found: true, did: string, undoable: boolean }
  *   | { found: true, what: string, risky: string }}  risky: why it is, or ''
  */
-export function interactStep(h, selected, { actionId, step, dry = false }) {
+export function interactStep(h, selected, { actionId, step, dry = false, hold = false }) {
   const norm = (s) => String(s ?? '').replace(/\s+/g, ' ').trim().toLowerCase();
   const visible = (el) => {
     const r = el.getBoundingClientRect();
@@ -107,8 +108,17 @@ export function interactStep(h, selected, { actionId, step, dry = false }) {
     if (r.top < 30) tag.style.top = `${r.height + 6}px`;
     box.append(tag);
     document.documentElement.append(box);
-    setTimeout(() => { box.style.opacity = '0'; setTimeout(() => box.remove(), 400); }, 1600);
+    if (!hold) fadeHighlight(1600);
   };
+  /** Fade out and remove the outline after a moment. */
+  const fadeHighlight = (delay) => setTimeout(() => {
+    const box = document.getElementById('integratedai-highlight');
+    if (!box) return;
+    box.style.opacity = '0';
+    setTimeout(() => box.remove(), 400);
+  }, delay);
+  // Doing the step: the outline that marked it fades shortly after.
+  if (!dry) fadeHighlight(700);
 
   /** Why a step needs the user's OK even in Auto mode ('' = it doesn't). */
   const riskOf = (target) => {
@@ -146,7 +156,9 @@ export function interactStep(h, selected, { actionId, step, dry = false }) {
   const el = find();
   if (!el) return { found: false };
   if (dry) {
-    const what = `${step.action} ${h.label(el)}${step.text ? ` "${step.text}"` : ''}${step.action === 'type' || step.action === 'select' ? ` → "${String(step.value).slice(0, 40)}"` : ''}`;
+    // Name it the way a person would: by its visible text, also when the step targets it by selector.
+    const shown = step.text || (['type', 'select'].includes(step.action) ? '' : textOf(el).slice(0, 40));
+    const what = `${step.action} ${h.label(el)}${shown ? ` "${shown}"` : ''}${step.action === 'type' || step.action === 'select' ? ` → "${String(step.value).slice(0, 40)}"` : ''}`;
     if (step.action !== 'scroll' || step.value === undefined) el.scrollIntoView({ block: 'center', inline: 'nearest' });
     highlight(el, what);
     return { found: true, what, risky: riskOf(el) };
@@ -275,6 +287,12 @@ export function interactStep(h, selected, { actionId, step, dry = false }) {
     default:
       throw new Error(`Unknown step action "${step.action}"`);
   }
+}
+
+/** Remove the outline of a step that was not done (denied, or failed). */
+export function clearHighlight() {
+  document.getElementById('integratedai-highlight')?.remove();
+  return true;
 }
 
 /** Undo the typed values / selections / checkboxes of an interact action (newest first). */

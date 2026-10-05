@@ -40,7 +40,7 @@ AI panel in Chrome DevTools: explains layout and console errors, previews CSS fi
 **Screenshots (1280×800), ready in `store/screenshots/`**, upload in this order:
 1. `01-diagnose.png`: ask why a badge is cut off; cause plus a previewed fix
 2. `02-theme-toggle.png`: a dark reading theme with an on/off button in the site's nav bar
-3. `03-forms.png`: a sign-up form filled in and submitted after approval
+3. `03-forms.png`: Auto mode: it filled in a sign-up form by itself and asks before submitting (the button is outlined on the page)
 4. `04-memory.png`: the Memory tab (what it learned about the site)
 5. `05-options.png`: connection choice (your own API key or Ollama, or the local server)
 

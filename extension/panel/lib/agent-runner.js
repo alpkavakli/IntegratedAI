@@ -15,7 +15,7 @@
  */
 
 import { callInPage, evalInPage } from './inspected.js';
-import { interactStep } from './page-interact.js';
+import { clearHighlight, interactStep } from './page-interact.js';
 
 const STEP_TIMEOUT_MS = 5000;
 const WAIT_MAX_MS = 10_000;
@@ -103,7 +103,8 @@ export class AgentRunner {
       const deadline = Date.now() + (step.action === 'wait' ? WAIT_MAX_MS : STEP_TIMEOUT_MS);
       let preview;
       try {
-        while (!(preview = await callInPage(interactStep, { actionId, step, dry: true }))?.found && Date.now() < deadline) await sleep(POLL_MS);
+        // hold: the outline stays on the target while the user is asked and until the step runs.
+        while (!(preview = await callInPage(interactStep, { actionId, step, dry: true, hold: true }))?.found && Date.now() < deadline) await sleep(POLL_MS);
       } catch (err) {
         throw new Error(`Step ${index + 1} failed: ${/** @type {any} */ (err).message}${soFar(done)}`);
       }
@@ -114,6 +115,7 @@ export class AgentRunner {
       try {
         await this.approve(mode, preview.what, preview.risky);
       } catch (err) {
+        await callInPage(clearHighlight).catch(() => {});
         throw new Error(`${/** @type {any} */ (err).message}${soFar(done)}`);
       }
 
@@ -124,6 +126,7 @@ export class AgentRunner {
       try {
         result = await callInPage(interactStep, { actionId, step });
       } catch (err) {
+        await callInPage(clearHighlight).catch(() => {});
         line.done(`Failed: ${preview.what}`, false);
         throw new Error(`Step ${index + 1} failed: ${/** @type {any} */ (err).message}${soFar(done)}`);
       }

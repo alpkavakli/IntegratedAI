@@ -223,16 +223,18 @@ const SCENARIOS = {
     await blog.shoot('04-memory', 'Remembers each site, so the next conversation starts informed');
   },
 
-  // Fill in a form and submit, after approval.
+  // Auto mode: it fills in the form by itself and asks before submitting (the button is outlined on the page).
   '03-forms': async () => {
     const signup = await openScenario('signup.html', '#signup', 'dark');
-    log('asking');
-    await signup.ask("Sign me up for screen printing: name Sam Rivera, email sam@example.com, I'm new to this, no newsletter. Then reserve my spot.");
-    log('run steps');
-    await signup.click('Run steps');
-    await sleep(4000);
-    await signup.scrollChat();
-    await signup.shoot('03-forms', 'Fills in forms and clicks through flows — only after you approve');
+    await signup.ui(`(() => { const m = document.getElementById('agent-mode'); m.value = 'auto'; m.dispatchEvent(new Event('change')); })()`);
+    await sleep(800);
+    log('asking (Auto mode)');
+    await signup.ui(`document.getElementById('prompt').value = ${JSON.stringify("Sign me up for screen printing: name Sam Rivera, email sam@example.com, I'm new to this, no newsletter. Then reserve my spot.")}; document.getElementById('composer').requestSubmit()`);
+    await cdp('Target.activateTarget', { targetId: signup.page.targetId });
+    for (let i = 0; i < 240 && !(await signup.ui(`!!document.querySelector('.ask-step')`)); i++) await sleep(1000);
+    await sleep(600);
+    await signup.shoot('03-forms', 'Works through tasks on the page by itself — and asks before anything risky');
+    await signup.ui(`[...document.querySelectorAll('.ask-step button')].find((b) => b.textContent === 'Allow')?.click()`);
   },
 
   // Options: choose how to connect.
