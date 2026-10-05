@@ -239,9 +239,11 @@ async function showDataSummary() {
   $('data-extension').textContent = `${summary.patches} saved patch${summary.patches === 1 ? '' : 'es'} and your settings (extension ${summary.extensionVersion})`;
   if ((await loadSettings()).mode === 'direct') {
     $('data-extension').textContent += `; in direct mode also ${summary.conversations} conversation${summary.conversations === 1 ? '' : 's'} and site memory for ${summary.memorySites} site${summary.memorySites === 1 ? '' : 's'}`;
-    $('data-server').textContent = 'not used in direct mode';
+    // The server isn't used in direct mode, so its line is left out.
+    /** @type {HTMLElement} */ ($('data-server-item')).hidden = true;
     return;
   }
+  /** @type {HTMLElement} */ ($('data-server-item')).hidden = false;
   try {
     const info = /** @type {any} */ (await serverDataInfo());
     $('data-server').textContent =

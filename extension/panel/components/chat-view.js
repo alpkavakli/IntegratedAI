@@ -4,7 +4,7 @@
  * format, streams the reply as it arrives, and hosts action cards.
  */
 
-import { ACTIONS, isReadOnly, isServerSide } from '../../shared/actions.js';
+import { ACTIONS, isReadOnly, isServerSide, validateAction } from '../../shared/actions.js';
 import { h } from '../lib/dom.js';
 import { renderMarkdown } from '../lib/markdown.js';
 import { ActionCard } from './action-card.js';
@@ -55,6 +55,23 @@ export class ChatView extends HTMLElement {
         SUGGESTIONS.map((text) => h('button', { type: 'button', onclick: () => this.app?.sendFromUi(text) }, text))),
       h('div', { class: 'welcome' })));
     this.app?.updateWelcome();
+  }
+
+  /**
+   * Shown instead of the conversation while no AI is connected yet (direct mode, first run).
+   * @param {() => void} openSettings
+   */
+  renderSetup(openSettings) {
+    this.cards.clear();
+    this.streamingEl = null;
+    this.replaceChildren(h('div', { class: 'setup' },
+      h('h2', null, 'Connect an AI to get started'),
+      h('p', null, 'This panel explains and fixes the page you are inspecting. It needs one of these:'),
+      h('ul', null,
+        h('li', null, h('strong', null, 'An API key'), ' from Anthropic (Claude), OpenAI, Google Gemini or OpenRouter. Usage is billed to your account there.'),
+        h('li', null, h('strong', null, 'Ollama'), ': free models that run on your own computer, no key.'),
+        h('li', null, h('strong', null, 'The local agent server'), ' (for developers): use your Claude subscription through Claude Code.')),
+      h('button', { type: 'button', class: 'primary', onclick: openSettings }, 'Open settings')));
   }
 
   /**
@@ -118,6 +135,10 @@ export class ChatView extends HTMLElement {
    * @param {{ name: string, input: any }} call
    */
   renderMemoryLine({ name, input }) {
+    // An invalid request was refused by the agent (the model is told); don't show it as done.
+    if (validateAction(name, input).length) {
+      return h('div', { class: 'memory-line failed' }, `📝 The AI's ${ACTIONS[name]?.label.toLowerCase() ?? name} request was invalid, so nothing was saved.`);
+    }
     const text = name === 'remember'
       ? `📝 Remembered (${input.scope === 'site' ? 'whole site' : 'this kind of page'}): ${input.note}`
       : name === 'forget'

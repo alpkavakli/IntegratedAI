@@ -7,20 +7,26 @@
   </head>
   <body>
     <header class="toolbar">
-      <span id="status-dot" class="dot" title="Disconnected"></span>
-      <nav class="tabs" role="tablist">
-        <button type="button" data-tab="chat" class="active">Chat</button>
-        <button type="button" data-tab="patches">Patches <span id="patch-count" class="badge" hidden></span></button>
-        <button type="button" data-tab="console">Console <span id="error-count" class="badge error" hidden></span></button>
-        <button type="button" data-tab="memory">Memory <span id="memory-count" class="badge" hidden></span></button>
-      </nav>
-      <span class="spacer"></span>
-      <select id="provider-select" title="AI provider"></select>
-      <select id="model-select" title="Model"></select>
-      <span id="cost" class="cost"></span>
-      <button type="button" id="history-button" class="icon" title="Earlier conversations on this site">History</button>
-      <button type="button" id="new-chat" class="icon" title="New conversation for this tab">New</button>
-      <button type="button" id="open-options" class="icon" title="Settings">⚙</button>
+      <div class="toolbar-main">
+        <span id="status-dot" class="dot" title="Disconnected"></span>
+        <nav class="tabs" role="tablist">
+          <button type="button" data-tab="chat" class="active">Chat</button>
+          <button type="button" data-tab="patches">Patches <span id="patch-count" class="badge" hidden></span></button>
+          <button type="button" data-tab="console">Console <span id="error-count" class="badge error" hidden></span></button>
+          <button type="button" data-tab="memory">Memory <span id="memory-count" class="badge" hidden></span></button>
+        </nav>
+        <span class="spacer"></span>
+        <button type="button" id="history-button" class="icon" title="Earlier conversations on this site"><span class="glyph" aria-hidden="true">🕘</span><span class="label">History</span></button>
+        <button type="button" id="new-chat" class="icon" title="New conversation for this tab"><span class="glyph" aria-hidden="true">＋</span><span class="label">New</span></button>
+        <button type="button" id="open-options" class="icon" title="Settings">⚙</button>
+      </div>
+      <div class="toolbar-session" id="session-row" hidden>
+        <select id="provider-select" title="AI provider"></select>
+        <select id="model-select" title="Model"></select>
+        <span class="spacer"></span>
+        <span id="cost" class="cost"></span>
+      </div>
+      <ai-history id="history" hidden></ai-history>
     </header>
 
     <div id="banner" class="banner" hidden>

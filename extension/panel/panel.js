@@ -195,6 +195,11 @@ export class App {
       if (status === 'connected') {
         this.hideBanner();
         this.openSession();
+      } else if (status === 'unauthorized' && this.settings.mode === 'direct') {
+        // Nothing set up yet: a first-run screen, not an error.
+        this.hideBanner();
+        $('session-row').hidden = true;
+        this.chat.renderSetup(() => bg('options.open'));
       } else if (status === 'unauthorized') {
         this.showBanner(error, true, 'Open settings', () => bg('options.open'));
       } else if (status === 'disconnected') {
@@ -679,8 +684,12 @@ export class App {
     }));
     const current = this.providers.find((p) => p.id === this.session?.provider);
     providerSelect.value = this.session?.provider ?? '';
-    modelSelect.replaceChildren(...(current?.models ?? []).map((m) => new Option(m, m)));
+    // The conversation's model may be one typed in Options (e.g. "qwen3:latest"), not a suggestion.
+    const models = [...(current?.models ?? [])];
+    if (this.session?.model && !models.includes(this.session.model)) models.unshift(this.session.model);
+    modelSelect.replaceChildren(...models.map((m) => new Option(m, m)));
     modelSelect.value = this.session?.model ?? '';
+    $('session-row').hidden = !this.providers.length;
 
     if (current && !current.available) {
       const other = this.providers.find((p) => p.available);
