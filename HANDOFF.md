@@ -83,12 +83,16 @@ Load the extension from `chrome://extensions` → Developer mode → Load unpack
 - **Setup page** (opens on install): 1. choose your AI on cards (Claude, GPT, Gemini, OpenRouter, Ollama, or Claude
   Code via the local server), 2. paste the key (saved and checked as soon as it's pasted), 3. open the AI tab.
   The goal is setup in about two minutes; keep it that simple. Everything else is under "Advanced settings".
-- **Panel:** a familiar chat layout: your messages as bubbles on the right, a centered start screen, one rounded
-  input box with the context chips and a round send/stop button. Two-row toolbar (tabs + History/New/settings;
-  provider/model/cost). With nothing set up, a setup screen instead of an error. Runs of page inspections fold
-  into one expandable line.
-- **New chat screen:** logo, "What can I help with?", suggestion cards, and the input box in the middle until the
-  first message (then it moves to the bottom). Brand gradient on the send button and headline.
+- **Look:** plain and native to DevTools, not "AI product": the DevTools greys with one blue accent, 1px borders,
+  small corners (4–6 px), no gradients, glows or emoji, line icons. The owner asked for this explicitly ("the UI
+  looks too much like AI"); keep it that way. The icon (`store/icon.svg`, rendered to `extension/icons/`) is the
+  DevTools "select an element" mark on a dark tile.
+- **Panel:** your messages in a light box on the right, the AI's answers as plain text. One input box at the bottom
+  with the context chips, the mode menu and a small square send/stop button. Two-row toolbar (tabs +
+  History/New/settings; provider/model/cost). With nothing set up, a setup screen instead of an error. Runs of page
+  inspections fold into one expandable line.
+- **New chat screen:** "Ask about this page", one line of help, four suggestion buttons and the Continue / memory
+  lines, left-aligned at the top like an empty DevTools panel.
 - **Agent modes** (the menu in the input box): Suggest (default) / Ask each step / Auto / Full auto. In the agent
   modes `interact` and `navigate` run during the turn (orchestrator: `runsLive()`; panel: `lib/agent-runner.js`),
   each step outlined on the page and listed in the chat, with a "working… Stop" badge on the page during the turn; the panel asks before steps as the mode says (risky steps
@@ -129,7 +133,8 @@ that does it without the AI.
    gemini-3.8-flash, …); models change often, and checking a key in Options lists the ones it can really use.
 2. **Publish** (owner's task): the repo is public and the privacy page is live. Create the Web Store developer
    account and upload `dist/integratedai-<version>.zip` with the texts and images in `store/SUBMISSION.md`
-   (the screenshots show the current UI). Bump `version` in `extension/manifest.json` for every upload.
+   (screenshots 01–05 still show the earlier look: regenerate them with `node scripts/store-screenshots.mjs`, which needs
+   the owner's Claude Code login; the promo tile is current). Bump `version` in `extension/manifest.json` for every upload.
 3. **Possible next features:**
    - Agent modes: try them on real sites with a real model (Telegram Web, forms, shops); tune the risky-step
      words in `page-interact.js` and the "Working on the page yourself" prompt from what goes wrong. Ideas: a

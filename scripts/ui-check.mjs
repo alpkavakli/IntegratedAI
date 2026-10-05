@@ -328,7 +328,7 @@ try {
   await sleep(1200);
   await ev(agent.page.session, `window[Symbol.for('integratedai.state')].stopRequested = true`);
   let stopped = false;
-  for (let i = 0; i < 20 && !(stopped = await agent.ui(`document.getElementById('send').textContent === '↑'`)); i++) await sleep(250);
+  for (let i = 0; i < 20 && !(stopped = await agent.ui(`!document.getElementById('send').classList.contains('busy')`)); i++) await sleep(250);
   log(`agent: Stop on the page ${stopped ? 'stopped the turn' : 'did NOT stop the turn'}`);
   if (!stopped) violations.push('agent: Stop on the page did not stop the turn');
 

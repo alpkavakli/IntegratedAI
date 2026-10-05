@@ -340,8 +340,8 @@ export function showWorkingBadge(h) {
   pill.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 8px 8px 14px;border-radius:999px;'
     + 'background:#1f2937;color:#fff;font:600 13px/1.2 system-ui,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.3)';
   const dot = document.createElement('span');
-  dot.style.cssText = 'width:9px;height:9px;border-radius:50%;background:linear-gradient(135deg,#3b7bff,#8b5cf6);'
-    + 'box-shadow:0 0 0 3px rgba(99,102,241,.35)';
+  dot.style.cssText = 'width:9px;height:9px;border-radius:50%;background:#4c8df6;'
+    + 'box-shadow:0 0 0 3px rgba(76,141,246,.3)';
   const text = document.createElement('span');
   text.textContent = 'IntegratedAI is working on this page';
   const stop = document.createElement('button');

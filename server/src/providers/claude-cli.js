@@ -454,13 +454,13 @@ export class StreamPreview {
       this.inStructuredOutput = block?.type === 'tool_use' && block?.name === 'StructuredOutput';
       if (block?.type === 'tool_use' && !isRealTool(block.name)) this.misusedTools.push(block.name);
       // The live preview is plain text, so no Markdown here.
-      if (block?.type === 'tool_use' && block.name === 'WebSearch') return '\n🔎 Searching the web…\n';
-      if (block?.type === 'tool_use' && block.name === 'WebFetch') return '\n🔎 Reading a web page…\n';
+      if (block?.type === 'tool_use' && block.name === 'WebSearch') return '\nSearching the web…\n';
+      if (block?.type === 'tool_use' && block.name === 'WebFetch') return '\nReading a web page…\n';
       if (block?.type === 'tool_use' && block.name.startsWith(MCP_PREFIX)) {
         const name = block.name.slice(MCP_PREFIX.length);
         // Page steps (agent modes) show up as their own lines in the chat while they run.
         if (isPageAction(name)) return '';
-        return `\n🔍 ${ACTIONS[name]?.label ?? name}…\n`;
+        return `\n${ACTIONS[name]?.label ?? name}…\n`;
       }
       return '';
     }

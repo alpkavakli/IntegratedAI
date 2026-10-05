@@ -11,12 +11,12 @@ import { ActionCard } from './action-card.js';
 
 /** @typedef {import('../../shared/protocol.js').NeutralMessage} NeutralMessage */
 
-/** Starting points on a new conversation: [icon, text]. */
+/** Starting points on a new conversation. */
 const SUGGESTIONS = [
-  ['🔍', 'Why is this overflowing?'],
-  ['✨', 'Make this look better'],
-  ['🌙', 'Make this dark'],
-  ['🐞', 'Explain the console errors'],
+  'Why is this overflowing?',
+  'Make this look better',
+  'Make this dark',
+  'Explain the console errors',
 ];
 
 export class ChatView extends HTMLElement {
@@ -41,7 +41,6 @@ export class ChatView extends HTMLElement {
     const session = this.app?.session;
     this.cards.clear();
     this.replaceChildren();
-    document.body.classList.remove('fresh');
     this.streamingEl = null;
     if (!session || !session.messages.some((m) => m.role === 'user' && m.content.some((b) => b.type === 'text'))) {
       this.renderEmpty();
@@ -52,14 +51,11 @@ export class ChatView extends HTMLElement {
   }
 
   renderEmpty() {
-    document.body.classList.add('fresh');
     this.append(h('div', { class: 'empty' },
-      h('img', { class: 'logo', src: '../icons/icon128.png', alt: '' }),
-      h('div', { class: 'empty-title' }, 'What can I help with?'),
-      h('div', null, 'Select an element in the Elements panel, or just ask about the page.'),
+      h('div', { class: 'empty-title' }, 'Ask about this page'),
+      h('div', null, 'Select an element in the Elements panel, or ask about the whole page.'),
       h('div', { class: 'suggestions' },
-        SUGGESTIONS.map(([icon, text]) => h('button', { type: 'button', onclick: () => this.app?.sendFromUi(text) },
-          h('span', { class: 'icon', 'aria-hidden': 'true' }, icon), text))),
+        SUGGESTIONS.map((text) => h('button', { type: 'button', onclick: () => this.app?.sendFromUi(text) }, text))),
       h('div', { class: 'welcome' })));
     this.app?.updateWelcome();
   }
@@ -69,7 +65,6 @@ export class ChatView extends HTMLElement {
    * @param {() => void} openSettings
    */
   renderSetup(openSettings) {
-    document.body.classList.remove('fresh');
     this.cards.clear();
     this.streamingEl = null;
     this.replaceChildren(h('div', { class: 'setup' },
@@ -99,7 +94,6 @@ export class ChatView extends HTMLElement {
   appendMessage(message, scroll = true) {
     const stick = this.isNearBottom();
     this.querySelector('.empty')?.remove();
-    document.body.classList.remove('fresh');
 
     if (message.role === 'user') {
       const text = message.content.filter((b) => b.type === 'text').map((b) => /** @type {any} */ (b).text).join('\n');
@@ -220,19 +214,19 @@ export class ChatView extends HTMLElement {
   }
 
   /**
-   * One line for a site-memory update ("📝 Remembered …"). Managed in the Memory tab.
+   * One line for a site-memory update ("Remembered …"). Managed in the Memory tab.
    * @param {{ name: string, input: any }} call
    */
   renderMemoryLine({ name, input }) {
     // An invalid request was refused by the agent (the model is told); don't show it as done.
     if (validateAction(name, input).length) {
-      return h('div', { class: 'memory-line failed' }, `📝 The AI's ${ACTIONS[name]?.label.toLowerCase() ?? name} request was invalid, so nothing was saved.`);
+      return h('div', { class: 'memory-line failed' }, `The AI's ${ACTIONS[name]?.label.toLowerCase() ?? name} request was invalid, so nothing was saved.`);
     }
     const text = name === 'remember'
-      ? `📝 Remembered (${input.scope === 'site' ? 'whole site' : 'this kind of page'}): ${input.note}`
+      ? `Remembered (${input.scope === 'site' ? 'whole site' : 'this kind of page'}): ${input.note}`
       : name === 'forget'
-        ? `🗑 Forgot a note (${input.id})`
-        : `🏷 Named this kind of page "${input.name}" (${input.pattern})`;
+        ? `Forgot a note (${input.id})`
+        : `Named this kind of page "${input.name}" (${input.pattern})`;
     return h('div', { class: 'memory-line' }, text, ' ',
       h('button', { type: 'button', class: 'link', onclick: () => this.app?.showTab('memory') }, 'manage'));
   }
@@ -340,7 +334,7 @@ export class ChatView extends HTMLElement {
 }
 
 /**
- * Fold runs of two or more inspection lines ("🔍 Inspect element …") into one
+ * Fold runs of two or more inspection lines ("Inspect element …") into one
  * expandable "Looked at the page · 5 steps" line, so the answer stays in front.
  * @param {HTMLElement} el an assistant message
  */

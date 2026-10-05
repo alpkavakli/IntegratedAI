@@ -197,10 +197,10 @@ step, like Claude Code's permission modes:
 
 | Mode | What happens |
 |---|---|
-| ✋ **Suggest** (default) | Every change is a card; nothing happens until you click. |
-| 🙋 **Ask each step** | It clicks, types, scrolls and opens pages itself, and asks **Allow / Allow all for this task / Deny** in the chat before each step. |
-| ⚡ **Auto** | Steps run on their own. It still asks before **risky** ones: submitting a form, pressing Enter, clicking Send / Pay / Buy / Delete / Post-like buttons, typing into a password field, or going to another site. |
-| 🚀 **Full auto** | Never asks. Only per conversation, after confirming a warning. |
+| **Suggest** (default) | Every change is a card; nothing happens until you click. |
+| **Ask each step** | It clicks, types, scrolls and opens pages itself, and asks **Allow / Allow all for this task / Deny** in the chat before each step. |
+| **Auto** | Steps run on their own. It still asks before **risky** ones: submitting a form, pressing Enter, clicking Send / Pay / Buy / Delete / Post-like buttons, typing into a password field, or going to another site. |
+| **Full auto** | Never asks. Only per conversation, after confirming a warning. |
 
 How it works: in the agent modes `interact` and `navigate` run **during** the AI's turn and their result (what was done, and
 the page's URL and title afterwards) goes back to it, so it looks, acts, checks and continues until the task is done

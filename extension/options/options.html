@@ -8,11 +8,11 @@
       body { display: block; padding: 24px 24px 48px; max-width: 680px; margin: 0 auto; font-size: 13px; }
       main { display: block; } /* panel.css makes <main> a flex row for the panel */
       header.intro { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
-      header.intro img { width: 40px; height: 40px; }
+      header.intro img { width: 36px; height: 36px; }
       h1 { font-size: 20px; margin: 0; }
       header.intro p { margin: 2px 0 0; color: var(--fg-muted); }
 
-      .step { border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; }
+      .step { border: 1px solid var(--border); border-radius: 6px; padding: 14px 16px; margin-bottom: 12px; }
       .step h2 { display: flex; align-items: center; gap: 8px; font-size: 15px; margin: 0 0 10px; }
       .num {
         display: inline-flex; align-items: center; justify-content: center; flex: none;
@@ -28,7 +28,7 @@
       .providers { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
       .provider-card {
         position: relative; display: flex; flex-direction: column; gap: 2px; cursor: pointer;
-        border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; background: var(--bg);
+        border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; background: var(--bg);
       }
       .provider-card:hover { background: var(--bg-alt); }
       .provider-card input { position: absolute; opacity: 0; pointer-events: none; }
@@ -39,8 +39,8 @@
 
       .key-row { display: flex; gap: 8px; }
       .key-row input { flex: 1; min-width: 0; }
-      input[type="text"], input[type="password"], select { padding: 6px 8px; border-radius: 8px; font-size: 13px; }
-      button { padding: 5px 12px; border-radius: 8px; }
+      input[type="text"], input[type="password"], select { padding: 6px 8px; border-radius: 4px; font-size: 13px; }
+      button { padding: 5px 12px; border-radius: 4px; }
       .status { margin-top: 8px; min-height: 18px; }
       .ok { color: var(--ok); }
       .bad { color: var(--error); }
@@ -54,11 +54,11 @@
       details.advanced h3 { font-size: 13px; margin: 18px 0 6px; }
       .check { display: flex; gap: 8px; align-items: flex-start; margin: 8px 0; }
       .check input { margin-top: 3px; }
-      .danger-box { border: 1px solid var(--error); background: var(--error-bg); border-radius: 8px; padding: 4px 10px; }
+      .danger-box { border: 1px solid var(--error); background: var(--error-bg); border-radius: 4px; padding: 4px 10px; }
       .data-list { padding-left: 18px; margin: 6px 0; }
       .data-list li { margin: 6px 0; }
       .row-buttons { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
-      .button-like { background: var(--bg-alt); border: 1px solid var(--border); border-radius: 8px; padding: 5px 12px; cursor: pointer; }
+      .button-like { background: var(--bg-alt); border: 1px solid var(--border); border-radius: 4px; padding: 5px 12px; cursor: pointer; }
       .button-like:hover { background: var(--bg-hover); }
     </style>
   </head>

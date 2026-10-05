@@ -533,7 +533,7 @@ export class App {
         ` "${last.title}" · ${relativeTime(last.updatedAt)}${last.sameGroup ? '' : ' (another page on this site)'} `,
         items.length > 1 ? h('button', { type: 'button', class: 'link', onclick: () => this.historyView.toggle() }, `all ${items.length}`) : null) : null,
       remembered ? h('div', { class: 'meta' },
-        `🧠 I remember ${remembered} thing${remembered === 1 ? '' : 's'} about ${this.memoryInfo.site}${groupName ? ` and "${groupName}" pages` : ''}. `,
+        `${remembered} saved note${remembered === 1 ? '' : 's'} about ${this.memoryInfo.site}${groupName ? ` and "${groupName}" pages` : ''}. `,
         h('button', { type: 'button', class: 'link', onclick: () => this.showTab('memory') }, 'See memory')) : null,
       // Separate conversations with separate memories.
       mode === 'shared'
@@ -542,7 +542,7 @@ export class App {
           ' for this conversation (its own notes, separate from the site\'s shared memory), or ',
           h('button', { type: 'button', class: 'link', onclick: () => this.configure({ memoryMode: 'off' }) }, 'no memory'), '.')
         : h('div', { class: 'meta' },
-          mode === 'private' ? '🔒 This conversation has its own private memory. ' : '🚫 Memory is off for this conversation. ',
+          mode === 'private' ? 'This conversation has its own private memory. ' : 'Memory is off for this conversation. ',
           h('button', { type: 'button', class: 'link', onclick: () => this.configure({ memoryMode: 'shared' }) }, 'Use the site\'s shared memory')),
     ]);
   }
@@ -754,8 +754,8 @@ export class App {
 
   updateComposer() {
     const busy = Boolean(this.session?.busy);
-    // Like other chat apps: an arrow to send, a square to stop.
-    $('send').textContent = busy ? '■' : '↑';
+    // Like other chat apps: an arrow to send, a square to stop (both icons are in panel.html).
+    $('send').classList.toggle('busy', busy);
     $('send').title = busy ? 'Stop' : 'Send (Enter)';
     $('send').setAttribute('aria-label', busy ? 'Stop' : 'Send');
     $('send').disabled = !this.connected || !this.session;
