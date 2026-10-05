@@ -8,11 +8,13 @@
  *   - insert/remove CSS in a tab (chrome.scripting, works regardless of the page's CSP)
  *   - store per-tab undo information
  *   - manage persistent CSS patches and reapply them when a matching page loads
+ *   - keep stored data in the current format after updates, export/import it
  *
  * Messages: { cmd: string, ...args } → response { ok: true, value } | { ok: false, error }
  */
 
 import { scopeMatches } from '../shared/url-scope.js';
+import { buildExport, mergePatches, parseImport } from '../shared/data-transfer.js';
 
 /**
  * @typedef {object} Patch
@@ -56,6 +58,16 @@ const handlers = {
   'patches.remove': async ({ id }) => removePatch(id),
 
   'options.open': async () => chrome.runtime.openOptionsPage(),
+
+  // Options → Your data
+  'data.summary': async () => ({ patches: (await getPatches()).length, storageVersion: STORAGE_VERSION, extensionVersion: chrome.runtime.getManifest().version }),
+  'data.export': async () => buildExport({
+    patches: await getPatches(),
+    settings: (await chrome.storage.local.get('settings')).settings ?? {},
+    extensionVersion: chrome.runtime.getManifest().version,
+  }),
+  'data.import': async ({ data }) => importData(data),
+  'data.clear': async () => clearData(),
 };
 
 /**
@@ -219,3 +231,64 @@ chrome.webNavigation.onCommitted.addListener(async ({ tabId, frameId, url }) => 
     insertCss(tabId, patch.css).catch((err) => console.warn('Patch injection failed', patch.name, err));
   }
 });
+
+// ─────────────────────────────────────────────────────────── stored data: versions, migrations, export/import
+
+/**
+ * Format version of what this extension keeps in chrome.storage.local.
+ * Chrome keeps that storage across extension updates; when a future update changes
+ * its shape, add a step to STORAGE_MIGRATIONS and bump STORAGE_VERSION.
+ */
+const STORAGE_VERSION = 1;
+
+/** @type {{ to: number, run: (data: Record<string, any>) => Record<string, any> }[]} */
+const STORAGE_MIGRATIONS = [
+  // { to: 2, run: (data) => ({ ...data, patches: data.patches.map(…) }) },
+];
+
+/** Bring stored data up to STORAGE_VERSION. Safe to run on every start. */
+async function migrateStorage() {
+  const data = await chrome.storage.local.get(null);
+  const from = Number(data.storageVersion) || 0;
+  if (from >= STORAGE_VERSION) return;
+  let next = { ...data };
+  // Version 0 → 1: data from before versioning. Make sure every patch has the fields we rely on.
+  next.patches = (Array.isArray(next.patches) ? next.patches : [])
+    .filter((p) => p && typeof p.id === 'string' && typeof p.css === 'string' && p.scope)
+    .map((p) => ({ enabled: true, createdAt: Date.now(), name: 'Patch', ...p }));
+  for (const migration of STORAGE_MIGRATIONS.filter((m) => m.to > from).sort((a, b) => a.to - b.to)) {
+    next = migration.run(next);
+  }
+  next.storageVersion = STORAGE_VERSION;
+  await chrome.storage.local.set(next);
+}
+
+chrome.runtime.onInstalled.addListener(async ({ reason }) => {
+  await migrateStorage();
+  // First install: open the options page so the user can connect the agent server.
+  if (reason === chrome.runtime.OnInstalledReason.INSTALL) chrome.runtime.openOptionsPage();
+});
+chrome.runtime.onStartup.addListener(() => { migrateStorage(); });
+
+/**
+ * Import patches (merged) and settings (never the pairing token).
+ * @param {unknown} data parsed export file
+ */
+async function importData(data) {
+  const { patches, settings } = parseImport(data);
+  const result = mergePatches(await getPatches(), patches);
+  await savePatches(result.merged);
+  const current = (await chrome.storage.local.get('settings')).settings ?? {};
+  await chrome.storage.local.set({ settings: { ...current, ...settings } });
+  // Show enabled imported patches right away in open tabs that match.
+  for (const patch of patches.filter((p) => p.enabled)) await forMatchingTabs(patch, (tabId) => insertCss(tabId, patch.css));
+  return { added: result.added, updated: result.updated, skipped: result.skipped, settings: Object.keys(settings) };
+}
+
+/** Delete everything the extension stored (patches, settings, per-tab data). */
+async function clearData() {
+  for (const patch of (await getPatches()).filter((p) => p.enabled)) await forMatchingTabs(patch, (tabId) => removeCss(tabId, patch.css));
+  await chrome.storage.local.clear();
+  await chrome.storage.session.clear();
+  await chrome.storage.local.set({ storageVersion: STORAGE_VERSION });
+}

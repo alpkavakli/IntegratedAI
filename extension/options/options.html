@@ -18,6 +18,11 @@
       #test-result { margin-left: 8px; }
       .ok { color: var(--ok); }
       .bad { color: var(--error); }
+      .data-list { padding-left: 18px; }
+      .data-list li { margin: 6px 0; }
+      .row-buttons { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
+      .button-like { background: var(--bg-alt); border: 1px solid var(--border); border-radius: 4px; padding: 2px 8px; cursor: pointer; }
+      .button-like:hover { background: var(--bg-hover); }
     </style>
   </head>
   <body>
@@ -56,6 +61,28 @@
         <input type="checkbox" id="executeJs">
         <span><strong>Allow the AI to propose JavaScript (execute_js).</strong> Every script is shown to you and only runs after you tick "I reviewed this code" and click Run. Scripts run in the page with access to its data and your logged-in session, and may not be undoable. CSS and safe DOM changes are always preferred.</span>
       </label>
+    </div>
+
+    <h2>Your data</h2>
+    <div class="hint">
+      Everything stays on your computer. Updates of the extension and the agent server keep all of it.
+    </div>
+    <ul class="data-list">
+      <li><strong>In this browser</strong> (extension storage): <span id="data-extension">…</span>.
+        Kept across updates. Removed if you uninstall the extension, so export it first.</li>
+      <li><strong>On the agent server</strong>: <span id="data-server">connect to the server to see this</span>.
+        Kept across updates. Before an update changes the format, the server backs this folder up automatically.</li>
+    </ul>
+    <div class="row-buttons">
+      <button type="button" id="export">Export patches &amp; settings</button>
+      <label class="button-like">Import… <input type="file" id="import" accept="application/json,.json" hidden></label>
+      <button type="button" id="clear" class="danger">Delete extension data</button>
+      <span id="data-result"></span>
+    </div>
+    <div class="hint">
+      Export/import moves your saved patches and settings to another copy of the extension (for example from a development
+      copy to the Chrome Web Store version). The pairing token is never exported. Conversations and site memory stay in the
+      server's folder; to back them up, copy that folder.
     </div>
 
     <script src="options.js" type="module"></script>

@@ -184,6 +184,32 @@ What happens:
 
 The button is created by the extension's own content script (`content/patch-toggles.js`, in an isolated world), not by JavaScript the model wrote, so this works with `execute_js` disabled. If the target element isn't found (e.g. the site changed), the button floats in the bottom-right corner instead.
 
+## Your data: where it lives and what updates do
+
+Everything stays on your computer.
+
+| Data | Where | After an update | After uninstalling the extension |
+|---|---|---|---|
+| Conversations | server: `~/.integratedai/conversations/` | kept | kept (it's on the server side) |
+| Site memory and page types | server: `~/.integratedai/memory/` | kept | kept |
+| Server settings, pairing token | server: `~/.integratedai/config.json` | kept | kept |
+| Claude Code's own session history | `~/.claude/projects/…claude-cli-workspace/` | kept | kept |
+| Saved patches, extension settings | Chrome's storage for this extension | kept | **deleted**: export first |
+| Tab ↔ conversation map, undo info | Chrome session storage | — | cleared on browser restart by design |
+
+**Updates never lose data:**
+- **Server:** the data folder has a version (`data-version.json`). When a new version needs a different format, the server first copies the folder to `~/.integratedai/backups/before-v<N>-<date>/`, then migrates it. If you run an *older* server on *newer* data, it refuses to start rather than damage it.
+- **Extension:** Chrome keeps extension storage across updates. The extension stamps it with a version (`storageVersion`) and migrates it in `chrome.runtime.onInstalled`.
+- **First install:** the Options page opens automatically so you can connect to the server.
+
+**Moving to another copy of the extension.** A development copy (Load unpacked) and the Chrome Web Store version are *different* extensions to Chrome, with separate storage. Your conversations and memory are shared, because they're on the server. Your patches are not.
+1. In the old copy, open **Options → Your data → Export patches & settings**.
+2. In the new copy, click **Import…**.
+
+The pairing token is never exported.
+
+**Options → Your data** shows what's stored on both sides and has **Delete extension data**. To back up or remove conversations and memory, copy or delete the server's folder.
+
 ## Security model
 
 - **Approval:** changes are never executed by the server. The panel runs them only after a click. `execute_js` also requires ticking "I reviewed this code", and its card says whether it can be undone.
@@ -316,7 +342,7 @@ Then add the class to `PROVIDERS` in [registry.js](server/src/providers/registry
 npm test
 ```
 
-73 unit tests cover:
+80 unit tests cover:
 - action validation and safety rules
 - auth (Origin, Host, token) and patch scopes
 - CLI argument building and output parsing, including session resume, cost differences, recovery from a lost session, decoding the streamed reply, enabling only the web tools and our MCP page tools, and the one-time correction when a model calls page actions as tools

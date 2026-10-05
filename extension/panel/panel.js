@@ -618,7 +618,8 @@ export class App {
     const providerSelect = $('provider-select');
     const modelSelect = $('model-select');
     providerSelect.replaceChildren(...this.providers.map((p) => {
-      const option = new Option(p.available ? p.label : `${p.label} (unavailable)`, p.id);
+      // Providers that aren't set up stay visible (so people know they exist) but say what's missing.
+      const option = new Option(p.available ? p.label : `${p.label} (not set up)`, p.id);
       option.disabled = !p.available;
       option.title = p.reason ?? '';
       return option;
@@ -629,7 +630,8 @@ export class App {
     modelSelect.value = this.session?.model ?? '';
 
     if (current && !current.available) {
-      this.showBanner(`${current.label} is unavailable: ${current.reason}`, true);
+      const other = this.providers.find((p) => p.available);
+      this.showBanner(`${current.label} isn't set up: ${current.reason}${other ? ` Or pick "${other.label}" in the provider menu.` : ''}`, true);
     }
   }
 

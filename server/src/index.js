@@ -22,8 +22,20 @@ import { ProviderRegistry } from './providers/registry.js';
 import { SessionStore } from './sessions/store.js';
 import { MemoryStore } from './memory/store.js';
 import { SourceEditor } from './source/source-editor.js';
+import { prepareDataDir } from './storage/data-version.js';
+import { readFileSync } from 'node:fs';
 
 const config = loadConfig();
+const appVersion = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')).version;
+// Version the data folder before anything reads it (backs up and migrates after an update).
+try {
+  const data = prepareDataDir(config.dataDir, { appVersion });
+  if (data.backup) console.log(`Updated your data from version ${data.from} to ${data.to}. Backup: ${data.backup}`);
+  for (const step of data.ran) console.log(`  migrated ${step}`);
+} catch (err) {
+  console.error(String(/** @type {any} */ (err)?.message ?? err));
+  process.exit(1);
+}
 const store = new SessionStore(config.dataDir);
 const memory = new MemoryStore(config.dataDir);
 const registry = new ProviderRegistry(config);

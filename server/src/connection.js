@@ -11,6 +11,7 @@
 import { randomUUID } from 'node:crypto';
 import { PROTOCOL_VERSION } from '../../extension/shared/protocol.js';
 import { tokenMatches } from './auth.js';
+import { dataInfo } from './storage/data-version.js';
 import { matchPattern, pathOf, siteKey } from '../../extension/shared/page-groups.js';
 
 const HELLO_TIMEOUT_MS = 5_000;
@@ -174,6 +175,11 @@ export class Connection {
         this.send({ type: 'session.state', replyTo: msg.id, session: orchestrator.snapshot(session) });
         return;
       }
+
+      case 'data.info':
+        // Where the server keeps your data, and how much (Options → Your data).
+        this.send({ type: 'data', replyTo: msg.id, info: dataInfo(config.dataDir) });
+        return;
 
       case 'providers.list':
         this.send({ type: 'providers', replyTo: msg.id, providers: await registry.list() });
