@@ -5,8 +5,8 @@ _Last updated: 2026-10-05_
 IntegratedAI DevTools ("the extension") adds an AI panel to Chrome DevTools. This policy explains what data
 the extension handles and where it goes. In short: **the developer does not collect, receive or sell any of
 your data.** Depending on the connection you choose in Options, the extension talks either directly to the
-AI provider you choose (Anthropic, OpenAI, Google Gemini or OpenRouter) with your own API key ("direct mode"),
-or to an agent server that runs on your own computer, which talks to the AI provider you choose.
+AI provider you choose (Anthropic, OpenAI, Google Gemini or OpenRouter) with your own API key, or to Ollama
+running on your own computer ("direct mode"), or to an agent server that runs on your own computer, which talks to the AI provider you choose.
 
 ## What the extension reads
 
@@ -30,6 +30,8 @@ Only when you use the AI panel, and only from the tab you are inspecting:
   - OpenAI, `api.openai.com` ([privacy policy](https://openai.com/policies/privacy-policy/))
   - Google Gemini, `generativelanguage.googleapis.com` ([privacy policy](https://policies.google.com/privacy))
   - OpenRouter, `openrouter.ai`, which forwards to the model you choose ([privacy policy](https://openrouter.ai/privacy))
+  - Ollama, which runs models on your own computer (by default `localhost:11434`, or the address you enter
+    in Options). No key is used and nothing leaves your computer, unless you enter the address of another machine.
 - **Local server mode:**
    1. **To the agent server on your computer** (`127.0.0.1`), which you install and start yourself. The
       connection is local and requires a pairing token. Websites cannot connect to it.

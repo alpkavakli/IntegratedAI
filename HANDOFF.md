@@ -15,7 +15,7 @@ The goal is to **publish it on the Chrome Web Store**.
 
 | | Direct mode (default for new installs) | Local server mode (the owner's setup) |
 |---|---|---|
-| AI | User's own API key: Anthropic, OpenAI, Gemini, or OpenRouter | Claude Code CLI (Claude subscription), or an Anthropic key |
+| AI | User's own API key: Anthropic, OpenAI, Gemini, or OpenRouter; or Ollama (local, no key) | Claude Code CLI (Claude subscription), or an Anthropic key |
 | Where the agent runs | Inside the extension's DevTools panel | `npm start` → Node server on 127.0.0.1:7823 |
 | Conversations and memory | IndexedDB and `chrome.storage.local` | `~/.integratedai/` (versioned, with backups) |
 | Server-only extras | — | Apply to source; page tools as real MCP tools for Claude Code |
@@ -30,7 +30,7 @@ extension/                      ← loaded unpacked; no build step (plain ESM JS
     agent/memory.js             site memory and page groups (storage backend plugged in)
     agent/session-model.js      conversation model and helpers
     agent/system-prompt.js      the prompt (incl. "Who you work for")
-    providers/                  anthropic.js (official SDK), openai-compatible.js (OpenAI/Gemini/OpenRouter), base.js
+    providers/                  anthropic.js (official SDK), openai-compatible.js (OpenAI/Gemini/OpenRouter/Ollama), base.js
     actions.js                  action catalog and validation (inspect_*, find_elements, screenshot, inject_css,
                                 modify_element, interact, execute_js, remember/forget/define_page_group)
     css-boost.js                makes injected CSS win specificity ties (:not(#integratedai))
@@ -50,7 +50,7 @@ scripts/                        package-extension.js, store-screenshots.mjs, bui
 
 ```bash
 npm install
-npm test                                   # 99 unit tests (node:test)
+npm test                                   # 101 unit tests (node:test)
 npm start                                  # local agent server
 npm run package                            # store checks + dist/integratedai-<version>.zip
 npm run site                               # docs/index.html and docs/privacy.html from store/PRIVACY.md
@@ -97,7 +97,8 @@ that does it without the AI.
 ## Open items / next steps
 
 1. **Test direct mode with real keys** (Anthropic first, then OpenAI/Gemini/OpenRouter). Gemini and OpenRouter
-   have only unit tests. The suggested model ids in `extension/shared/providers/openai-compatible.js` (`PRESETS`)
+   have only unit tests, plus a real bad-key check for all four. **Ollama** was tested in real Chrome against a
+   stand-in server that copies its origin check (`OLLAMA_ORIGINS`), not against Ollama itself. The suggested model ids in `extension/shared/providers/openai-compatible.js` (`PRESETS`)
    were checked against the vendors' model docs and OpenRouter's public model list on 2026-10-05 (gpt-6.1-sol,
    gemini-3.8-flash, …); models change often, and Options → Test key lists the ones a key can really use.
 2. **Publish** (owner's tasks): make the repo public, enable GitHub Pages from `/docs`, and use

@@ -81,6 +81,7 @@ export class App {
           || s.directProvider !== this.settings.directProvider
           || JSON.stringify(s.providerKeys) !== JSON.stringify(this.settings.providerKeys)
           || JSON.stringify(s.providerModels) !== JSON.stringify(this.settings.providerModels)
+          || JSON.stringify(s.providerUrls) !== JSON.stringify(this.settings.providerUrls)
         : s.token !== this.settings.token || s.serverUrl !== this.settings.serverUrl;
       this.settings = s;
       this.chat.refreshCards();

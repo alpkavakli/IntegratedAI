@@ -8,7 +8,7 @@
  *
  * Inside, it runs the same orchestrator, memory and request handling as the
  * server (../../shared/agent/), with:
- *   - the user's own API keys: Anthropic (vendored official SDK), OpenAI, Gemini, OpenRouter
+ *   - the user's own API keys: Anthropic (vendored official SDK), OpenAI, Gemini, OpenRouter; or Ollama (local, no key)
  *   - conversations in IndexedDB and site memory in chrome.storage.local (./stores.js)
  *
  * Not available in direct mode (they need the local server): the Claude Code
@@ -30,6 +30,7 @@ export const DIRECT_PROVIDERS = [
   openAICompatibleProvider('openai'),
   openAICompatibleProvider('gemini'),
   openAICompatibleProvider('openrouter'),
+  openAICompatibleProvider('ollama'),
 ];
 
 /**
@@ -48,7 +49,11 @@ export function directConfig(settings) {
     },
   };
   for (const id of Object.keys(PRESETS)) {
-    providers[id] = { apiKey: settings.providerKeys?.[id] ?? '', model: settings.providerModels?.[id] ?? '' };
+    providers[id] = {
+      apiKey: settings.providerKeys?.[id] ?? '',
+      model: settings.providerModels?.[id] ?? '',
+      baseUrl: settings.providerUrls?.[id] ?? '',
+    };
   }
   return { maxStepsPerTurn: 8, preferredProvider: settings.directProvider || 'anthropic', providers };
 }
@@ -130,8 +135,9 @@ export class DirectClient extends EventTarget {
 
   async connect() {
     const settings = await this.getSettings();
-    if (!settings.anthropicApiKey && !Object.values(settings.providerKeys ?? {}).some(Boolean)) {
-      this.setStatus('unauthorized', 'Direct mode needs an API key (Anthropic, OpenAI, Gemini or OpenRouter). Add one in Options.');
+    // Ollama needs no key; a chosen model means it's set up.
+    if (!settings.anthropicApiKey && !Object.values(settings.providerKeys ?? {}).some(Boolean) && !settings.providerModels?.ollama) {
+      this.setStatus('unauthorized', 'Direct mode needs an API key (Anthropic, OpenAI, Gemini or OpenRouter) or Ollama. Set one up in Options.');
       return;
     }
     this.setStatus('connecting');

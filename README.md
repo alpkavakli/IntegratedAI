@@ -32,12 +32,22 @@ Choose in **Options → Connection**:
 
 | | **Direct** (default for new installs) | **Local agent server** |
 |---|---|---|
-| Setup | Paste an API key for Anthropic, OpenAI, Google Gemini or OpenRouter. Nothing to install. | Node.js 20+ and [Claude Code](https://code.claude.com), then `npm start` (below) |
+| Setup | Paste an API key for Anthropic, OpenAI, Google Gemini or OpenRouter, or use [Ollama](https://ollama.com) on your computer (no key; see below). Nothing else to install. | Node.js 20+ and [Claude Code](https://code.claude.com), then `npm start` (below) |
 | Pays with | Your account with that provider | Your Claude subscription (via Claude Code), or an API key |
 | Where conversations and memory live | In the browser (IndexedDB, extension storage) | `~/.integratedai/` on your computer |
 | Extras | — | "Apply to source"; page tools as real Claude Code tools |
 
-Both use the **same agent code** (`extension/shared/agent/`: orchestrator, prompts, memory, request handling). In direct mode it runs inside the extension: Anthropic through a vendored build of the official SDK (`extension/vendor/`, regenerate with `npm run vendor:sdk`); OpenAI, Gemini and OpenRouter through their OpenAI-compatible Chat Completions API (`extension/shared/providers/openai-compatible.js`; another compatible service is one more preset there).
+Both use the **same agent code** (`extension/shared/agent/`: orchestrator, prompts, memory, request handling). In direct mode it runs inside the extension: Anthropic through a vendored build of the official SDK (`extension/vendor/`, regenerate with `npm run vendor:sdk`); OpenAI, Gemini, OpenRouter and Ollama through their OpenAI-compatible Chat Completions API (`extension/shared/providers/openai-compatible.js`; another compatible service is one more preset there).
+
+**Ollama (free, local models).** Install [Ollama](https://ollama.com/download), download a model that supports tools
+(`ollama pull qwen3`), and allow browser extensions to call it. Ollama refuses them by default:
+- Windows: `setx OLLAMA_ORIGINS "chrome-extension://*"`, then quit Ollama from the tray and start it again.
+- macOS: `launchctl setenv OLLAMA_ORIGINS "chrome-extension://*"`, then restart the Ollama app.
+- Linux (systemd): add `Environment="OLLAMA_ORIGINS=chrome-extension://*"` with `systemctl edit ollama`, then restart it.
+
+Then pick **Ollama** in Options and click **Test connection**: it lists your models, checks that Ollama accepts the
+extension, and warns if the chosen model can't use tools. Small local models follow the instructions less reliably
+than the hosted ones; larger models give better results.
 
 **Separate memories:** each conversation uses the site's shared memory (default), a private memory of its own, or none: choose in the Memory tab or from the empty chat.
 

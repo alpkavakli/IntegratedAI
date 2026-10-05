@@ -1,8 +1,9 @@
 // @ts-check
 /**
  * Providers that speak the OpenAI Chat Completions API:
- *   OpenAI, Google Gemini (its OpenAI-compatible endpoint) and OpenRouter.
- * Adding another (Ollama, Groq, Mistral, …) is one more entry in PRESETS.
+ *   OpenAI, Google Gemini (its OpenAI-compatible endpoint), OpenRouter, and
+ *   Ollama (models running on the user's own computer, no key).
+ * Adding another (Groq, Mistral, LM Studio, …) is one more entry in PRESETS.
  *
  * Used in direct mode with the user's own key. Actions are offered as function
  * tools; the orchestrator does validation, approval and page inspection exactly
@@ -21,11 +22,20 @@ import { newCallId, renderBlockAsText } from './common.js';
  * @property {string} label
  * @property {string} baseUrl
  * @property {string[]} models        suggestions; the user can type any model id (Options → Test key lists real ones)
- * @property {string} keyUrl          where to create a key
+ * @property {string} keyUrl          where to create a key (local: where to get the app)
  * @property {boolean} includeUsage   send stream_options.include_usage (not every endpoint accepts it)
  * @property {string} [keyCheckUrl]   where Test key checks the key, when the model list doesn't need one
  * @property {Record<string, string>} [headers]
+ * @property {boolean} [local]        runs on the user's computer: no key, and the address can be changed in Options
  */
+
+/**
+ * Ollama refuses requests from browser extensions unless they're allowed with
+ * OLLAMA_ORIGINS (its default list has only localhost pages and desktop apps).
+ */
+export const OLLAMA_ORIGINS_HELP = 'Ollama refused the request: it only accepts browser extensions you allow. '
+  + 'Set the environment variable OLLAMA_ORIGINS to chrome-extension://* and restart Ollama '
+  + '(Windows: setx OLLAMA_ORIGINS "chrome-extension://*", then quit and reopen Ollama).';
 
 /** @type {Record<string, Preset>} */
 export const PRESETS = {
@@ -54,7 +64,51 @@ export const PRESETS = {
     // OpenRouter's optional app attribution.
     headers: { 'HTTP-Referer': 'https://github.com/alpkavakli/IntegratedAI', 'X-Title': 'IntegratedAI DevTools' },
   },
+  ollama: {
+    label: 'Ollama',
+    baseUrl: 'http://localhost:11434/v1',
+    // Suggestions that support tools; any model you pulled works ("Test connection" lists them).
+    models: ['qwen3', 'llama3.3', 'mistral-small'],
+    keyUrl: 'https://ollama.com/download',
+    includeUsage: false,
+    local: true,
+  },
 };
+
+/**
+ * The API address for a provider: the preset's, or for a local one the address set in Options.
+ * @param {string} id
+ * @param {{ baseUrl?: string } | undefined} providerConfig
+ */
+export function baseUrlFor(id, providerConfig) {
+  const preset = PRESETS[id];
+  return (preset.local && providerConfig?.baseUrl?.trim().replace(/\/+$/, '')) || preset.baseUrl;
+}
+
+/**
+ * fetch() for a preset, with errors a user can act on. A local server that isn't
+ * running, and Ollama refusing the extension (403), get their own messages.
+ * @param {string} id
+ * @param {(url: string, init: RequestInit) => Promise<Response>} doFetch
+ * @param {string} url
+ * @param {RequestInit} init
+ */
+export async function presetFetch(id, doFetch, url, init) {
+  const preset = PRESETS[id];
+  let res;
+  try {
+    res = await doFetch(url, init);
+  } catch (err) {
+    if (!preset.local || /** @type {any} */ (err)?.name === 'AbortError') throw err;
+    throw new Error(`Can't reach ${preset.label} at ${new URL(url).origin}. Is it running? Start the Ollama app (or run "ollama serve").`);
+  }
+  if (!res.ok) {
+    const text = await res.text();
+    if (id === 'ollama' && res.status === 403) throw new Error(OLLAMA_ORIGINS_HELP);
+    throw httpError(preset.label, res.status, text);
+  }
+  return res;
+}
 
 /**
  * Make the provider class for one preset (config.providers[id] = { apiKey, model }).
@@ -75,6 +129,12 @@ export function openAICompatibleProvider(id) {
 
     /** @param {import('./base.js').ProviderConfig} config */
     static async checkAvailability(config) {
+      if (preset.local) {
+        // No key: choosing a model in Options is what turns it on.
+        return config.providers[id]?.model
+          ? { available: true }
+          : { available: false, reason: `Choose an ${preset.label} model in Options.` };
+      }
       return config.providers[id]?.apiKey
         ? { available: true }
         : { available: false, reason: `Add your ${preset.label} API key in Options.` };
@@ -104,17 +164,17 @@ export function openAICompatibleProvider(id) {
         stream: true,
         ...(preset.includeUsage ? { stream_options: { include_usage: true } } : {}),
       };
-      const res = await this.fetch(`${preset.baseUrl}/chat/completions`, {
+      const settings = this.config.providers[id];
+      const res = await presetFetch(id, this.fetch, `${baseUrlFor(id, settings)}/chat/completions`, {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
-          authorization: `Bearer ${this.config.providers[id]?.apiKey ?? ''}`,
+          ...(preset.local ? {} : { authorization: `Bearer ${settings?.apiKey ?? ''}` }),
           ...preset.headers,
         },
         body: JSON.stringify(body),
         signal,
       });
-      if (!res.ok) throw httpError(preset.label, res.status, await res.text());
 
       /** @type {{ id: string, name: string, args: string }[]} */
       const calls = [];

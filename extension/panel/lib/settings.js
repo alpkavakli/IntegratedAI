@@ -18,12 +18,14 @@ export const DEFAULT_SETTINGS = {
   anthropicApiKey: '',
   /** Direct mode: Anthropic model to use. */
   directModel: 'claude-opus-5-5',
-  /** Direct mode: which provider new conversations use ('anthropic', 'openai', 'gemini', 'openrouter'). */
+  /** Direct mode: which provider new conversations use ('anthropic', 'openai', 'gemini', 'openrouter', 'ollama'). */
   directProvider: 'anthropic',
   /** Direct mode: API keys for the other providers (stay in this browser; each is sent only to its provider). */
   providerKeys: { openai: '', gemini: '', openrouter: '' },
-  /** Direct mode: model per provider ('' = the provider's first suggestion). */
-  providerModels: { openai: '', gemini: '', openrouter: '' },
+  /** Direct mode: model per provider ('' = the provider's first suggestion; Ollama: '' = not set up). */
+  providerModels: { openai: '', gemini: '', openrouter: '', ollama: '' },
+  /** Direct mode: address of local providers ('' = the default, http://localhost:11434/v1 for Ollama). */
+  providerUrls: { ollama: '' },
   serverUrl: `ws://127.0.0.1:${DEFAULT_PORT}/ws`,
   token: '',
   /** Allow the model to propose arbitrary JavaScript (each run still needs approval). */
@@ -47,6 +49,7 @@ export async function loadSettings() {
     contextDefaults: { ...DEFAULT_SETTINGS.contextDefaults, ...settings?.contextDefaults },
     providerKeys: { ...DEFAULT_SETTINGS.providerKeys, ...settings?.providerKeys },
     providerModels: { ...DEFAULT_SETTINGS.providerModels, ...settings?.providerModels },
+    providerUrls: { ...DEFAULT_SETTINGS.providerUrls, ...settings?.providerUrls },
   };
   if (!merged.mode) merged.mode = merged.token ? 'server' : 'direct';
   return merged;

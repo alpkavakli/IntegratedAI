@@ -50,12 +50,21 @@
           <option value="openai">OpenAI</option>
           <option value="gemini">Google Gemini</option>
           <option value="openrouter">OpenRouter (many models, one key)</option>
+          <option value="ollama">Ollama (models on this computer, no key)</option>
         </select>
         <div class="hint">New conversations use this provider. You can add keys for several and switch per conversation in the panel.</div>
       </div>
 
       <div id="compat-fields" hidden>
-        <div class="field">
+        <div class="field" id="compat-url-field" hidden>
+          <label for="compatUrl">Ollama address</label>
+          <input type="text" id="compatUrl" spellcheck="false" autocomplete="off" placeholder="http://localhost:11434/v1">
+          <div class="hint">Get Ollama at <a href="https://ollama.com/download" target="_blank" rel="noopener">ollama.com</a>
+            and download a model that supports tools (for example <code>ollama pull qwen3</code>). Nothing leaves your computer.
+            Ollama only accepts browser extensions you allow: set the environment variable <code>OLLAMA_ORIGINS</code> to
+            <code>chrome-extension://*</code> and restart Ollama (Windows: <code>setx OLLAMA_ORIGINS "chrome-extension://*"</code>).</div>
+        </div>
+        <div class="field" id="compat-key-field">
           <label for="compatKey"><span id="compat-label">Provider</span> API key</label>
           <input type="password" id="compatKey" spellcheck="false" autocomplete="off">
           <div class="hint">Create one at <a id="compat-key-link" target="_blank" rel="noopener"></a>.
@@ -65,7 +74,7 @@
           <label for="compatModel">Model</label>
           <input type="text" id="compatModel" list="compatModels" spellcheck="false" autocomplete="off">
           <datalist id="compatModels"></datalist>
-          <div class="hint">Any model id from this provider. "Test key" loads the list of models your key can use.</div>
+          <div class="hint" id="compat-model-hint">Any model id from this provider. "Test key" loads the list of models your key can use.</div>
         </div>
       </div>
 

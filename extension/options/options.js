@@ -3,7 +3,7 @@
 
 import { PROTOCOL_VERSION } from '../shared/protocol.js';
 import { loadSettings, saveSettings } from '../panel/lib/settings.js';
-import { PRESETS, httpError } from '../shared/providers/openai-compatible.js';
+import { PRESETS, baseUrlFor, presetFetch } from '../shared/providers/openai-compatible.js';
 
 const $ = (/** @type {string} */ id) => /** @type {HTMLInputElement} */ (document.getElementById(id));
 
@@ -54,8 +54,18 @@ const showProvider = (provider) => {
   $('compat-key-link').textContent = new URL(preset.keyUrl).host;
   $('compat-host').textContent = new URL(preset.baseUrl).host;
   $('compatKey').value = settings.providerKeys[provider] ?? '';
-  $('compatModel').value = settings.providerModels[provider] || preset.models[0];
   $('compatModels').replaceChildren(...preset.models.map((m) => new Option(m, m)));
+  // A local provider (Ollama) has no key but an address; its model starts empty until chosen.
+  const local = !!preset.local;
+  /** @type {HTMLElement} */ ($('compat-key-field')).hidden = local;
+  /** @type {HTMLElement} */ ($('compat-url-field')).hidden = !local;
+  $('compatUrl').value = settings.providerUrls[provider] ?? '';
+  $('compatModel').value = settings.providerModels[provider] || (local ? '' : preset.models[0]);
+  $('compatModel').placeholder = local ? 'Click "Test connection" to list your models' : '';
+  $('compat-model-hint').textContent = local
+    ? 'Any model you downloaded with "ollama pull". It needs to support tools.'
+    : 'Any model id from this provider. "Test key" loads the list of models your key can use.';
+  $('test-key').textContent = local ? 'Test connection' : 'Test key';
 };
 showProvider(settings.directProvider);
 $('directProvider').addEventListener('change', async () => {
@@ -67,13 +77,20 @@ $('compatKey').addEventListener('change', async () => {
   settings.providerKeys = { ...settings.providerKeys, [settings.directProvider]: $('compatKey').value.trim() };
   await saveSettings({ providerKeys: settings.providerKeys });
 });
-$('compatModel').addEventListener('change', async () => {
-  settings.providerModels = { ...settings.providerModels, [settings.directProvider]: $('compatModel').value.trim() };
+/** @param {string} model */
+const saveCompatModel = async (model) => {
+  settings.providerModels = { ...settings.providerModels, [settings.directProvider]: model };
   await saveSettings({ providerModels: settings.providerModels });
+};
+$('compatModel').addEventListener('change', () => saveCompatModel($('compatModel').value.trim()));
+$('compatUrl').addEventListener('change', async () => {
+  settings.providerUrls = { ...settings.providerUrls, [settings.directProvider]: $('compatUrl').value.trim() };
+  await saveSettings({ providerUrls: settings.providerUrls });
 });
 
 // Check the key. Anthropic: the official SDK (vendored) fetches the model's details.
 // Others: list the models the key can use (costs nothing) and check the chosen one is there.
+// Ollama: no key; list the downloaded models, and pick the first if none is chosen yet.
 $('test-key').addEventListener('click', async () => {
   const result = $('test-key-result');
   result.className = '';
@@ -89,20 +106,48 @@ $('test-key').addEventListener('click', async () => {
       return;
     }
     const preset = PRESETS[provider];
-    const auth = { authorization: `Bearer ${$('compatKey').value.trim()}`, ...preset.headers };
-    if (preset.keyCheckUrl) {
-      const check = await fetch(preset.keyCheckUrl, { headers: auth });
-      if (!check.ok) throw httpError(preset.label, check.status, await check.text());
-    }
-    const res = await fetch(`${preset.baseUrl}/models`, { headers: auth });
-    if (!res.ok) throw httpError(preset.label, res.status, await res.text());
+    const auth = { ...(preset.local ? {} : { authorization: `Bearer ${$('compatKey').value.trim()}` }), ...preset.headers };
+    if (preset.keyCheckUrl) await presetFetch(provider, fetch, preset.keyCheckUrl, { headers: auth });
+    const res = await presetFetch(provider, fetch, `${baseUrlFor(provider, { baseUrl: $('compatUrl').value })}/models`, { headers: auth });
     const ids = ((await res.json()).data ?? []).map((/** @type {any} */ m) => String(m.id).replace(/^models\//, '')).sort();
     $('compatModels').replaceChildren(...ids.map((id) => new Option(id, id)));
+    if (preset.local) {
+      if (!ids.length) throw new Error('Ollama is running but has no models yet. Download one, for example: ollama pull qwen3');
+      if (!$('compatModel').value.trim()) {
+        // Prefer a suggested model (known to use tools) if it's downloaded, e.g. "qwen3:latest".
+        const pick = ids.find((m) => preset.models.some((s) => m === s || m.startsWith(`${s}:`))) ?? ids[0];
+        $('compatModel').value = pick;
+        await saveCompatModel(pick);
+      }
+    }
     const chosen = $('compatModel').value.trim();
-    result.className = ids.includes(chosen) ? 'ok' : 'bad';
-    result.textContent = ids.includes(chosen)
-      ? `Key works ✔ (${ids.length} models available)`
-      : `Key works, but "${chosen}" isn't one of your ${ids.length} models. Pick one from the Model list.`;
+    // Ollama names models "name:tag"; "qwen3" means "qwen3:latest".
+    const found = ids.includes(chosen) || (preset.local && ids.includes(`${chosen}:latest`));
+    const works = preset.local ? 'Ollama is running ✔' : 'Key works ✔';
+    if (!found) {
+      result.className = 'bad';
+      result.textContent = `${works.slice(0, -2)}, but "${chosen}" isn't one of your ${ids.length} models. Pick one from the Model list.`;
+      return;
+    }
+    let note = '';
+    if (provider === 'ollama') {
+      // Chrome sends the extension's Origin only with POST requests (like the chat requests), so listing
+      // models can work while Ollama still refuses the chat. Ask about the model with a POST: that hits the
+      // same origin check, and the answer says whether the model can use tools (and see screenshots).
+      const root = baseUrlFor(provider, { baseUrl: $('compatUrl').value }).replace(/\/v1$/, '');
+      const info = await (await presetFetch(provider, fetch, `${root}/api/show`, {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ model: chosen }),
+      })).json();
+      const caps = Array.isArray(info.capabilities) ? info.capabilities : null; // older Ollama versions don't say
+      if (caps && !caps.includes('tools')) {
+        result.className = 'bad';
+        result.textContent = `Ollama is running, but ${chosen} can't use tools, which this extension needs. Pick another model (for example qwen3).`;
+        return;
+      }
+      if (caps && !caps.includes('vision')) note = "; it can't see screenshots";
+    }
+    result.className = 'ok';
+    result.textContent = `${works} (${ids.length} model${ids.length === 1 ? '' : 's'} available${preset.local ? `, using ${chosen}${note}` : ''})`;
   } catch (err) {
     const e = /** @type {any} */ (err);
     result.className = 'bad';

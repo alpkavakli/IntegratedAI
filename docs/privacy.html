@@ -21,7 +21,7 @@
 <body><main>
 <h1>IntegratedAI DevTools: Privacy Policy</h1>
 <p><em>Last updated: 2026-10-05</em></p>
-<p>IntegratedAI DevTools (&quot;the extension&quot;) adds an AI panel to Chrome DevTools. This policy explains what data the extension handles and where it goes. In short: <strong>the developer does not collect, receive or sell any of your data.</strong> Depending on the connection you choose in Options, the extension talks either directly to the AI provider you choose (Anthropic, OpenAI, Google Gemini or OpenRouter) with your own API key (&quot;direct mode&quot;), or to an agent server that runs on your own computer, which talks to the AI provider you choose.</p>
+<p>IntegratedAI DevTools (&quot;the extension&quot;) adds an AI panel to Chrome DevTools. This policy explains what data the extension handles and where it goes. In short: <strong>the developer does not collect, receive or sell any of your data.</strong> Depending on the connection you choose in Options, the extension talks either directly to the AI provider you choose (Anthropic, OpenAI, Google Gemini or OpenRouter) with your own API key, or to Ollama running on your own computer (&quot;direct mode&quot;), or to an agent server that runs on your own computer, which talks to the AI provider you choose.</p>
 <h2>What the extension reads</h2>
 <p>Only when you use the AI panel, and only from the tab you are inspecting:</p>
 <ul>
@@ -38,6 +38,7 @@
 <li>OpenAI, <code>api.openai.com</code> (<a href="https://openai.com/policies/privacy-policy/">privacy policy</a>)</li>
 <li>Google Gemini, <code>generativelanguage.googleapis.com</code> (<a href="https://policies.google.com/privacy">privacy policy</a>)</li>
 <li>OpenRouter, <code>openrouter.ai</code>, which forwards to the model you choose (<a href="https://openrouter.ai/privacy">privacy policy</a>)</li>
+<li>Ollama, which runs models on your own computer (by default <code>localhost:11434</code>, or the address you enter in Options). No key is used and nothing leaves your computer, unless you enter the address of another machine.</li>
 </ul>
 <li><strong>Local server mode:</strong></li>
 <ol>

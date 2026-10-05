@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { PRESETS, httpError, openAICompatibleProvider, readEvents, toOpenAIMessages } from '../../extension/shared/providers/openai-compatible.js';
+import { OLLAMA_ORIGINS_HELP, PRESETS, httpError, openAICompatibleProvider, readEvents, toOpenAIMessages } from '../../extension/shared/providers/openai-compatible.js';
 import { DirectRegistry, directConfig } from '../../extension/panel/direct/direct-client.js';
 import { collect } from './helpers.js';
 
@@ -113,10 +113,41 @@ test('direct registry: every provider with a key is available; the preferred one
   const base = { anthropicApiKey: '', directModel: '', directProvider: 'gemini', providerKeys: { openai: 'o', gemini: '', openrouter: 'r' }, providerModels: { openai: 'gpt-x', gemini: '', openrouter: '' } };
   const registry = new DirectRegistry(directConfig(/** @type {any} */ (base)));
   const list = await registry.list();
-  assert.deepEqual(list.map((p) => [p.id, p.available]), [['anthropic', false], ['openai', true], ['gemini', false], ['openrouter', true]]);
+  assert.deepEqual(list.map((p) => [p.id, p.available]), [['anthropic', false], ['openai', true], ['gemini', false], ['openrouter', true], ['ollama', false]]);
   assert.equal(list.find((p) => p.id === 'openai').defaultModel, 'gpt-x');
   assert.equal(list.find((p) => p.id === 'openrouter').defaultModel, PRESETS.openrouter.models[0]);
   assert.equal(await registry.pickDefault(), 'openai', 'preferred Gemini has no key, so the first provider with a key');
   const withGemini = new DirectRegistry(directConfig(/** @type {any} */ ({ ...base, providerKeys: { ...base.providerKeys, gemini: 'g' } })));
   assert.equal(await withGemini.pickDefault(), 'gemini');
+});
+
+test('Ollama: no key, address from Options, chosen model turns it on', async () => {
+  const Ollama = openAICompatibleProvider('ollama');
+  assert.equal((await Ollama.checkAvailability({ providers: { ollama: { model: '' } } })).available, false);
+  assert.equal((await Ollama.checkAvailability({ providers: { ollama: { model: 'qwen3' } } })).available, true);
+  const config = directConfig(/** @type {any} */ ({ providerKeys: {}, providerModels: { ollama: 'qwen3' }, providerUrls: { ollama: 'http://192.168.1.5:11434/v1/' } }));
+  assert.equal(await new DirectRegistry(config).pickDefault(), 'ollama', 'usable without any key');
+
+  let sent;
+  const provider = new Ollama(config, {
+    fetch: async (url, init) => {
+      sent = { url, init };
+      return sseResponse(sse([{ choices: [{ delta: { content: 'hi' } }] }, { choices: [{ delta: {}, finish_reason: 'stop' }] }]));
+    },
+  });
+  await collect(provider.turn({ messages: [], system: 'S', actionNames: [], model: 'qwen3', state: {}, signal: new AbortController().signal }));
+  assert.equal(sent.url, 'http://192.168.1.5:11434/v1/chat/completions');
+  assert.equal(sent.init.headers.authorization, undefined, 'no key is sent');
+  assert.equal(JSON.parse(sent.init.body).stream_options, undefined);
+});
+
+test('Ollama: not running, and refusing the extension, give instructions', async () => {
+  const Ollama = openAICompatibleProvider('ollama');
+  const config = { providers: { ollama: { model: 'qwen3' } } };
+  const run = (fetch) => collect(new Ollama(config, { fetch }).turn({ messages: [], system: 'S', actionNames: [], model: 'qwen3', state: {}, signal: new AbortController().signal }));
+  await assert.rejects(run(async () => { throw new TypeError('Failed to fetch'); }), /Can't reach Ollama at http:\/\/localhost:11434\. Is it running\?/);
+  await assert.rejects(run(async () => sseResponse('', 403)), (err) => err.message === OLLAMA_ORIGINS_HELP);
+  await assert.rejects(run(async () => sseResponse('{"error":{"message":"registry.ollama.ai/library/gemma:2b does not support tools"}}', 400)), /does not support tools/);
+  const aborted = Object.assign(new Error('aborted'), { name: 'AbortError' });
+  await assert.rejects(run(async () => { throw aborted; }), (err) => err === aborted, 'stopping is not reported as "not running"');
 });
