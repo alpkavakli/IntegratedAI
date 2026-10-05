@@ -156,6 +156,11 @@ async function openScenario(file, select, theme) {
     },
     /** Click a button on the first action card by its label. @param {string} label */
     click: (label) => ui(`(() => { const b = [...document.querySelectorAll('ai-action-card button')].find(b => b.textContent.trim().startsWith(${JSON.stringify(label)})); if (!b) return false; b.click(); return true; })()`),
+    /** Scroll the chat so the newest action card's top is near the top of the panel (long answers push it down). */
+    async scrollToCard() {
+      await ui(`(() => { const chat = document.getElementById('chat'); const cards = chat.querySelectorAll('ai-action-card'); const card = cards[cards.length - 1]; if (card) chat.scrollTop = card.offsetTop - 140; })()`);
+      await sleep(300);
+    },
     /** Scroll the chat so the newest answer and its card are in view. */
     async scrollChat() {
       await ui(`(() => { const chat = document.getElementById('chat'); const msgs = chat.querySelectorAll('.msg.user'); const last = msgs[msgs.length - 1]; chat.scrollTop = last ? last.offsetTop - 8 : 0; })()`);
@@ -210,7 +215,7 @@ const SCENARIOS = {
     await blog.ui(`(() => { const s = document.querySelector('ai-action-card .save-form select'); s.value = 'prefix'; s.dispatchEvent(new Event('change')); })()`);
     await blog.click('Save patch');
     await sleep(2000);
-    await blog.scrollChat();
+    await blog.scrollToCard();
     await blog.shoot('02-theme-toggle', 'Themes and fixes, saved per site — with an on/off button on the page');
     log('memory tab');
     await blog.ui(`document.querySelector('[data-tab=memory]').click()`);
@@ -238,7 +243,7 @@ const SCENARIOS = {
     await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }] }, options.session);
     await sleep(1500);
     const optionsPng = await capture(options, join(WORK, 'options.png'));
-    await compose('05-options', 'Use your own Anthropic API key — or a local server with your Claude subscription', optionsPng, null);
+    await compose('05-options', 'Your own API key, free local models with Ollama, or your Claude subscription', optionsPng, null);
   },
 };
 

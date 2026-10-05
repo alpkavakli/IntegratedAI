@@ -40,7 +40,7 @@ AI panel in Chrome DevTools: explains layout and console errors, previews CSS fi
 2. `02-theme-toggle.png`: a dark reading theme with an on/off button in the site's nav bar
 3. `03-forms.png`: a sign-up form filled in and submitted after approval
 4. `04-memory.png`: the Memory tab (what it learned about the site)
-5. `05-options.png`: connection choice (API key or local server)
+5. `05-options.png`: connection choice (your own API key or Ollama, or the local server)
 
 They come from real use of the extension on original demo pages (`store/demo-pages/`). Regenerate after UI
 changes with `node scripts/store-screenshots.mjs` (needs Chrome and a logged-in Claude Code; makes a few real
