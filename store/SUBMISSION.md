@@ -32,11 +32,18 @@ AI panel in Chrome DevTools: explains layout and console errors, previews CSS fi
 > Developers can instead run the free local agent server to use a Claude subscription through Claude Code
 > and move CSS into their own project ("Apply to source"): https://github.com/alpkavakli/IntegratedAI
 
-**Assets you still need to make:**
-- Screenshots: 1280×800 (or 640×400), 1–5 of them. Suggested: chat with an inspection card, a CSS proposal
-  with preview, the dark-mode toggle on a page, the Memory tab, the Options page.
-- Small promo tile: 440×280 (optional).
-- The 128×128 icon is in `extension/icons/icon128.png`.
+**Screenshots (1280×800), ready in `store/screenshots/`**, upload in this order:
+1. `01-diagnose.png`: ask why a badge is cut off; cause plus a previewed fix
+2. `02-theme-toggle.png`: a dark reading theme with an on/off button in the site's nav bar
+3. `03-forms.png`: a sign-up form filled in and submitted after approval
+4. `04-memory.png`: the Memory tab (what it learned about the site)
+5. `05-options.png`: connection choice (API key or local server)
+
+They come from real use of the extension on original demo pages (`store/demo-pages/`). Regenerate after UI
+changes with `node scripts/store-screenshots.mjs` (needs Chrome and a logged-in Claude Code; makes a few real
+AI calls), or a single one with e.g. `node scripts/store-screenshots.mjs 03-forms`.
+
+**Still to make:** small promo tile 440×280 (optional). The 128×128 icon is `extension/icons/icon128.png`.
 
 ## Privacy practices tab
 

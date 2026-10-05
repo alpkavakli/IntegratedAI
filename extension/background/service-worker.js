@@ -20,7 +20,9 @@ import { buildExport, mergePatches, parseImport } from '../shared/data-transfer.
  * @typedef {object} Patch
  * @property {string} id
  * @property {string} name
- * @property {string} css
+ * @property {string} css           as written by the AI (shown and edited in the Patches tab)
+ * @property {string} [injectedCss] what is inserted: css with boosted selectors (see shared/css-boost.js);
+ *                                  older patches don't have it and use css
  * @property {import('../shared/url-scope.js').Scope} scope
  * @property {boolean} enabled
  * @property {number} createdAt
@@ -145,6 +147,14 @@ async function sessionSet(key, value) {
 }
 
 /**
+ * The CSS a patch inserts (boosted copy if it has one).
+ * @param {Patch} patch
+ */
+function patchCss(patch) {
+  return patch.injectedCss || patch.css;
+}
+
+/**
  * CSS is inserted as an author stylesheet in the top frame. Injected sheets do
  * not automatically win specificity ties with page styles, so the AI is told to
  * use specific selectors or !important.
@@ -216,8 +226,8 @@ async function updatePatch(id, changes) {
   await savePatches(patches);
 
   // Remove the old version where it was applied, then apply the new one.
-  if (before.enabled) await forMatchingTabs(before, (tabId) => removeCss(tabId, before.css));
-  if (after.enabled) await forMatchingTabs(after, (tabId) => insertCss(tabId, after.css));
+  if (before.enabled) await forMatchingTabs(before, (tabId) => removeCss(tabId, patchCss(before)));
+  if (after.enabled) await forMatchingTabs(after, (tabId) => insertCss(tabId, patchCss(after)));
   return after;
 }
 
@@ -227,7 +237,7 @@ async function removePatch(id) {
   const patch = patches.find((p) => p.id === id);
   if (!patch) return;
   await savePatches(patches.filter((p) => p.id !== id));
-  if (patch.enabled) await forMatchingTabs(patch, (tabId) => removeCss(tabId, patch.css));
+  if (patch.enabled) await forMatchingTabs(patch, (tabId) => removeCss(tabId, patchCss(patch)));
 }
 
 // Reapply enabled patches as soon as a matching page starts loading.
@@ -235,7 +245,7 @@ chrome.webNavigation.onCommitted.addListener(async ({ tabId, frameId, url }) => 
   if (frameId !== 0) return;
   const patches = (await getPatches()).filter((p) => p.enabled && scopeMatches(p.scope, url));
   for (const patch of patches) {
-    insertCss(tabId, patch.css).catch((err) => console.warn('Patch injection failed', patch.name, err));
+    insertCss(tabId, patchCss(patch)).catch((err) => console.warn('Patch injection failed', patch.name, err));
   }
 });
 
@@ -288,13 +298,13 @@ async function importData(data) {
   const current = (await chrome.storage.local.get('settings')).settings ?? {};
   await chrome.storage.local.set({ settings: { ...current, ...settings } });
   // Show enabled imported patches right away in open tabs that match.
-  for (const patch of patches.filter((p) => p.enabled)) await forMatchingTabs(patch, (tabId) => insertCss(tabId, patch.css));
+  for (const patch of patches.filter((p) => p.enabled)) await forMatchingTabs(patch, (tabId) => insertCss(tabId, patchCss(patch)));
   return { added: result.added, updated: result.updated, skipped: result.skipped, settings: Object.keys(settings) };
 }
 
 /** Delete everything the extension stored (patches, settings, direct-mode conversations and memory, per-tab data). */
 async function clearData() {
-  for (const patch of (await getPatches()).filter((p) => p.enabled)) await forMatchingTabs(patch, (tabId) => removeCss(tabId, patch.css));
+  for (const patch of (await getPatches()).filter((p) => p.enabled)) await forMatchingTabs(patch, (tabId) => removeCss(tabId, patchCss(patch)));
   await chrome.storage.local.clear();
   await chrome.storage.session.clear();
   await new Promise((resolve) => {

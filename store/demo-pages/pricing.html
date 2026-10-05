@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Lumen Cloud · Pricing</title>
+<style>
+  body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #f5f7fb; color: #1d2433; }
+  header { padding: 18px 32px; font-weight: 700; font-size: 20px; }
+  h1 { text-align: center; margin: 12px 0 28px; }
+  .plans { display: flex; gap: 20px; justify-content: center; padding: 0 24px; }
+  .plan { width: 190px; background: #fff; border: 1px solid #dfe4ee; border-radius: 12px; padding: 20px; overflow: hidden; }
+  .plan h2 { margin: 0 0 6px; font-size: 18px; }
+  .price { font-size: 30px; font-weight: 700; margin: 8px 0 14px; }
+  .plan ul { padding-left: 18px; margin: 0 0 16px; color: #4a5568; }
+  /* The bug: a long unbreakable label in a card that hides overflow */
+  .plan .badge { display: inline-block; white-space: nowrap; background: #e8f0ff; color: #1a56db; padding: 4px 10px; border-radius: 999px; font-size: 13px; }
+  .plan button { width: 100%; padding: 10px; border: 0; border-radius: 8px; background: #1a56db; color: #fff; font-weight: 600; }
+</style></head>
+<body>
+  <header>Lumen Cloud</header>
+  <h1>Simple, honest pricing</h1>
+  <div class="plans">
+    <div class="plan"><h2>Starter</h2><div class="price">$9</div><ul><li>1 project</li><li>Community support</li></ul><button>Choose Starter</button></div>
+    <div class="plan"><h2>Team</h2><span class="badge">Most popular · Unlimited collaborators included</span><div class="price">$29</div><ul><li>10 projects</li><li>Email support</li></ul><button>Choose Team</button></div>
+    <div class="plan"><h2>Business</h2><div class="price">$79</div><ul><li>Unlimited projects</li><li>Priority support</li></ul><button>Choose Business</button></div>
+  </div>
+</body></html>

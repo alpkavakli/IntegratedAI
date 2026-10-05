@@ -1,0 +1,49 @@
+<!doctype html>
+<!--
+  Layout for Chrome Web Store screenshots (1280×800), used by scripts/store-screenshots.mjs.
+  Query parameters: caption, page (image URL), panel (image URL, optional), theme=dark|light.
+  With a panel: the page on the left, a DevTools-style frame with the AI panel on the right.
+-->
+<html><head><meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; width: 1280px; height: 800px; overflow: hidden; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: #0f1b2d; }
+  .caption { height: 64px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 24px; font-weight: 600; letter-spacing: .2px; }
+  .window { display: flex; height: 736px; }
+  .page { width: 700px; height: 736px; object-fit: cover; object-position: top left; display: block; background: #fff; }
+  .page.full { width: 1280px; }
+  .devtools { width: 580px; height: 736px; display: flex; flex-direction: column; border-left: 1px solid #3c4043; }
+  .tabs { height: 30px; display: flex; align-items: center; gap: 2px; padding: 0 8px; font-size: 12px; background: #292a2d; color: #9aa0a6; border-bottom: 1px solid #3c4043; }
+  .light .tabs { background: #f1f3f4; color: #5f6368; border-bottom-color: #dadce0; }
+  .tabs span { padding: 7px 10px; }
+  .tabs .active { color: #8ab4f8; border-bottom: 2px solid #8ab4f8; padding-bottom: 5px; }
+  .light .tabs .active { color: #1a73e8; border-bottom-color: #1a73e8; }
+  .panel { width: 580px; height: 706px; object-fit: cover; object-position: top left; display: block; }
+</style></head>
+<body>
+  <div class="caption" id="caption"></div>
+  <div class="window" id="window"></div>
+  <script>
+    const q = new URLSearchParams(location.search);
+    document.getElementById('caption').textContent = q.get('caption') || '';
+    const win = document.getElementById('window');
+    const page = Object.assign(document.createElement('img'), { className: 'page', src: q.get('page') });
+    win.append(page);
+    if (q.get('panel')) {
+      const devtools = document.createElement('div');
+      devtools.className = `devtools ${q.get('theme') === 'light' ? 'light' : ''}`;
+      const tabs = document.createElement('div');
+      tabs.className = 'tabs';
+      for (const name of ['Elements', 'Console', 'Sources', 'Network', 'AI']) {
+        const tab = document.createElement('span');
+        tab.textContent = name;
+        if (name === 'AI') tab.className = 'active';
+        tabs.append(tab);
+      }
+      devtools.append(tabs, Object.assign(document.createElement('img'), { className: 'panel', src: q.get('panel') }));
+      win.append(devtools);
+    } else {
+      page.classList.add('full');
+    }
+  </script>
+</body></html>

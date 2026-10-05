@@ -2,7 +2,8 @@
 /**
  * Executes APPROVED changes and keeps what is needed to undo them.
  *
- *   inject_css      → inserted with chrome.scripting.insertCSS (via the service worker);
+ *   inject_css      → inserted with chrome.scripting.insertCSS (via the service worker), with
+ *                     selectors boosted so they win ties with the page (../../shared/css-boost.js);
  *                     undo = removeCSS with the same text. Fully undoable.
  *   modify_element  → applied by a page function that snapshots the element first;
  *                     undo restores the snapshot. Fully undoable while the page is loaded.
@@ -24,6 +25,7 @@ import { bg } from './bg.js';
 import { callInPage, runApprovedScript } from './inspected.js';
 import { applyModify, revertModify } from './page-scripts.js';
 import { interactStep, revertInteract } from './page-interact.js';
+import { boostCss } from '../../shared/css-boost.js';
 
 const STEP_TIMEOUT_MS = 5000;   // how long a step waits for its element to appear
 const STEP_POLL_MS = 250;
@@ -98,7 +100,7 @@ export class ChangeManager {
     if (name === 'execute_js' || name === 'interact') throw new Error('This change cannot be previewed');
     if (this.data.changes[id]) return;
     await this.execute(id, name, input);
-    this.data.changes[id] = { name, css: input.css, committed: false };
+    this.data.changes[id] = { name, css: injectedCss(name, input), committed: false };
     await this.persist();
   }
 
@@ -123,7 +125,7 @@ export class ChangeManager {
     } else if (!this.isPreviewing(id)) {
       detail = await this.execute(id, name, input);
     }
-    this.data.changes[id] = { name, css: input.css, undoCode: input.undoCode, undoable, committed: true };
+    this.data.changes[id] = { name, css: injectedCss(name, input), undoCode: input.undoCode, undoable, committed: true };
     await this.persist();
     return detail;
   }
@@ -153,7 +155,7 @@ export class ChangeManager {
   async execute(id, name, input) {
     switch (name) {
       case 'inject_css':
-        await bg('css.insert', { tabId: this.tabId, css: input.css });
+        await bg('css.insert', { tabId: this.tabId, css: injectedCss(name, input) });
         return undefined;
       case 'modify_element':
         await callInPage(applyModify, { actionId: id, input });
@@ -234,4 +236,14 @@ function sleep(ms) {
 /** "Steps done before the failure" for error messages. @param {string[]} done */
 function progress(done) {
   return done.length ? ` Done before that: ${done.join('; ')}.` : '';
+}
+
+/**
+ * The CSS actually inserted for an inject_css change: the AI's CSS with boosted selectors.
+ * (Stored with the change so undo removes exactly the same text.)
+ * @param {string} name
+ * @param {any} input
+ */
+function injectedCss(name, input) {
+  return name === 'inject_css' ? boostCss(input.css) : undefined;
 }

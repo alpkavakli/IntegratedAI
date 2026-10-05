@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Riverside Makers · Workshop sign-up</title>
+<style>
+  body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #f7f7f2; color: #222; }
+  .wrap { max-width: 520px; margin: 32px auto; background: #fff; border: 1px solid #e3e3da; border-radius: 12px; padding: 24px 28px; }
+  h1 { margin: 0 0 4px; font-size: 24px; }
+  p.sub { margin: 0 0 18px; color: #666; }
+  label { display: block; font-weight: 600; margin: 12px 0 4px; }
+  input[type=text], input[type=email], select { width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid #ccc; border-radius: 6px; font: inherit; }
+  .row { display: flex; gap: 14px; font-weight: normal; }
+  .row label { font-weight: normal; margin: 0; }
+  button { margin-top: 18px; padding: 10px 18px; border: 0; border-radius: 6px; background: #2f6f4f; color: #fff; font-weight: 600; }
+  #done { margin-top: 14px; color: #2f6f4f; font-weight: 600; }
+</style></head>
+<body>
+  <div class="wrap">
+    <h1>Workshop sign-up</h1>
+    <p class="sub">Riverside Makers · Spring sessions</p>
+    <form id="signup">
+      <label for="name">Full name</label><input type="text" id="name" required>
+      <label for="email">Email</label><input type="email" id="email" required>
+      <label for="workshop">Workshop</label>
+      <select id="workshop" required>
+        <option value="">Choose a workshop</option>
+        <option value="wood">Intro to woodworking (Sat)</option>
+        <option value="print">Screen printing (Sun)</option>
+        <option value="solder">Soldering basics (Wed evening)</option>
+      </select>
+      <label>Experience</label>
+      <div class="row"><label><input type="radio" name="level" value="new"> New to this</label><label><input type="radio" name="level" value="some"> Some experience</label></div>
+      <label><input type="checkbox" id="newsletter"> Send me the monthly newsletter</label>
+      <button type="submit">Reserve my spot</button>
+      <div id="done"></div>
+    </form>
+  </div>
+  <script>
+    document.getElementById('signup').addEventListener('submit', (e) => {
+      e.preventDefault();
+      document.getElementById('done').textContent = 'You are booked in. See you there!';
+    });
+  </script>
+</body></html>

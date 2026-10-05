@@ -357,7 +357,7 @@ Then add the class to `PROVIDERS` in [registry.js](server/src/providers/registry
 npm test
 ```
 
-84 unit tests cover:
+88 unit tests cover:
 - action validation and safety rules
 - auth (Origin, Host, token) and patch scopes
 - CLI argument building and output parsing, including session resume, cost differences, recovery from a lost session, decoding the streamed reply, enabling only the web tools and our MCP page tools, and the one-time correction when a model calls page actions as tools
@@ -390,7 +390,7 @@ These were also checked manually against real Chrome and the real `claude` CLI d
 - DevTools extension APIs only work **while DevTools is open**. The network log only contains requests made since DevTools opened; reload to capture everything.
 - Each Claude Code CLI call starts a new `claude` process, so the first words take a few seconds to appear (about 4–6 s). The reply then streams live. The streamed text is a preview; the stored reply is the schema-validated `structured_output`.
 - Patches are inserted when navigation commits, so a very fast page may show its original style for a moment.
-- Injected CSS doesn't automatically win specificity ties with the page's styles. The AI is instructed to use specific selectors or `!important`.
+- Injected CSS beats ordinary page rules: before inserting, every selector gets `:not(#integratedai)` added, which matches everything but counts as one more ID (`extension/shared/css-boost.js`). Cards and patches still show the CSS as the AI wrote it. Page rules with `!important`, inline styles and selectors with two or more IDs can still win; the AI uses `!important` for those.
 - Only the top frame is inspected and patched (no iframes).
 - Console capture starts when the page loads; tabs opened before installing the extension need a reload.
 - `execute_js` results that are Promises are started but not awaited.

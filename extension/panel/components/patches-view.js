@@ -9,6 +9,7 @@
 import { describeScope, scopeMatches } from '../../shared/url-scope.js';
 import { bg } from '../lib/bg.js';
 import { h, setChildren } from '../lib/dom.js';
+import { boostCss } from '../../shared/css-boost.js';
 
 export class PatchesView extends HTMLElement {
   /** @param {import('../panel.js').App} app */
@@ -81,7 +82,7 @@ export class PatchesView extends HTMLElement {
               type: 'button', class: 'primary',
               onclick: async () => {
                 this.editing.delete(patch.id);
-                await update({ name: nameInput.value.trim() || patch.name, css: cssInput.value });
+                await update({ name: nameInput.value.trim() || patch.name, css: cssInput.value, injectedCss: boostCss(cssInput.value) });
               },
             }, 'Save')))
         : h('pre', null, h('code', null, patch.css.length > 600 ? `${patch.css.slice(0, 600)}…` : patch.css)),

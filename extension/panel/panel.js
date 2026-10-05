@@ -30,6 +30,7 @@ import { highlight, pageInfo, selectedLabel } from './lib/page-scripts.js';
 import { loadSettings, onSettingsChanged } from './lib/settings.js';
 import { ServerClient } from './lib/ws-client.js';
 import { DirectClient } from './direct/direct-client.js';
+import { boostCss } from '../shared/css-boost.js';
 
 const $ = (/** @type {string} */ id) => /** @type {any} */ (document.getElementById(id));
 
@@ -526,7 +527,8 @@ export class App {
   async saveAsPatch(actionId, { name, scope }) {
     const { input } = this.prepare(actionId);
     await bg('patches.add', {
-      patch: { name, css: input.css, scope, enabled: true, sourceUrl: this.pageUrl, ...(input.toggle ? { toggle: input.toggle } : {}) },
+      // css: as the AI wrote it (shown, editable); injectedCss: what is inserted (selectors boosted to win ties).
+      patch: { name, css: input.css, injectedCss: boostCss(input.css), scope, enabled: true, sourceUrl: this.pageUrl, ...(input.toggle ? { toggle: input.toggle } : {}) },
     });
     // The CSS is already in the page; from now on the patch owns it (toggle/delete in Patches).
     await this.changes.forget(actionId);
