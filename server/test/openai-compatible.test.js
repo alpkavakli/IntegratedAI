@@ -59,10 +59,10 @@ test('provider: streams text, assembles tool calls from pieces, reports usage', 
       { choices: [], usage: { prompt_tokens: 900, completion_tokens: 40 } },
     ]));
   };
-  const provider = new OpenAI({ providers: { openai: { apiKey: 'sk-test', model: 'gpt-5' } } }, { fetch: fakeFetch });
+  const provider = new OpenAI({ providers: { openai: { apiKey: 'sk-test', model: 'gpt-6.1-sol' } } }, { fetch: fakeFetch });
   const events = await collect(provider.turn({
     messages: [{ role: 'user', ts: 0, content: [{ type: 'text', text: 'hi' }] }],
-    system: 'S', actionNames: ['find_elements', 'inject_css'], model: 'gpt-5', state: {}, signal: new AbortController().signal,
+    system: 'S', actionNames: ['find_elements', 'inject_css'], model: 'gpt-6.1-sol', state: {}, signal: new AbortController().signal,
   }));
   assert.deepEqual(events.filter((e) => e.type === 'text_delta').map((e) => e.text).join(''), 'Let me look.');
   const call = events.find((e) => e.type === 'tool_call');
@@ -80,7 +80,7 @@ test('provider: streams text, assembles tool calls from pieces, reports usage', 
 test('provider: a cut-off answer never runs its tool calls; Gemini gets no stream_options', async () => {
   const Gemini = openAICompatibleProvider('gemini');
   let sent;
-  const provider = new Gemini({ providers: { gemini: { apiKey: 'g', model: 'gemini-2.5-flash' } } }, {
+  const provider = new Gemini({ providers: { gemini: { apiKey: 'g', model: 'gemini-3.8-flash' } } }, {
     fetch: async (url, init) => {
       sent = { url, body: JSON.parse(init.body) };
       return sseResponse(sse([
@@ -89,7 +89,7 @@ test('provider: a cut-off answer never runs its tool calls; Gemini gets no strea
       ]));
     },
   });
-  const events = await collect(provider.turn({ messages: [], system: 'S', actionNames: ['inject_css'], model: 'gemini-2.5-flash', state: {}, signal: new AbortController().signal }));
+  const events = await collect(provider.turn({ messages: [], system: 'S', actionNames: ['inject_css'], model: 'gemini-3.8-flash', state: {}, signal: new AbortController().signal }));
   assert.ok(!events.some((e) => e.type === 'tool_call'));
   assert.equal(events.at(-1).stopReason, 'max_tokens');
   assert.match(sent.url, /generativelanguage\.googleapis\.com\/v1beta\/openai\/chat\/completions$/);

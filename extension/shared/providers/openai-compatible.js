@@ -31,21 +31,21 @@ export const PRESETS = {
   openai: {
     label: 'OpenAI',
     baseUrl: 'https://api.openai.com/v1',
-    models: ['gpt-5', 'gpt-5-mini'],
+    models: ['gpt-6.1-sol', 'gpt-6-astra', 'gpt-6-luna'],
     keyUrl: 'https://platform.openai.com/api-keys',
     includeUsage: true,
   },
   gemini: {
     label: 'Google Gemini',
     baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
-    models: ['gemini-2.5-pro', 'gemini-2.5-flash'],
+    models: ['gemini-3.8-flash', 'gemini-3.1-pro-preview', 'gemini-3.5-flash-lite'],
     keyUrl: 'https://aistudio.google.com/apikey',
     includeUsage: false,
   },
   openrouter: {
     label: 'OpenRouter',
     baseUrl: 'https://openrouter.ai/api/v1',
-    models: ['openai/gpt-5', 'google/gemini-2.5-pro', 'anthropic/claude-sonnet-4.5'],
+    models: ['anthropic/claude-sonnet-5.5', 'openai/gpt-6.1-sol', 'google/gemini-3.8-flash'],
     keyUrl: 'https://openrouter.ai/keys',
     includeUsage: true,
     // OpenRouter's optional app attribution.
