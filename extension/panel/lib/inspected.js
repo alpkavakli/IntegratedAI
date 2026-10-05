@@ -46,28 +46,54 @@ export function callInPage(fn, args = {}) {
   return evalInPage(expression);
 }
 
+/** How long runApprovedScript waits for a script's result (it keeps running in the page after that). */
+export const SCRIPT_TIMEOUT_MS = 30_000;
+
 /**
  * Run user-approved JavaScript (from an execute_js action) in the page.
- * The code is a function body; `$0` is the selected element. Returns
- * { ok, value } or { ok: false, error }.
+ * The code is the body of an async function, so it may use `await`; `$0` is the
+ * selected element. Resolves to { ok: true, value } or { ok: false, error }.
+ *
+ * inspectedWindow.eval() can't wait for a Promise, so the script's settled result
+ * is kept in the page's hidden state under a random key, and read back by polling.
  * @param {string} code
+ * @param {{ timeoutMs?: number, pollMs?: number }} [options]
  */
-export function runApprovedScript(code) {
+export async function runApprovedScript(code, { timeoutMs = SCRIPT_TIMEOUT_MS, pollMs = 100 } = {}) {
+  const key = crypto.randomUUID();
   // The code is placed into the expression as-is (not via `new Function`), so it
   // also works on pages whose CSP forbids eval. A syntax error rejects the promise.
-  const expression = `(() => {
+  const start = `(() => {
   const __h = (${pageHelpers.toString()})();
-  try {
-    const __result = (function ($0) {
+  const __scripts = __h.state().scripts ??= {};
+  __scripts[${JSON.stringify(key)}] = null;
+  (async function ($0) {
 ${code}
-    })(typeof $0 === 'undefined' ? undefined : $0);
-    if (__result && typeof __result.then === 'function') return { ok: true, value: '(returned a Promise; it was started but not awaited)' };
-    return { ok: true, value: __h.toJson(__result) };
-  } catch (e) {
-    return { ok: false, error: String(e && e.stack || e) };
-  }
+  })(typeof $0 === 'undefined' ? undefined : $0).then(
+    (value) => { __scripts[${JSON.stringify(key)}] = { ok: true, value: __h.toJson(value) }; },
+    (e) => { __scripts[${JSON.stringify(key)}] = { ok: false, error: String(e && e.stack || e) }; },
+  );
+  return true;
 })()`;
-  return evalInPage(expression);
+  // Read the result once it's there (and forget it). undefined = the page was reloaded or left meanwhile.
+  const read = `(() => {
+  const __scripts = (${pageHelpers.toString()})().state().scripts;
+  if (!__scripts || !(${JSON.stringify(key)} in __scripts)) return undefined;
+  const result = __scripts[${JSON.stringify(key)}];
+  if (result) delete __scripts[${JSON.stringify(key)}];
+  return result;
+})()`;
+  await evalInPage(start);
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const result = await evalInPage(read);
+    if (result) return result;
+    if (result === undefined) return { ok: true, value: '(the page reloaded or navigated before the script finished)' };
+    if (Date.now() >= deadline) {
+      return { ok: true, value: `(still running after ${Math.round(timeoutMs / 1000)} s; it continues in the page, but its result is not reported)` };
+    }
+    await new Promise((resolve) => setTimeout(resolve, pollMs));
+  }
 }
 
 /** Select an element in the Elements panel (DevTools `inspect()` utility). */

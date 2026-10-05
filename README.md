@@ -410,6 +410,6 @@ These were also checked manually against real Chrome and the real `claude` CLI d
 - Injected CSS beats ordinary page rules: before inserting, every selector gets `:not(#integratedai)` added, which matches everything but counts as one more ID (`extension/shared/css-boost.js`). Cards and patches still show the CSS as the AI wrote it. Page rules with `!important`, inline styles and selectors with two or more IDs can still win; the AI uses `!important` for those.
 - Only the top frame is inspected and patched (no iframes).
 - Console capture starts when the page loads; tabs opened before installing the extension need a reload.
-- `execute_js` results that are Promises are started but not awaited.
+- `execute_js` results are awaited for up to 30 seconds; a script that takes longer keeps running in the page, but its result isn't reported.
 - Undo info is tied to one page load: after a reload or navigation the page is fresh, so earlier cards show as no longer active.
 - The page controls its own JS environment and could tamper with data returned to the panel. That only affects what the AI sees, never what gets executed without your click.

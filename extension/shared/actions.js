@@ -314,7 +314,7 @@ export const ACTIONS = {
     risk: 'high',
     requiresSetting: 'executeJs',
     description:
-      'LAST RESORT. Propose JavaScript to run in the page. Only use when inject_css and modify_element cannot do the job. `code` is a function body (you may use `return` to report a JSON-serializable result). Provide `undoCode` that reverses the effect whenever possible; say in `description` if it cannot be undone.',
+      'LAST RESORT. Propose JavaScript to run in the page. Only use when inject_css and modify_element cannot do the job. `code` is the body of an async function: you may use `await`, and `return` a JSON-serializable result (reported if it finishes within 30 seconds). Provide `undoCode` that reverses the effect whenever possible; say in `description` if it cannot be undone.',
     inputSchema: {
       type: 'object',
       properties: {
