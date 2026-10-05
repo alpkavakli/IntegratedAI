@@ -18,6 +18,47 @@ $('ctx-selected').checked = settings.contextDefaults.selected;
 $('ctx-console').checked = settings.contextDefaults.console;
 $('ctx-network').checked = settings.contextDefaults.network;
 
+// ── Connection: direct (API key) or the local agent server
+const showMode = (/** @type {string} */ mode) => {
+  $('mode-direct').checked = mode === 'direct';
+  $('mode-server').checked = mode === 'server';
+  /** @type {HTMLElement} */ ($('direct-section')).hidden = mode !== 'direct';
+  /** @type {HTMLElement} */ ($('server-section')).hidden = mode !== 'server';
+};
+showMode(settings.mode);
+$('anthropicApiKey').value = settings.anthropicApiKey;
+$('directModel').value = settings.directModel;
+for (const id of ['mode-direct', 'mode-server']) {
+  $(id).addEventListener('change', async () => {
+    const mode = $(id).value;
+    await saveSettings({ mode: /** @type {any} */ (mode) });
+    showMode(mode);
+    showDataSummary();
+  });
+}
+$('anthropicApiKey').addEventListener('change', () => saveSettings({ anthropicApiKey: $('anthropicApiKey').value.trim() }));
+$('directModel').addEventListener('change', () => saveSettings({ directModel: $('directModel').value }));
+
+// Check the key with the official SDK (vendored): fetching the model's details costs nothing.
+$('test-key').addEventListener('click', async () => {
+  const result = $('test-key-result');
+  result.className = '';
+  result.textContent = 'Checking…';
+  try {
+    const { default: Anthropic } = await import('../vendor/anthropic-sdk.mjs');
+    const client = new Anthropic({ apiKey: $('anthropicApiKey').value.trim(), dangerouslyAllowBrowser: true, maxRetries: 0 });
+    const model = await client.models.retrieve($('directModel').value);
+    result.className = 'ok';
+    result.textContent = `Key works ✔ (${model.display_name})`;
+  } catch (err) {
+    const e = /** @type {any} */ (err);
+    result.className = 'bad';
+    result.textContent = e?.status === 401 ? 'This key was not accepted. Check that you copied all of it.'
+      : e?.status === 404 ? 'The key works, but this model is not available to your account. Pick another.'
+        : `Could not check the key: ${e?.message ?? e}`;
+  }
+});
+
 for (const id of ['serverUrl', 'token']) {
   $(id).addEventListener('change', () => saveSettings({ [id]: $(id).value.trim() }));
 }
@@ -97,6 +138,11 @@ function serverDataInfo() {
 async function showDataSummary() {
   const summary = await worker('data.summary');
   $('data-extension').textContent = `${summary.patches} saved patch${summary.patches === 1 ? '' : 'es'} and your settings (extension ${summary.extensionVersion})`;
+  if ((await loadSettings()).mode === 'direct') {
+    $('data-extension').textContent += `; in direct mode also ${summary.conversations} conversation${summary.conversations === 1 ? '' : 's'} and site memory for ${summary.memorySites} site${summary.memorySites === 1 ? '' : 's'}`;
+    $('data-server').textContent = 'not used in direct mode';
+    return;
+  }
   try {
     const info = /** @type {any} */ (await serverDataInfo());
     $('data-server').textContent =

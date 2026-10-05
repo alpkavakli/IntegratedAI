@@ -6,6 +6,18 @@
 import { DEFAULT_PORT } from '../../shared/protocol.js';
 
 export const DEFAULT_SETTINGS = {
+  /**
+   * How the AI runs:
+   *   'direct' → inside the extension with the user's Anthropic API key (nothing to install)
+   *   'server' → through the local agent server (Claude Code subscription, Apply to source)
+   * Empty = not chosen yet: existing installs with a pairing token keep 'server', new ones get 'direct'.
+   * @type {'' | 'direct' | 'server'}
+   */
+  mode: '',
+  /** Direct mode: the user's Anthropic API key (stays in this browser; sent only to api.anthropic.com). */
+  anthropicApiKey: '',
+  /** Direct mode: model to use. */
+  directModel: 'claude-opus-5-5',
   serverUrl: `ws://127.0.0.1:${DEFAULT_PORT}/ws`,
   token: '',
   /** Allow the model to propose arbitrary JavaScript (each run still needs approval). */
@@ -23,11 +35,13 @@ export const DEFAULT_SETTINGS = {
 /** @returns {Promise<Settings>} */
 export async function loadSettings() {
   const { settings } = await chrome.storage.local.get('settings');
-  return {
+  const merged = {
     ...DEFAULT_SETTINGS,
     ...settings,
     contextDefaults: { ...DEFAULT_SETTINGS.contextDefaults, ...settings?.contextDefaults },
   };
+  if (!merged.mode) merged.mode = merged.token ? 'server' : 'direct';
+  return merged;
 }
 
 /** @param {Partial<Settings>} changes */

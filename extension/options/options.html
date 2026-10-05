@@ -27,8 +27,41 @@
   </head>
   <body>
     <h1>IntegratedAI settings</h1>
-    <div class="hint">The AI panel lives in Chrome DevTools (F12 → "AI" tab). It talks to the local agent server started with <code>npm start</code>.</div>
+    <div class="hint">The AI panel lives in Chrome DevTools: press F12 and open the "AI" tab.</div>
 
+    <h2>Connection</h2>
+    <label class="check">
+      <input type="radio" name="mode" value="direct" id="mode-direct">
+      <span><strong>Direct, with your Anthropic API key</strong> (nothing to install). The extension talks to the
+        Anthropic API itself. Usage is billed to your API account.</span>
+    </label>
+    <label class="check">
+      <input type="radio" name="mode" value="server" id="mode-server">
+      <span><strong>Local agent server</strong> (for developers). Runs on your computer with <code>npm start</code>.
+        Use your Claude subscription through Claude Code, and move CSS into your project with "Apply to source".
+        <a href="https://github.com/alpkavakli/IntegratedAI#setup" target="_blank" rel="noopener">Setup guide</a></span>
+    </label>
+
+    <div id="direct-section">
+      <div class="field">
+        <label for="anthropicApiKey">Anthropic API key</label>
+        <input type="password" id="anthropicApiKey" spellcheck="false" autocomplete="off" placeholder="sk-ant-…">
+        <div class="hint">Create one at <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>.
+          It stays in this browser and is only sent to api.anthropic.com.</div>
+      </div>
+      <div class="field">
+        <label for="directModel">Model</label>
+        <select id="directModel">
+          <option value="claude-opus-5-5">Claude Opus 5.5 (best, default)</option>
+          <option value="claude-sonnet-5-5">Claude Sonnet 5.5 (faster, cheaper)</option>
+          <option value="claude-haiku-4-5">Claude Haiku 4.5 (fastest, cheapest)</option>
+          <option value="claude-fable-5-1">Claude Fable 5.1 (most capable, most expensive)</option>
+        </select>
+      </div>
+      <button type="button" id="test-key">Test key</button><span id="test-key-result"></span>
+    </div>
+
+    <div id="server-section">
     <h2>Agent server</h2>
     <div class="field">
       <label for="serverUrl">Server URL</label>
@@ -40,6 +73,7 @@
       <div class="hint">Printed by the server on startup, also stored in <code>~/.integratedai/config.json</code>.</div>
     </div>
     <button type="button" id="test">Test connection</button><span id="test-result"></span>
+    </div>
 
     <h2>Context sent by default</h2>
     <div class="hint">Which context chips are switched on when the panel opens. You can toggle them per message.</div>

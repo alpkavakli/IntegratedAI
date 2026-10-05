@@ -60,7 +60,14 @@ const handlers = {
   'options.open': async () => chrome.runtime.openOptionsPage(),
 
   // Options → Your data
-  'data.summary': async () => ({ patches: (await getPatches()).length, storageVersion: STORAGE_VERSION, extensionVersion: chrome.runtime.getManifest().version }),
+  'data.summary': async () => ({
+    patches: (await getPatches()).length,
+    storageVersion: STORAGE_VERSION,
+    extensionVersion: chrome.runtime.getManifest().version,
+    // Direct mode keeps conversations (IndexedDB) and site memory ("memory:<site>" keys) in the extension.
+    conversations: await countDirectConversations(),
+    memorySites: Object.keys(await chrome.storage.local.get(null)).filter((k) => k.startsWith('memory:')).length,
+  }),
   'data.export': async () => buildExport({
     patches: await getPatches(),
     settings: (await chrome.storage.local.get('settings')).settings ?? {},
@@ -285,10 +292,33 @@ async function importData(data) {
   return { added: result.added, updated: result.updated, skipped: result.skipped, settings: Object.keys(settings) };
 }
 
-/** Delete everything the extension stored (patches, settings, per-tab data). */
+/** Delete everything the extension stored (patches, settings, direct-mode conversations and memory, per-tab data). */
 async function clearData() {
   for (const patch of (await getPatches()).filter((p) => p.enabled)) await forMatchingTabs(patch, (tabId) => removeCss(tabId, patch.css));
   await chrome.storage.local.clear();
   await chrome.storage.session.clear();
+  await new Promise((resolve) => {
+    const req = indexedDB.deleteDatabase(DIRECT_DB);
+    req.onsuccess = req.onerror = req.onblocked = () => resolve(undefined);
+  });
   await chrome.storage.local.set({ storageVersion: STORAGE_VERSION });
+}
+
+/** Direct mode's IndexedDB (see panel/direct/stores.js). */
+const DIRECT_DB = 'integratedai';
+
+/** Number of direct-mode conversations with at least one message (0 if direct mode was never used). */
+async function countDirectConversations() {
+  if (!(await indexedDB.databases()).some((d) => d.name === DIRECT_DB)) return 0;
+  return new Promise((resolve) => {
+    const open = indexedDB.open(DIRECT_DB);
+    open.onerror = () => resolve(0);
+    open.onsuccess = () => {
+      const db = open.result;
+      if (!db.objectStoreNames.contains('history')) { db.close(); resolve(0); return; }
+      const req = db.transaction('history').objectStore('history').count();
+      req.onsuccess = () => { db.close(); resolve(req.result); };
+      req.onerror = () => { db.close(); resolve(0); };
+    };
+  });
 }

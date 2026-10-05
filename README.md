@@ -24,7 +24,22 @@ Local agent server (Node.js, plain ESM JavaScript)
 
 ---
 
-## Requirements
+## Two ways to run it
+
+Choose in **Options → Connection**:
+
+| | **Direct** (default for new installs) | **Local agent server** |
+|---|---|---|
+| Setup | Paste an [Anthropic API key](https://console.anthropic.com/settings/keys). Nothing to install. | Node.js 20+ and [Claude Code](https://code.claude.com), then `npm start` (below) |
+| Pays with | Your Anthropic API account | Your Claude subscription (via Claude Code), or an API key |
+| Where conversations and memory live | In the browser (IndexedDB, extension storage) | `~/.integratedai/` on your computer |
+| Extras | — | "Apply to source"; page tools as real Claude Code tools |
+
+Both use the **same agent code** (`extension/shared/agent/`: orchestrator, prompts, memory, request handling). In direct mode it runs inside the extension with a vendored build of the official Anthropic SDK (`extension/vendor/`, regenerate with `npm run vendor:sdk`).
+
+The rest of this section sets up the local server.
+
+## Requirements (local server)
 
 - Chrome 116+ (or another Chromium browser)
 - Node.js 20+
@@ -342,7 +357,7 @@ Then add the class to `PROVIDERS` in [registry.js](server/src/providers/registry
 npm test
 ```
 
-80 unit tests cover:
+84 unit tests cover:
 - action validation and safety rules
 - auth (Origin, Host, token) and patch scopes
 - CLI argument building and output parsing, including session resume, cost differences, recovery from a lost session, decoding the streamed reply, enabling only the web tools and our MCP page tools, and the one-time correction when a model calls page actions as tools

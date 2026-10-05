@@ -4,8 +4,9 @@ _Last updated: 2026-10-05_
 
 IntegratedAI DevTools ("the extension") adds an AI panel to Chrome DevTools. This policy explains what data
 the extension handles and where it goes. In short: **the developer does not collect, receive or sell any of
-your data.** The extension talks only to an agent server that runs on your own computer, and that server
-talks only to the AI provider you choose.
+your data.** Depending on the connection you choose in Options, the extension talks either directly to the
+Anthropic API with your own API key ("direct mode"), or to an agent server that runs on your own computer,
+which talks to the AI provider you choose.
 
 ## What the extension reads
 
@@ -23,6 +24,9 @@ Only when you use the AI panel, and only from the tab you are inspecting:
 
 ## Where it goes
 
+- **Direct mode:** straight from the extension to the Anthropic API (`api.anthropic.com`), authenticated
+  with your own API key ([Anthropic privacy policy](https://www.anthropic.com/legal/privacy)).
+- **Local server mode:**
 1. **To the agent server on your computer** (`127.0.0.1`), which you install and start yourself. The
    connection is local and requires a pairing token. Websites cannot connect to it.
 2. **From there, to the AI provider you selected**, using your own account:
@@ -38,9 +42,11 @@ Nothing is sent to the developer of this extension or to any other third party.
 
 All storage is local to your computer:
 
-- **In Chrome** (extension storage): your settings, the pairing token, and saved CSS patches. Removed when
-  you uninstall the extension, or via *Options → Your data → Delete extension data*.
-- **On your computer, in the agent server's folder** (`~/.integratedai`): conversations, site memory notes
+- **In Chrome** (extension storage): your settings, your Anthropic API key (direct mode), the pairing token
+  (local server mode) and saved CSS patches. In direct mode also your conversations (IndexedDB) and site
+  memory. Removed when you uninstall the extension, or via *Options → Your data → Delete extension data*.
+  Your API key is only ever sent to `api.anthropic.com`.
+- **Local server mode, on your computer, in the agent server's folder** (`~/.integratedai`): conversations, site memory notes
   and page types, logs of failed calls, and automatic backups made before data-format updates. You can
   view, back up or delete this folder at any time; individual memory notes can be edited or deleted in the
   panel's Memory tab.

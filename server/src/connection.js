@@ -12,7 +12,7 @@ import { randomUUID } from 'node:crypto';
 import { PROTOCOL_VERSION } from '../../extension/shared/protocol.js';
 import { tokenMatches } from './auth.js';
 import { dataInfo } from './storage/data-version.js';
-import { matchPattern, pathOf, siteKey } from '../../extension/shared/page-groups.js';
+import { createRequestHandler } from '../../extension/shared/agent/requests.js';
 
 const HELLO_TIMEOUT_MS = 5_000;
 const TOOL_TIMEOUT_MS = 120_000; // the user may be asked to confirm an inspection
@@ -75,6 +75,9 @@ export class Connection {
     this.authenticated = false;
     /** @type {Map<string, { resolve: (v: any) => void, timer: NodeJS.Timeout }>} */
     this.pendingTools = new Map();
+    // Requests answered the same way in the extension's direct mode (sessions, chat, memory, …).
+    // Conversations this panel touches get their events routed to it.
+    this.shared = createRequestHandler({ ...deps, onSession: (session) => deps.hub.attach(session.id, this) });
 
     const helloTimer = setTimeout(() => {
       if (!this.authenticated) ws.close(4401, 'No hello received');
@@ -143,6 +146,11 @@ export class Connection {
     };
 
     try {
+      const reply = await this.shared(msg);
+      if (reply !== undefined) {
+        if (reply) this.send({ ...reply, replyTo: msg.id });
+        return;
+      }
       await this.handle(msg, load, { config, hub, orchestrator, store, registry, memory, sourceEditor });
     } catch (err) {
       // Requests get their error as the answer, so the panel doesn't wait for a timeout.
@@ -157,85 +165,9 @@ export class Connection {
    */
   async handle(msg, load, { config, hub, orchestrator, store, registry, memory, sourceEditor }) {
     switch (msg.type) {
-      case 'session.open':
-      case 'session.reset': {
-        const session = await orchestrator.openSession({
-          conversationId: msg.type === 'session.open' ? msg.conversationId : undefined,
-          url: String(msg.url ?? ''),
-          title: String(msg.title ?? ''),
-        });
-        hub.attach(session.id, this);
-        this.send({ type: 'session.state', replyTo: msg.id, session: orchestrator.snapshot(session) });
-        return;
-      }
-
-      case 'session.config': {
-        const session = await load();
-        orchestrator.configure(session, { provider: msg.provider, model: msg.model });
-        this.send({ type: 'session.state', replyTo: msg.id, session: orchestrator.snapshot(session) });
-        return;
-      }
-
       case 'data.info':
         // Where the server keeps your data, and how much (Options → Your data).
         this.send({ type: 'data', replyTo: msg.id, info: dataInfo(config.dataDir) });
-        return;
-
-      case 'providers.list':
-        this.send({ type: 'providers', replyTo: msg.id, providers: await registry.list() });
-        return;
-
-      case 'chat.send': {
-        const session = await load();
-        const text = String(msg.text ?? '').slice(0, MAX_TEXT);
-        if (!text.trim()) throw new Error('Empty message');
-        hub.attach(session.id, this);
-        // Not awaited: the turn streams events back while it runs.
-        orchestrator.chat(session, {
-          text,
-          context: msg.context,
-          settings: { executeJs: msg.settings?.executeJs === true, webTools: msg.settings?.webTools === true },
-        });
-        return;
-      }
-
-      case 'sessions.list': {
-        // Conversations on this site; those about the same kind of page first.
-        const url = String(msg.url ?? '');
-        const site = siteKey(url);
-        const path = pathOf(url);
-        const items = site
-          ? store.listForSite(site).map((e) => ({ ...e, sameGroup: matchPattern(e.groupPattern, path) }))
-          : [];
-        items.sort((a, b) => Number(b.sameGroup) - Number(a.sameGroup) || b.updatedAt - a.updatedAt);
-        this.send({ type: 'sessions', replyTo: msg.id, site, items });
-        return;
-      }
-
-      case 'memory.get':
-        this.send({ type: 'memory', replyTo: msg.id, memory: memory.forUrl(String(msg.url ?? '')) });
-        return;
-
-      case 'memory.edit': {
-        // Edits from the Memory tab. Always scoped to the site of the given URL.
-        const url = String(msg.url ?? '');
-        const site = siteKey(url);
-        if (!site) throw new Error('This page has no site memory');
-        switch (msg.op) {
-          case 'addNote': memory.addNote(url, { text: String(msg.text ?? ''), scope: msg.scope === 'page_group' ? 'page_group' : 'site', by: 'user' }); break;
-          case 'updateNote': memory.updateNote(site, String(msg.noteId), String(msg.text ?? '')); break;
-          case 'deleteNote': memory.deleteNote(site, String(msg.noteId)); break;
-          case 'defineGroup': memory.defineGroup(url, { name: String(msg.name ?? ''), pattern: String(msg.pattern ?? '') }); break;
-          case 'updateGroup': memory.updateGroup(site, String(msg.groupId), { name: msg.name, pattern: msg.pattern }); break;
-          case 'deleteGroup': memory.deleteGroup(site, String(msg.groupId)); break;
-          default: throw new Error(`Unknown memory operation "${msg.op}"`);
-        }
-        this.send({ type: 'memory', replyTo: msg.id, memory: memory.forUrl(url) });
-        return;
-      }
-
-      case 'chat.cancel':
-        orchestrator.cancel(String(msg.conversationId));
         return;
 
       case 'tool.result': {
@@ -244,12 +176,6 @@ export class Connection {
         clearTimeout(pending.timer);
         this.pendingTools.delete(String(msg.requestId));
         pending.resolve({ ok: msg.ok === true, result: msg.result, error: msg.error ? String(msg.error) : undefined });
-        return;
-      }
-
-      case 'action.status': {
-        const session = await load();
-        orchestrator.setActionStatus(session, String(msg.actionId), String(msg.status), msg.detail);
         return;
       }
 

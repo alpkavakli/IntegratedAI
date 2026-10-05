@@ -26,10 +26,11 @@ AI panel in Chrome DevTools: explains layout and console errors, previews CSS fi
 > - **Does things for you:** fills in forms, chooses options and clicks through flows with real browser events.
 > - **Remembers each site:** key selectors and your preferences, so the next conversation starts informed.
 > - **Explains console errors** and jumps to the source.
-> - **Private by design:** works through an agent server on your own computer and the AI account you choose.
+> - **Your key, your data:** paste your Anthropic API key and go. It talks straight to the Anthropic API;
+>   conversations and site memory stay in your browser. No account with us, no tracking.
 >
-> Requires the free IntegratedAI agent server (Node.js) and a Claude account or API key. Setup:
-> https://github.com/alpkavakli/IntegratedAI
+> Developers can instead run the free local agent server to use a Claude subscription through Claude Code
+> and move CSS into their own project ("Apply to source"): https://github.com/alpkavakli/IntegratedAI
 
 **Assets you still need to make:**
 - Screenshots: 1280×800 (or 640×400), 1–5 of them. Suggested: chat with an inspection card, a CSS proposal
@@ -56,7 +57,10 @@ AI panel in Chrome DevTools: explains layout and console errors, previews CSS fi
 | Remote code | **No.** All code is in the package. The AI's suggestions are data; optional user-approved scripts run via DevTools' `inspectedWindow.eval`, never fetched from a server. |
 
 **Data usage disclosures** (check these in the form):
-- Website content: **yes**, only on pages the user inspects, sent to the user's local server and their chosen AI provider.
+- Website content: **yes**, only on pages the user inspects, sent to the Anthropic API with the user's own key
+  (direct mode) or to the user's local server and their chosen AI provider.
+- Authentication info: the user's own Anthropic API key is stored locally and sent only to api.anthropic.com
+  to authenticate their requests (declare it if the form asks; it is never sent to the developer).
 - Web history, personally identifiable info, authentication info, financial/health data, personal communications,
   location, user activity: **no** (not collected; sensitive headers are removed before anything is sent).
 - Certify: not sold to third parties; not used for unrelated purposes; not used for creditworthiness/lending.

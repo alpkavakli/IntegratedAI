@@ -69,9 +69,30 @@ export class AnthropicProvider extends Provider {
   async getClient() {
     if (!this.client) {
       const { default: Anthropic } = await this.loadSdk();
+      this.sdk = Anthropic;
       this.client = new Anthropic({ apiKey: anthropicApiKey(this.config), ...(this.browser ? { dangerouslyAllowBrowser: true } : {}) });
     }
     return this.client;
+  }
+
+  /**
+   * Turn SDK errors into messages a user can act on (typed classes, most specific first).
+   * @param {unknown} err
+   */
+  friendlyError(err) {
+    const A = this.sdk;
+    if (!A || !(err instanceof A.APIError)) return err;
+    const where = this.browser ? 'in Options' : 'in config.json or ANTHROPIC_API_KEY';
+    if (err instanceof A.AuthenticationError) return new Error(`The Anthropic API key was not accepted. Check it ${where}.`);
+    if (err instanceof A.PermissionDeniedError) return new Error(`Your Anthropic account can't use this model or feature (${err.message}).`);
+    if (err instanceof A.NotFoundError) return new Error('This model is not available to your Anthropic account. Pick another model.');
+    if (err instanceof A.RateLimitError) return new Error('Anthropic rate limit reached. Wait a moment and try again.');
+    if (err instanceof A.APIConnectionError) return new Error('Could not reach the Anthropic API. Check your internet connection.');
+    if (err instanceof A.BadRequestError && /credit balance/i.test(err.message)) {
+      return new Error('Your Anthropic API credit balance is too low. Add credits at console.anthropic.com.');
+    }
+    if (err instanceof A.InternalServerError) return new Error('The Anthropic API had a temporary problem. Try again in a moment.');
+    return err;
   }
 
   /**
@@ -99,13 +120,19 @@ export class AnthropicProvider extends Provider {
       params.fallbacks = 'default';
     }
 
-    const stream = client.beta.messages.stream(params, { signal });
-    for await (const event of stream) {
-      if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
-        yield { type: 'text_delta', text: event.delta.text };
+    /** @type {any} */
+    let message;
+    try {
+      const stream = client.beta.messages.stream(params, { signal });
+      for await (const event of stream) {
+        if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+          yield { type: 'text_delta', text: event.delta.text };
+        }
       }
+      message = await stream.finalMessage();
+    } catch (err) {
+      throw this.friendlyError(err);
     }
-    const message = await stream.finalMessage();
 
     const u = message.usage ?? {};
     yield {

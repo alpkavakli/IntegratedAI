@@ -29,6 +29,7 @@ import { runInspection } from './lib/inspections.js';
 import { highlight, pageInfo, selectedLabel } from './lib/page-scripts.js';
 import { loadSettings, onSettingsChanged } from './lib/settings.js';
 import { ServerClient } from './lib/ws-client.js';
+import { DirectClient } from './direct/direct-client.js';
 
 const $ = (/** @type {string} */ id) => /** @type {any} */ (document.getElementById(id));
 
@@ -42,7 +43,8 @@ export class App {
     /** @type {import('../shared/protocol.js').ProviderInfo[]} */
     this.providers = [];
     this.changes = new ChangeManager(this.tabId);
-    this.client = new ServerClient(() => loadSettings());
+    /** The AI backend: the local agent server, or direct mode inside the extension (same interface). Set in start(). */
+    this.client = /** @type {ServerClient | DirectClient} */ (/** @type {any} */ (null));
     this.connected = false;
     this.pageUrl = '';
     /** Selector of $0 when the last message was sent (target of modify_element without selector). */
@@ -65,9 +67,17 @@ export class App {
     if (chrome.devtools.panels.themeName === 'dark') document.documentElement.classList.add('dark');
 
     this.settings = await loadSettings();
+    this.client = this.settings.mode === 'direct' ? new DirectClient(() => loadSettings()) : new ServerClient(() => loadSettings());
     this.applyContextDefaults();
     onSettingsChanged((s) => {
-      const reconnect = s.token !== this.settings.token || s.serverUrl !== this.settings.serverUrl;
+      // Switching between direct mode and the local server: start the panel over.
+      if (s.mode !== this.settings.mode) {
+        location.reload();
+        return;
+      }
+      const reconnect = s.mode === 'direct'
+        ? s.anthropicApiKey !== this.settings.anthropicApiKey || s.directModel !== this.settings.directModel
+        : s.token !== this.settings.token || s.serverUrl !== this.settings.serverUrl;
       this.settings = s;
       this.chat.refreshCards();
       if (reconnect) this.client.reconnect();
@@ -182,7 +192,8 @@ export class App {
       } else if (status === 'unauthorized') {
         this.showBanner(error, true, 'Open settings', () => bg('options.open'));
       } else if (status === 'disconnected') {
-        this.showBanner(`Agent server disconnected: ${error} Retrying…`, true);
+        this.showBanner(this.settings.mode === 'direct' ? error : `Agent server disconnected: ${error} Retrying…`, true,
+          this.settings.mode === 'direct' ? 'Open settings' : undefined, () => bg('options.open'));
       }
       this.updateComposer();
       this.chat.refreshCards();
