@@ -110,13 +110,15 @@ export function interactStep(h, selected, { actionId, step, dry = false, hold = 
     document.documentElement.append(box);
     if (!hold) fadeHighlight(1600);
   };
-  /** Fade out and remove the outline after a moment. */
-  const fadeHighlight = (delay) => setTimeout(() => {
+  /** Fade out and remove the outline shown now, after a moment (not one drawn later for the next step). */
+  const fadeHighlight = (delay) => {
     const box = document.getElementById('integratedai-highlight');
     if (!box) return;
-    box.style.opacity = '0';
-    setTimeout(() => box.remove(), 400);
-  }, delay);
+    setTimeout(() => {
+      box.style.opacity = '0';
+      setTimeout(() => box.remove(), 400);
+    }, delay);
+  };
   // Doing the step: the outline that marked it fades shortly after.
   if (!dry) fadeHighlight(700);
 
@@ -319,6 +321,56 @@ export function interactStep(h, selected, { actionId, step, dry = false, hold = 
     default:
       throw new Error(`Unknown step action "${step.action}"`);
   }
+}
+
+/**
+ * While the AI works on the page (agent modes): a small badge in the page's corner with a
+ * Stop button, so the user can stop it without going back to DevTools. Shown again after
+ * every page load (the panel calls this repeatedly), in a shadow root so page CSS can't touch it.
+ * Clicking Stop leaves a request in the page's hidden state; takeStopRequest() reads it.
+ */
+export function showWorkingBadge(h) {
+  const ID = 'integratedai-working';
+  if (document.getElementById(ID)) return true;
+  const host = document.createElement('div');
+  host.id = ID;
+  host.style.cssText = 'position:fixed;right:16px;bottom:16px;z-index:2147483647';
+  const root = host.attachShadow({ mode: 'closed' });
+  const pill = document.createElement('div');
+  pill.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 8px 8px 14px;border-radius:999px;'
+    + 'background:#1f2937;color:#fff;font:600 13px/1.2 system-ui,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.3)';
+  const dot = document.createElement('span');
+  dot.style.cssText = 'width:9px;height:9px;border-radius:50%;background:linear-gradient(135deg,#3b7bff,#8b5cf6);'
+    + 'box-shadow:0 0 0 3px rgba(99,102,241,.35)';
+  const text = document.createElement('span');
+  text.textContent = 'IntegratedAI is working on this page';
+  const stop = document.createElement('button');
+  stop.type = 'button';
+  stop.textContent = '■ Stop';
+  stop.style.cssText = 'border:0;border-radius:999px;padding:6px 12px;background:#fff;color:#1f2937;font:inherit;cursor:pointer';
+  stop.addEventListener('click', () => {
+    h.state().stopRequested = true;
+    text.textContent = 'Stopping…';
+    stop.disabled = true;
+  });
+  pill.append(dot, text, stop);
+  root.append(pill);
+  document.documentElement.append(host);
+  return true;
+}
+
+/** Remove the badge (the turn is over). */
+export function hideWorkingBadge(h) {
+  document.getElementById('integratedai-working')?.remove();
+  h.state().stopRequested = false;
+  return true;
+}
+
+/** Was Stop clicked on the page? Reading it clears it. */
+export function takeStopRequest(h) {
+  const asked = h.state().stopRequested === true;
+  h.state().stopRequested = false;
+  return asked;
 }
 
 /** Remove the outline of a step that was not done (denied, or failed). */

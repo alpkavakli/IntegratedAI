@@ -91,7 +91,7 @@ Load the extension from `chrome://extensions` → Developer mode → Load unpack
   first message (then it moves to the bottom). Brand gradient on the send button and headline.
 - **Agent modes** (the menu in the input box): Suggest (default) / Ask each step / Auto / Full auto. In the agent
   modes `interact` and `navigate` run during the turn (orchestrator: `runsLive()`; panel: `lib/agent-runner.js`),
-  each step outlined on the page and listed in the chat; the panel asks before steps as the mode says (risky steps
+  each step outlined on the page and listed in the chat, with a "working… Stop" badge on the page during the turn; the panel asks before steps as the mode says (risky steps
   are detected on the real element in `page-interact.js`). `npm run ui-check` runs an Auto-mode scenario.
 - No accessibility violations (axe-core) in either; keep it that way with `npm run ui-check`.
 

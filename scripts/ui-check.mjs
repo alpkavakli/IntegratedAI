@@ -302,6 +302,8 @@ try {
   await agent.ui(`document.getElementById('prompt').value = 'Sign me up for screen printing as Sam Rivera, sam@example.com'; document.getElementById('composer').requestSubmit()`);
   for (let i = 0; i < 60 && !(await agent.ui(`!!document.querySelector('.ask-step')`)); i++) await sleep(250);
   const asked = await agent.ui(`document.querySelector('.ask-step')?.innerText ?? ''`);
+  const badgeWhileWorking = await ev(agent.page.session, `!!document.getElementById('integratedai-working')`);
+  if (!badgeWhileWorking) violations.push('agent: no "working… Stop" badge on the page during the turn');
   const typedWithoutAsking = await ev(agent.page.session, `document.getElementById('name').value + ' / ' + document.getElementById('email').value`);
   await shot(agent.panel, 'panel-10-auto-mode-asks-light');
   await shot(agent.page, 'page-10-highlight', 700, 600);
@@ -316,6 +318,19 @@ try {
   if (typedWithoutAsking !== 'Sam Rivera / sam@example.com') violations.push(`agent: typing didn't run on its own (${typedWithoutAsking})`);
   if (pageNow !== '/pricing.html') violations.push(`agent: it didn't open the next page (${pageNow})`);
   await audit(agent.panel.session, 'panel, Auto mode (light)');
+  await sleep(1000);
+  if (await ev(agent.page.session, `!!document.getElementById('integratedai-working')`)) violations.push('agent: the badge stayed after the turn');
+
+  // Stop on the page: a new task, then the badge's Stop (its shadow root is closed, so set what its click sets).
+  await agent.ui(`document.getElementById('new-chat').click()`);
+  await sleep(1500);
+  await agent.ui(`document.getElementById('prompt').value = 'Sign me up again'; document.getElementById('composer').requestSubmit()`);
+  await sleep(1200);
+  await ev(agent.page.session, `window[Symbol.for('integratedai.state')].stopRequested = true`);
+  let stopped = false;
+  for (let i = 0; i < 20 && !(stopped = await agent.ui(`document.getElementById('send').textContent === '↑'`)); i++) await sleep(250);
+  log(`agent: Stop on the page ${stopped ? 'stopped the turn' : 'did NOT stop the turn'}`);
+  if (!stopped) violations.push('agent: Stop on the page did not stop the turn');
 
   // Nothing set up yet: the panel's first-run screen.
   await ev(sw, `chrome.storage.local.set({ settings: { mode: 'direct', directProvider: 'anthropic' } })`);

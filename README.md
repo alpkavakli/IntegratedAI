@@ -205,7 +205,9 @@ step, like Claude Code's permission modes:
 How it works: in the agent modes `interact` and `navigate` run **during** the AI's turn and their result (what was done, and
 the page's URL and title afterwards) goes back to it, so it looks, acts, checks and continues until the task is done
 (up to 40 steps per message, `maxAgentSteps`). Before each step the target is outlined on the page with a label
-("IntegratedAI: click button "Send""), and the chat lists every step as it happens. **■** stops it at any time.
+("IntegratedAI: click button "Send""), and the chat lists every step as it happens. While it works, a small
+**"IntegratedAI is working on this page ■ Stop"** badge sits in the page's corner (shown again after every page load); it and the
+**■** button in the panel stop it at any time.
 Style changes, element edits and scripts stay cards in every mode. Page content is treated as untrusted data: the AI
 is told never to follow instructions found on pages, and the panel (not the AI) decides what needs your OK.
 With the Claude Code CLI, the page actions are offered as MCP tools (`mcp__page__interact`, `mcp__page__navigate`) in

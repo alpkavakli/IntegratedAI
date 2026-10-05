@@ -14,6 +14,7 @@
 
 import { ACTIONS, isPageAction, validateAction } from '../shared/actions.js';
 import { AgentRunner } from './lib/agent-runner.js';
+import { hideWorkingBadge, showWorkingBadge, takeStopRequest } from './lib/page-interact.js';
 import './components/action-card.js';
 import './components/chat-view.js';
 import './components/console-view.js';
@@ -55,6 +56,8 @@ export class App {
     this.targets = {};
     /** @type {Promise<void> | null} */
     this.navigationReset = null;
+    /** Keeps the "working… Stop" badge on the page during agent turns. @type {ReturnType<typeof setInterval> | undefined} */
+    this.pageStopTimer = undefined;
     /** Site memory for the current page (from the server), or null. @type {any} */
     this.memoryInfo = null;
     /** Your project folder for this page ("Apply to source"), or null. @type {{ name: string, path: string } | null} */
@@ -285,6 +288,33 @@ export class App {
     await this.setSession(reply.session);
   }
 
+  /**
+   * While the AI works on the page: keep the "working… Stop" badge on the page (again after every
+   * page load) and stop the turn when it's clicked.
+   */
+  watchPageStop() {
+    this.unwatchPageStop();
+    const tick = async () => {
+      try {
+        if (await callInPage(takeStopRequest)) {
+          if (this.session?.busy) this.client.send({ type: 'chat.cancel', conversationId: this.session.id });
+          this.chat.cancelAsks();
+          return;
+        }
+        await callInPage(showWorkingBadge);
+      } catch { /* the page is loading; try again on the next tick */ }
+    };
+    tick();
+    this.pageStopTimer = setInterval(tick, 700);
+  }
+
+  unwatchPageStop() {
+    if (this.pageStopTimer === undefined) return;
+    clearInterval(this.pageStopTimer);
+    this.pageStopTimer = undefined;
+    callInPage(hideWorkingBadge).catch(() => {});
+  }
+
   /** How the AI may operate the page in this conversation (its own choice, else the user's default). */
   agentMode() {
     return this.session?.agentMode ?? this.settings.defaultAgentMode ?? 'suggest';
@@ -318,6 +348,7 @@ export class App {
         break;
       case 'turn.started':
         this.agent.reset();
+        if (this.agentMode() !== 'suggest') this.watchPageStop();
         if (session) session.busy = true;
         this.chat.setBusy(true);
         this.updateComposer();
@@ -344,6 +375,7 @@ export class App {
         break;
       case 'turn.done':
         this.chat.cancelAsks();
+        this.unwatchPageStop();
         if (session) {
           session.busy = false;
           session.usage = msg.sessionUsage;
