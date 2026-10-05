@@ -19,6 +19,9 @@ export const DB_NAME = 'integratedai';
 const DB_VERSION = 1;
 const MEMORY_PREFIX = 'memory:';
 
+/** Connections closed because another page deleted or upgraded the database. */
+const released = new WeakSet();
+
 /** @returns {Promise<IDBDatabase>} */
 export function openDb() {
   return new Promise((resolve, reject) => {
@@ -31,7 +34,15 @@ export function openDb() {
         db.createObjectStore('history', { keyPath: 'id' }).createIndex('site', 'site');
       }
     };
-    req.onsuccess = () => resolve(req.result);
+    req.onsuccess = () => {
+      // Let go when another page deletes or upgrades the database (Options → Delete extension data,
+      // or a newer version after an update). Holding on would block that until DevTools closes.
+      req.result.onversionchange = () => {
+        req.result.close();
+        released.add(req.result);
+      };
+      resolve(req.result);
+    };
     req.onerror = () => reject(req.error);
   });
 }
@@ -59,6 +70,12 @@ export class IdbSessionStore {
     this.pendingWrites = new Map();
   }
 
+  /** The database, opened again if it was let go (see openDb). */
+  async open() {
+    if (released.has(this.db)) this.db = await openDb();
+    return this.db;
+  }
+
   /**
    * @param {{ url?: string, title?: string, provider: string, model: string }} init
    * @returns {Session}
@@ -78,7 +95,7 @@ export class IdbSessionStore {
     if (!isSessionId(id)) return null;
     const cached = this.cache.get(id);
     if (cached) return cached;
-    const session = await done(this.db.transaction('conversations').objectStore('conversations').get(id));
+    const session = await done((await this.open()).transaction('conversations').objectStore('conversations').get(id));
     if (!session) return null;
     session.busy = false;
     this.cache.set(id, session);
@@ -99,7 +116,7 @@ export class IdbSessionStore {
   async write(session) {
     this.pendingWrites.delete(session.id);
     const { busy, ...data } = session;
-    const tx = this.db.transaction(['conversations', 'history'], 'readwrite');
+    const tx = (await this.open()).transaction(['conversations', 'history'], 'readwrite');
     tx.objectStore('conversations').put(structuredClone(data));
     const entry = indexEntry(session);
     if (entry) tx.objectStore('history').put(entry);
@@ -122,7 +139,7 @@ export class IdbSessionStore {
    * @param {number} [limit]
    */
   async listForSite(site, limit = 30) {
-    const entries = await done(this.db.transaction('history').objectStore('history').index('site').getAll(site));
+    const entries = await done((await this.open()).transaction('history').objectStore('history').index('site').getAll(site));
     return entries.sort((a, b) => b.updatedAt - a.updatedAt).slice(0, limit);
   }
 }
