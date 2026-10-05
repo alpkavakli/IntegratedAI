@@ -429,6 +429,10 @@ npm test
 - export / import (no secrets, version 1 files, merging conversations and memory), data folder versions and backups
 - CSS boosting, screenshots re-sent only for the last 3, and approved scripts that use `await` (timeouts, reloads)
 
+**UI check:** `npm run ui-check` opens the panel and the setup page in headless Chrome against a scripted stand-in
+AI (no key, no cost), saves a screenshot of each state, and runs an accessibility audit (axe-core, WCAG 2 A/AA)
+plus layout checks. It exits with 1 on any problem.
+
 These were also checked against real Chrome and the real `claude` CLI during development:
 - page scripts and console capture
 - `insertCSS`/`removeCSS` under a strict CSP
