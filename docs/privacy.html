@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy policy · IntegratedAI DevTools</title>
+<style>
+  :root { --bg: #ffffff; --fg: #202124; --muted: #5f6368; --accent: #1a73e8; --border: #dadce0; color-scheme: light dark; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #1f1f1f; --fg: #e8eaed; --muted: #9aa0a6; --accent: #8ab4f8; --border: #3c4043; } }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 1.8rem; line-height: 1.25; margin: 0 0 8px; }
+  h2 { font-size: 1.2rem; margin: 2rem 0 0.5rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+  a { color: var(--accent); }
+  code { font: 0.9em ui-monospace, Menlo, Consolas, monospace; }
+  em { color: var(--muted); }
+  .lead { font-size: 1.15rem; color: var(--muted); }
+  li { margin: 4px 0; }
+</style>
+</head>
+<body><main>
+<h1>IntegratedAI DevTools: Privacy Policy</h1>
+<p><em>Last updated: 2026-10-05</em></p>
+<p>IntegratedAI DevTools (&quot;the extension&quot;) adds an AI panel to Chrome DevTools. This policy explains what data the extension handles and where it goes. In short: <strong>the developer does not collect, receive or sell any of your data.</strong> Depending on the connection you choose in Options, the extension talks either directly to the Anthropic API with your own API key (&quot;direct mode&quot;), or to an agent server that runs on your own computer, which talks to the AI provider you choose.</p>
+<h2>What the extension reads</h2>
+<p>Only when you use the AI panel, and only from the tab you are inspecting:</p>
+<ul>
+<li><strong>Page content you choose to share.</strong> For example, the element selected in the Elements panel (its HTML excerpt, CSS selector and computed styles), page URL and title, and more details the AI asks for while answering (matching CSS rules, element lists, page resources).</li>
+<li><strong>Console messages and errors</strong> captured on the page (when you enable the Console chip, ask about errors, or the AI inspects the console).</li>
+<li><strong>Network request summaries</strong> from DevTools (method, URL, status, size, timing), when you enable the Network chip or the AI inspects the network. Cookies, authorization headers, API keys and token-like URL parameters are removed before anything is sent. Response bodies are never sent.</li>
+<li><strong>Screenshots</strong> of an element or of the visible page, when the AI needs to see how something looks.</li>
+</ul>
+<h2>Where it goes</h2>
+<ul>
+<li><strong>Direct mode:</strong> straight from the extension to the Anthropic API (<code>api.anthropic.com</code>), authenticated with your own API key (<a href="https://www.anthropic.com/legal/privacy">Anthropic privacy policy</a>).</li>
+<li><strong>Local server mode:</strong></li>
+<ol>
+<li><strong>To the agent server on your computer</strong> (<code>127.0.0.1</code>), which you install and start yourself. The connection is local and requires a pairing token. Websites cannot connect to it.</li>
+<li><strong>From there, to the AI provider you selected</strong>, using your own account:</li>
+<ul>
+<li><em>Claude Code CLI</em>: Anthropic, under your Claude account (<a href="https://www.anthropic.com/legal/privacy">Anthropic privacy policy</a>).</li>
+<li><em>Anthropic API</em>: Anthropic, under your API key.</li>
+<li>Other providers, if you add them, under their own terms.</li>
+</ul>
+</ol>
+<li><strong>Web search</strong>, in both modes (optional, on by default, can be turned off in Options): the AI may search the web or fetch pages through the provider's web tools to look up documentation.</li>
+</ul>
+<p>Nothing is sent to the developer of this extension or to any other third party.</p>
+<h2>What is stored, and where</h2>
+<p>All storage is local to your computer:</p>
+<ul>
+<li><strong>In Chrome</strong> (extension storage): your settings, your Anthropic API key (direct mode), the pairing token (local server mode) and saved CSS patches. In direct mode also your conversations (IndexedDB) and site memory. Removed when you uninstall the extension, or via <em>Options → Your data → Delete extension data</em>. Your API key is only ever sent to <code>api.anthropic.com</code>.</li>
+<li><strong>Local server mode, on your computer, in the agent server's folder</strong> (<code>~/.integratedai</code>): conversations, site memory notes and page types, logs of failed calls, and automatic backups made before data-format updates. You can view, back up or delete this folder at any time; individual memory notes can be edited or deleted in the panel's Memory tab.</li>
+</ul>
+<h2>What the extension does on pages</h2>
+<ul>
+<li>Captures console messages on pages you visit (kept in the page's memory only, never sent anywhere unless you use the AI panel on that tab).</li>
+<li>Applies CSS patches you saved, and shows on/off buttons for patches you created with a toggle.</li>
+<li>Makes changes on a page (CSS, element edits, clicks/typing, scripts) <strong>only after you approve them</strong>.</li>
+</ul>
+<h2>Children</h2>
+<p>The extension is not directed at children under 13.</p>
+<h2>Changes</h2>
+<p>Changes to this policy are published at the same address and in the extension's repository.</p>
+<h2>Contact</h2>
+<p>Alp Kavaklı: alpkavakli@gmail.com · https://github.com/alpkavakli/IntegratedAI</p>
+</main></body>
+</html>

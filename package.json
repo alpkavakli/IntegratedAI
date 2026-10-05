@@ -12,7 +12,8 @@
     "test": "node --test \"server/test/*.test.js\"",
     "check": "tsc --noEmit -p jsconfig.json",
     "package": "node scripts/package-extension.js",
-    "vendor:sdk": "node scripts/vendor-sdk.js"
+    "vendor:sdk": "node scripts/vendor-sdk.js",
+    "site": "node scripts/build-site.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",

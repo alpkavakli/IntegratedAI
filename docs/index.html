@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IntegratedAI DevTools</title>
+<style>
+  :root { --bg: #ffffff; --fg: #202124; --muted: #5f6368; --accent: #1a73e8; --border: #dadce0; color-scheme: light dark; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #1f1f1f; --fg: #e8eaed; --muted: #9aa0a6; --accent: #8ab4f8; --border: #3c4043; } }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 1.8rem; line-height: 1.25; margin: 0 0 8px; }
+  h2 { font-size: 1.2rem; margin: 2rem 0 0.5rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+  a { color: var(--accent); }
+  code { font: 0.9em ui-monospace, Menlo, Consolas, monospace; }
+  em { color: var(--muted); }
+  .lead { font-size: 1.15rem; color: var(--muted); }
+  li { margin: 4px 0; }
+</style>
+</head>
+<body><main>
+
+<h1>IntegratedAI DevTools</h1>
+<p class="lead">AI panel in Chrome DevTools: explains layout and console errors, previews CSS fixes, fills forms, saves per-site patches.</p>
+<ul>
+  <li>Select an element in the Elements panel, open the <strong>AI</strong> tab, and ask: "why is this overflowing?", "make this look better", "add a dark-mode toggle to the nav bar".</li>
+  <li>Every change is a card you preview and approve. Nothing runs on its own.</li>
+  <li>Use your own Anthropic API key, or the local agent server with your Claude subscription.</li>
+</ul>
+<p><a href="privacy.html">Privacy policy</a></p>
+
+</main></body>
+</html>

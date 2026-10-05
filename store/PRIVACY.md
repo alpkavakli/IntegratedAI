@@ -27,14 +27,14 @@ Only when you use the AI panel, and only from the tab you are inspecting:
 - **Direct mode:** straight from the extension to the Anthropic API (`api.anthropic.com`), authenticated
   with your own API key ([Anthropic privacy policy](https://www.anthropic.com/legal/privacy)).
 - **Local server mode:**
-1. **To the agent server on your computer** (`127.0.0.1`), which you install and start yourself. The
-   connection is local and requires a pairing token. Websites cannot connect to it.
-2. **From there, to the AI provider you selected**, using your own account:
-   - *Claude Code CLI*: Anthropic, under your Claude account ([Anthropic privacy policy](https://www.anthropic.com/legal/privacy)).
-   - *Anthropic API*: Anthropic, under your API key.
-   - Other providers, if you add them, under their own terms.
-3. **Web search** (optional, on by default, can be turned off in Options): the AI may search the web or
-   fetch pages through the provider's web tools to look up documentation.
+   1. **To the agent server on your computer** (`127.0.0.1`), which you install and start yourself. The
+      connection is local and requires a pairing token. Websites cannot connect to it.
+   2. **From there, to the AI provider you selected**, using your own account:
+      - *Claude Code CLI*: Anthropic, under your Claude account ([Anthropic privacy policy](https://www.anthropic.com/legal/privacy)).
+      - *Anthropic API*: Anthropic, under your API key.
+      - Other providers, if you add them, under their own terms.
+- **Web search**, in both modes (optional, on by default, can be turned off in Options): the AI may search
+  the web or fetch pages through the provider's web tools to look up documentation.
 
 Nothing is sent to the developer of this extension or to any other third party.
 
