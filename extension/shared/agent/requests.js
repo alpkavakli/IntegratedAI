@@ -32,6 +32,16 @@ export function createRequestHandler({ orchestrator, store, registry, memory, on
     return session;
   };
 
+  /**
+   * The memory a conversation uses; without a conversation id, the shared site memory.
+   * @param {unknown} conversationId
+   */
+  const memoryOf = async (conversationId) => {
+    const session = conversationId ? await store.get(String(conversationId)) : null;
+    const mode = session?.memoryMode ?? 'shared';
+    return { mode, mem: session ? orchestrator.memoryFor(session) : memory };
+  };
+
   /** @param {any} msg */
   return async function handle(msg) {
     switch (msg.type) {
@@ -48,7 +58,7 @@ export function createRequestHandler({ orchestrator, store, registry, memory, on
 
       case 'session.config': {
         const session = await load(msg.conversationId);
-        orchestrator.configure(session, { provider: msg.provider, model: msg.model });
+        orchestrator.configure(session, { provider: msg.provider, model: msg.model, memoryMode: msg.memoryMode });
         return { type: 'session.state', session: orchestrator.snapshot(session) };
       }
 
@@ -91,14 +101,20 @@ export function createRequestHandler({ orchestrator, store, registry, memory, on
         return { type: 'sessions', site, items };
       }
 
-      case 'memory.get':
-        return { type: 'memory', memory: memory.forUrl(String(msg.url ?? '')) };
+      case 'memory.get': {
+        // The memory the conversation uses (shared site memory, its private memory, or none).
+        const { mem, mode } = await memoryOf(msg.conversationId);
+        return { type: 'memory', mode, memory: mem ? mem.forUrl(String(msg.url ?? '')) : null };
+      }
 
       case 'memory.edit': {
         // Edits from the Memory tab. Always scoped to the site of the given URL.
         const url = String(msg.url ?? '');
         const site = siteKey(url);
         if (!site) throw new Error('This page has no site memory');
+        const { mem: target, mode } = await memoryOf(msg.conversationId);
+        if (!target) throw new Error('Memory is turned off for this conversation');
+        const memory = target; // eslint-disable-line no-shadow
         switch (msg.op) {
           case 'addNote': memory.addNote(url, { text: String(msg.text ?? ''), scope: msg.scope === 'page_group' ? 'page_group' : 'site', by: 'user' }); break;
           case 'updateNote': memory.updateNote(site, String(msg.noteId), String(msg.text ?? '')); break;
@@ -108,7 +124,7 @@ export function createRequestHandler({ orchestrator, store, registry, memory, on
           case 'deleteGroup': memory.deleteGroup(site, String(msg.groupId)); break;
           default: throw new Error(`Unknown memory operation "${msg.op}"`);
         }
-        return { type: 'memory', memory: memory.forUrl(url) };
+        return { type: 'memory', mode, memory: memory.forUrl(url) };
       }
 
       default:

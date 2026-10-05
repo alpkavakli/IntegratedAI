@@ -75,6 +75,38 @@ test('shared request handler: open, chat, history, memory, unknown requests', as
   assert.equal(await handle({ type: 'source.propose' }), undefined, 'server-only requests are left to the caller');
 });
 
+test('memory modes: shared, private to one conversation, or off', async () => {
+  const { handle, saved } = setup([
+    [{ type: 'tool_call', id: 'r1', name: 'remember', input: { note: 'Private: user is comparing plans', scope: 'site' } }],
+    [{ type: 'tool_call', id: 'r2', name: 'remember', input: { note: 'Should not be saved', scope: 'site' } }],
+  ]);
+  const url = 'https://shop.com/p/1';
+  const ctx = { page: { url } };
+  await handle({ type: 'memory.edit', url, op: 'addNote', text: 'Shared: cart is #cart', scope: 'site' });
+
+  // A private conversation: starts without the shared notes, keeps its own.
+  const priv = (await handle({ type: 'session.open', url })).session;
+  const configured = await handle({ type: 'session.config', conversationId: priv.id, memoryMode: 'private' });
+  assert.equal(configured.session.memoryMode, 'private');
+  await handle({ type: 'chat.send', conversationId: priv.id, text: 'remember this', context: ctx });
+  await new Promise((r) => setTimeout(r, 20));
+  const privMemory = await handle({ type: 'memory.get', url, conversationId: priv.id });
+  assert.equal(privMemory.mode, 'private');
+  assert.deepEqual(privMemory.memory.notes.map((n) => n.text), ['Private: user is comparing plans']);
+  const shared = await handle({ type: 'memory.get', url });
+  assert.deepEqual(shared.memory.notes.map((n) => n.text), ['Shared: cart is #cart'], 'private notes stay out of the shared memory');
+  assert.ok([...saved.keys()].some((k) => k.startsWith(`private~${priv.id}~`)), 'stored under its own key');
+
+  // Memory off: nothing read, nothing saved.
+  const off = (await handle({ type: 'session.open', url })).session;
+  await handle({ type: 'session.config', conversationId: off.id, memoryMode: 'off' });
+  await handle({ type: 'chat.send', conversationId: off.id, text: 'remember that', context: ctx });
+  await new Promise((r) => setTimeout(r, 20));
+  assert.equal((await handle({ type: 'memory.get', url, conversationId: off.id })).memory, null);
+  assert.ok(![...saved.values()].some((m) => m.notes.some((n) => n.text === 'Should not be saved')));
+  await assert.rejects(handle({ type: 'session.config', conversationId: off.id, memoryMode: 'everything' }), /Unknown memory mode/);
+});
+
 test('fingerprint: stable for equal data, different for changes', () => {
   assert.equal(fingerprint({ a: [1, 2] }), fingerprint({ a: [1, 2] }));
   assert.notEqual(fingerprint({ a: [1, 2] }), fingerprint({ a: [1, 3] }));

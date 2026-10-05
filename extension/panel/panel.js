@@ -26,7 +26,7 @@ import { ChangeManager } from './lib/changes.js';
 import { collectContext } from './lib/context.js';
 import { callInPage, selectInElementsPanel } from './lib/inspected.js';
 import { runInspection } from './lib/inspections.js';
-import { highlight, pageInfo, selectedLabel } from './lib/page-scripts.js';
+import { highlight, pageInfo, selectedLabel, selectedText } from './lib/page-scripts.js';
 import { loadSettings, onSettingsChanged } from './lib/settings.js';
 import { ServerClient } from './lib/ws-client.js';
 import { DirectClient } from './direct/direct-client.js';
@@ -119,6 +119,7 @@ export class App {
     });
 
     $('new-chat').addEventListener('click', () => this.newConversation());
+    $('copy-text').addEventListener('click', () => this.copySelectedText());
     $('history-button').addEventListener('click', () => this.historyView.toggle());
     $('open-options').addEventListener('click', () => bg('options.open'));
     $('provider-select').addEventListener('change', () => this.configure({ provider: $('provider-select').value }));
@@ -236,13 +237,18 @@ export class App {
     await this.setSession(reply.session);
   }
 
-  /** @param {{ provider?: string, model?: string }} change */
+  /** @param {{ provider?: string, model?: string, memoryMode?: string }} change */
   async configure(change) {
     if (!this.session) return;
     try {
       const reply = await this.client.request({ type: 'session.config', conversationId: this.session.id, ...change });
       this.session = reply.session;
       this.renderProviderPicker();
+      if (change.memoryMode) {
+        this.memoryInfo = null;
+        await this.refreshMemory();
+        this.updateWelcome();
+      }
     } catch (err) {
       this.showError(/** @type {any} */ (err).message);
       this.renderProviderPicker();
@@ -373,8 +379,10 @@ export class App {
     this.refreshSourceProject();
     if (!this.connected || !this.pageUrl) return;
     try {
-      const reply = await this.client.request({ type: 'memory.get', url: this.pageUrl });
+      // The memory this conversation uses: the site's shared memory, its private memory, or none.
+      const reply = await this.client.request({ type: 'memory.get', url: this.pageUrl, conversationId: this.session?.id });
       this.memoryInfo = reply.memory;
+      this.memoryMode = reply.mode ?? 'shared';
     } catch {
       this.memoryInfo = null;
     }
@@ -400,7 +408,7 @@ export class App {
    * @param {Record<string, unknown>} change
    */
   async editMemory(change) {
-    const reply = await this.client.request({ type: 'memory.edit', url: this.pageUrl, ...change });
+    const reply = await this.client.request({ type: 'memory.edit', url: this.pageUrl, conversationId: this.session?.id, ...change });
     this.memoryInfo = reply.memory;
     await this.refreshMemory();
   }
@@ -420,6 +428,7 @@ export class App {
     const last = items[0]; // same kind of page first, then newest
     const remembered = this.memoryInfo ? this.memoryInfo.notes.filter((/** @type {any} */ n) => n.appliesHere).length : 0;
     const groupName = this.memoryInfo?.group.name;
+    const mode = this.memoryMode ?? 'shared';
     this.chat.setWelcome([
       last ? h('div', { class: 'continue' },
         h('button', { type: 'button', class: 'primary', onclick: () => this.switchConversation(last.id) }, 'Continue'),
@@ -428,7 +437,34 @@ export class App {
       remembered ? h('div', { class: 'meta' },
         `🧠 I remember ${remembered} thing${remembered === 1 ? '' : 's'} about ${this.memoryInfo.site}${groupName ? ` and "${groupName}" pages` : ''}. `,
         h('button', { type: 'button', class: 'link', onclick: () => this.showTab('memory') }, 'See memory')) : null,
+      // Separate conversations with separate memories.
+      mode === 'shared'
+        ? h('div', { class: 'meta' },
+          h('button', { type: 'button', class: 'link', onclick: () => this.configure({ memoryMode: 'private' }) }, 'Use private memory'),
+          ' for this conversation (its own notes, separate from the site\'s shared memory), or ',
+          h('button', { type: 'button', class: 'link', onclick: () => this.configure({ memoryMode: 'off' }) }, 'no memory'), '.')
+        : h('div', { class: 'meta' },
+          mode === 'private' ? '🔒 This conversation has its own private memory. ' : '🚫 Memory is off for this conversation. ',
+          h('button', { type: 'button', class: 'link', onclick: () => this.configure({ memoryMode: 'shared' }) }, 'Use the site\'s shared memory')),
     ]);
+  }
+
+  /**
+   * Copy the text of the selected element ($0) to the clipboard. Done by the
+   * extension itself (like selecting the text and pressing Ctrl+C), not the AI.
+   */
+  async copySelectedText() {
+    const button = $('copy-text');
+    try {
+      const text = await callInPage(selectedText);
+      if (text === null) throw new Error('Select an element in the Elements panel first.');
+      await copyToClipboard(text);
+      button.textContent = `Copied ${text.length.toLocaleString()} characters`;
+    } catch (err) {
+      button.textContent = 'Copy failed';
+      this.showError(String(/** @type {any} */ (err)?.message ?? err));
+    }
+    setTimeout(() => { button.textContent = 'Copy text'; }, 2000);
   }
 
   /** "Explain" button in the Console tab. @param {any} entry */
@@ -674,6 +710,27 @@ export class App {
     $('error-count').hidden = n === 0;
     $('error-count').textContent = String(n);
   }
+}
+
+/**
+ * Write text to the clipboard. DevTools panels may block the async Clipboard API,
+ * so fall back to a hidden textarea and execCommand.
+ * @param {string} text
+ */
+async function copyToClipboard(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return;
+  } catch { /* fall back below */ }
+  const area = document.createElement('textarea');
+  area.value = text;
+  area.style.position = 'fixed';
+  area.style.opacity = '0';
+  document.body.append(area);
+  area.select();
+  const ok = document.execCommand('copy');
+  area.remove();
+  if (!ok) throw new Error('The browser did not allow copying.');
 }
 
 // Exposed for debugging from the panel's own DevTools (right-click the panel → Inspect).

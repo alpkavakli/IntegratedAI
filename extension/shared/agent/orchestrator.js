@@ -62,6 +62,8 @@ import { buildSystemPrompt } from './system-prompt.js';
  * @typedef {{ executeJs?: boolean, webTools?: boolean }} TurnSettings
  */
 
+export const MEMORY_MODES = ['shared', 'private', 'off'];
+
 const STATUS_TEXT = {
   proposed: 'Shown to the user; they have not applied it yet.',
   applied: 'The user applied this change.',
@@ -106,11 +108,11 @@ export class Orchestrator {
   }
 
   /**
-   * Change provider/model for a conversation (history is kept).
+   * Change provider/model/memory mode for a conversation (history is kept).
    * @param {Session} session
-   * @param {{ provider?: string, model?: string }} p
+   * @param {{ provider?: string, model?: string, memoryMode?: string }} p
    */
-  configure(session, { provider, model }) {
+  configure(session, { provider, model, memoryMode }) {
     if (session.busy) throw new Error('Wait for the current answer to finish');
     if (provider && provider !== session.provider) {
       const P = this.registry.get(provider);
@@ -119,7 +121,25 @@ export class Orchestrator {
       session.model = P.defaultModel(this.config);
     }
     if (model) session.model = model;
+    if (memoryMode !== undefined) {
+      if (!MEMORY_MODES.includes(memoryMode)) throw new Error(`Unknown memory mode "${memoryMode}"`);
+      session.memoryMode = /** @type {any} */ (memoryMode);
+      session.memoryHash = undefined; // send the (other) memory with the next message
+    }
     this.store.save(session);
+  }
+
+  /**
+   * The memory a conversation uses:
+   *   shared  → the site's memory, the same for every conversation on the site (default)
+   *   private → a memory of its own, separate from the site's shared memory
+   *   off     → none (nothing is read or saved)
+   * @param {Session} session
+   * @returns {import('./memory.js').MemoryStore | null}
+   */
+  memoryFor(session) {
+    if (!this.memory || session.memoryMode === 'off') return null;
+    return session.memoryMode === 'private' ? this.memory.scoped(`private~${session.id}~`) : this.memory;
   }
 
   /** @param {string} conversationId */
@@ -418,7 +438,7 @@ export class Orchestrator {
     if (url) {
       session.lastUrl = url;
       session.site = siteKey(url) ?? session.site;
-      const info = this.memory?.forUrl(url);
+      const info = (this.memoryFor(session) ?? this.memory)?.forUrl(url);
       if (info) session.groupPattern = info.group.pattern;
     }
     if (!session.titleFromUser && text.trim()) {
@@ -432,8 +452,9 @@ export class Orchestrator {
    * @param {Session} session
    */
   memoryContext(session) {
-    if (!this.memory || !session.lastUrl) return null;
-    const data = this.memory.contextFor(session.lastUrl);
+    const memory = this.memoryFor(session);
+    if (!memory || !session.lastUrl) return null;
+    const data = memory.contextFor(session.lastUrl);
     if (!data) return null;
     const hash = fingerprint(data);
     if (hash === session.memoryHash) return null;
@@ -448,22 +469,24 @@ export class Orchestrator {
    * @returns {{ content: string, isError?: boolean }}
    */
   runMemoryAction(session, { name, input }) {
-    if (!this.memory || !session.lastUrl) return { content: 'Site memory is not available for this page.', isError: true };
+    const memory = this.memoryFor(session);
+    if (session.memoryMode === 'off') return { content: 'Memory is turned off for this conversation; nothing was saved.', isError: true };
+    if (!memory || !session.lastUrl) return { content: 'Site memory is not available for this page.', isError: true };
     try {
       let change;
       if (name === 'remember') {
-        const note = this.memory.addNote(session.lastUrl, { text: input.note, scope: input.scope, by: 'assistant', conversationId: session.id });
+        const note = memory.addNote(session.lastUrl, { text: input.note, scope: input.scope, by: 'assistant', conversationId: session.id });
         change = { kind: 'note_added', note };
       } else if (name === 'forget') {
-        const note = this.memory.deleteNote(/** @type {string} */ (siteKey(session.lastUrl)), input.id);
+        const note = memory.deleteNote(/** @type {string} */ (siteKey(session.lastUrl)), input.id);
         change = { kind: 'note_deleted', note };
       } else {
-        const group = this.memory.defineGroup(session.lastUrl, { name: input.name, pattern: input.pattern });
+        const group = memory.defineGroup(session.lastUrl, { name: input.name, pattern: input.pattern });
         session.groupPattern = group.pattern;
         change = { kind: 'group_defined', group };
       }
       // The model already knows about its own change; don't resend memory just for that.
-      const data = this.memory.contextFor(session.lastUrl);
+      const data = memory.contextFor(session.lastUrl);
       session.memoryHash = fingerprint(data);
       this.panel.send(session.id, { type: 'memory.changed', conversationId: session.id, site: siteKey(session.lastUrl), change });
       const id = change.note?.id ?? change.group?.id;

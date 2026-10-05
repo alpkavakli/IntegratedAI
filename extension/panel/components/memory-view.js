@@ -29,8 +29,26 @@ export class MemoryView extends HTMLElement {
       setChildren(this, h('div', { class: 'meta' }, 'Not connected to the agent server.'));
       return;
     }
+    // Which memory this conversation uses.
+    const mode = app.memoryMode ?? 'shared';
+    const modeSelect = /** @type {HTMLSelectElement} */ (h('select', {
+      onchange: () => app.configure({ memoryMode: modeSelect.value }),
+    },
+    h('option', { value: 'shared' }, 'Shared with this site (every conversation here)'),
+    h('option', { value: 'private' }, 'Private to this conversation'),
+    h('option', { value: 'off' }, 'Off (nothing is remembered)')));
+    modeSelect.value = mode;
+    const modeRow = h('div', { class: 'item' },
+      h('div', { class: 'row' }, h('strong', null, 'Memory for this conversation'), modeSelect),
+      h('div', { class: 'meta' }, mode === 'private'
+        ? 'This conversation keeps its own notes. They don\'t mix with the site\'s shared memory or other conversations.'
+        : mode === 'off'
+          ? 'Nothing is read or saved for this conversation.'
+          : 'Notes are shared by all conversations on this site.'));
+
     if (!memory) {
-      setChildren(this, h('div', { class: 'meta' }, 'No site memory for this page (only http(s) and file pages have one).'));
+      setChildren(this, modeRow, mode === 'off' ? null
+        : h('div', { class: 'meta' }, 'No site memory for this page (only http(s) and file pages have one).'));
       return;
     }
 
@@ -41,8 +59,9 @@ export class MemoryView extends HTMLElement {
     const groupName = (/** @type {string} */ pattern) => memory.groups.find((g) => g.pattern === pattern)?.name ?? pattern;
 
     setChildren(this,
+      modeRow,
       h('div', { class: 'item' },
-        h('div', { class: 'row' }, h('strong', null, memory.site)),
+        h('div', { class: 'row' }, h('strong', null, mode === 'private' ? `${memory.site} (private)` : memory.site)),
         h('div', { class: 'meta' }, `This page: ${memory.path}`),
         this.renderCurrentGroup(memory)),
 

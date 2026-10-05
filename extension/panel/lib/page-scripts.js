@@ -170,6 +170,12 @@ export function selectedLabel(h, selected) {
   return { label: h.label(selected), selector: h.cssPath(selected) };
 }
 
+/** The visible text of the selected element ($0), for "Copy text"; null if nothing is selected. */
+export function selectedText(h, selected) {
+  if (!(selected instanceof Element)) return null;
+  return (selected.innerText ?? selected.textContent ?? '').trim();
+}
+
 /** The small default context for the selected element ($0). */
 export function describeSelected(h, selected) {
   if (!(selected instanceof Element)) return null;

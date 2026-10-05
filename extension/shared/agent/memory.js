@@ -41,11 +41,27 @@ function newId() {
  */
 
 export class MemoryStore {
-  /** @param {MemoryBackend} backend */
-  constructor(backend) {
+  /**
+   * @param {MemoryBackend} backend
+   * @param {string} [prefix]  storage key prefix; '' = the shared site memory (see scoped())
+   */
+  constructor(backend, prefix = '') {
     this.backend = backend;
-    /** @type {Map<string, SiteMemory>} */
+    this.prefix = prefix;
+    /** @type {Map<string, SiteMemory>} keyed by storage key (prefix + site) */
     this.cache = new Map();
+  }
+
+  /**
+   * A separate memory with the same logic, stored under its own key prefix.
+   * Used for conversations with private memory ("private~<conversation id>~").
+   * @param {string} prefix
+   * @returns {MemoryStore}
+   */
+  scoped(prefix) {
+    const view = Object.create(this); // shares backend and cache; keys differ by prefix
+    view.prefix = prefix;
+    return view;
   }
 
   /**
@@ -53,10 +69,12 @@ export class MemoryStore {
    * @returns {SiteMemory}
    */
   load(site) {
-    let memory = this.cache.get(site);
+    const key = this.prefix + site;
+    let memory = this.cache.get(key);
     if (!memory) {
-      memory = this.backend.read(site) ?? { site, groups: [], notes: [] };
-      this.cache.set(site, memory);
+      // `site` in the stored record is the storage key, so save() writes to the right place.
+      memory = this.backend.read(key) ?? { site: key, groups: [], notes: [] };
+      this.cache.set(key, memory);
     }
     return memory;
   }
