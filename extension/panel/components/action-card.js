@@ -106,6 +106,23 @@ export class ActionCard extends HTMLElement {
       return h('div', null, targetLine, h('ul', { class: 'changes' }, lines.map((l) => h('li', null, l))));
     }
 
+    if (name === 'interact') {
+      const VERB = { click: 'Click', type: 'Type into', select: 'Choose in', check: 'Check', uncheck: 'Uncheck', submit: 'Submit the form of' };
+      const steps = /** @type {any[]} */ (input.steps ?? []);
+      const clicks = steps.some((s) => s.action === 'click' || s.action === 'submit');
+      return h('div', null,
+        h('ol', { class: 'changes' }, steps.map((s) => h('li', null,
+          `${VERB[s.action] ?? s.action} `,
+          s.text ? `"${s.text}"` : null,
+          s.text && s.selector ? ' in ' : null,
+          s.selector ? h('code', null, s.selector) : null,
+          s.action === 'type' || s.action === 'select' ? ` → "${String(s.value ?? '').slice(0, 120)}"` : null,
+          s.selector ? [' ', h('button', { class: 'link', type: 'button', onclick: () => this.app.highlight(s.selector) }, 'show')] : null))),
+        h('div', { class: 'note' }, clicks
+          ? 'Uses real clicks and typing, like you would. Clicks and submits cannot be undone.'
+          : 'Uses real typing and selection, like you would. Can be undone.'));
+    }
+
     if (name === 'execute_js') {
       return h('div', null,
         h('div', { class: 'warning' }, '⚠ Runs arbitrary JavaScript in this page, with access to its data and logged-in session.'),
@@ -191,6 +208,9 @@ export class ActionCard extends HTMLElement {
           ' I reviewed this code'),
         h('button', { type: 'button', class: 'primary', disabled: disabled || !this.reviewed, onclick: run(() => app.applyAction(actionId)) }, 'Run script'),
       );
+    } else if (name === 'interact') {
+      buttons.push(h('button', { type: 'button', class: 'primary', disabled, onclick: run(() => app.applyAction(actionId)) },
+        status === 'proposed' ? 'Run steps' : 'Run again'));
     } else {
       buttons.push(
         h('button', { type: 'button', disabled, onclick: run(() => (previewing ? app.stopPreview(actionId) : app.previewAction(actionId))) },

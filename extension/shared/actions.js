@@ -274,6 +274,40 @@ export const ACTIONS = {
     },
   },
 
+  interact: {
+    label: 'Interact with the page',
+    readOnly: false,
+    risk: 'medium',
+    description:
+      'Propose clicking, typing, choosing options and ticking boxes on the page, like the user would: select a radio answer, fill in a form, pick from a dropdown, press a button, submit. ' +
+      'Uses real browser events, so React/Vue/Angular/MUI apps register the change (unlike modify_element). Runs only after the user approves; no JavaScript needed. ' +
+      'Steps run in order with a short pause, and each waits up to 5 s for its element (so a dropdown can open first). Target each step by CSS selector (find it with find_elements) or by its visible text. ' +
+      'Typed values and checkbox/select changes can be undone; clicks and submits cannot.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        description: { type: 'string', description: 'One short sentence: what these steps do.' },
+        steps: {
+          type: 'array',
+          description: 'Up to 25 steps, run in order.',
+          items: {
+            type: 'object',
+            properties: {
+              action: { type: 'string', enum: ['click', 'type', 'select', 'check', 'uncheck', 'submit'], description: 'click: click the element. type: replace the text of an input/textarea/contenteditable with value. select: choose the <select> option whose value or visible text is value. check/uncheck: set a checkbox or radio. submit: submit the form containing the element.' },
+              selector: { type: 'string', description: 'CSS selector of the element.' },
+              text: { type: 'string', description: 'Or: the element\'s visible text / label (e.g. "Register", "A."). Combined with selector, searches inside matches of selector.' },
+              value: { type: 'string', description: 'Text to type, or the option to select.' },
+            },
+            required: ['action'],
+            additionalProperties: false,
+          },
+        },
+      },
+      required: ['description', 'steps'],
+      additionalProperties: false,
+    },
+  },
+
   execute_js: {
     label: 'Execute JavaScript',
     readOnly: false,
@@ -356,6 +390,13 @@ export function validateAction(name, input, settings) {
       }
       if (!/^[a-zA-Z_:][-a-zA-Z0-9_:.]*$/.test(attr.name)) errors.push(`Invalid attribute name "${attr.name}"`);
     }
+  }
+  if (name === 'interact') {
+    if (!i.steps.length || i.steps.length > 25) errors.push('interact needs 1–25 steps');
+    i.steps.forEach((/** @type {any} */ s, /** @type {number} */ n) => {
+      if (!s.selector && !s.text) errors.push(`step ${n + 1}: give a selector or text`);
+      if ((s.action === 'type' || s.action === 'select') && typeof s.value !== 'string') errors.push(`step ${n + 1}: ${s.action} needs a value`);
+    });
   }
   if (name === 'inject_css' && /<\/?style/i.test(i.css)) {
     errors.push('css must be plain CSS without <style> tags');

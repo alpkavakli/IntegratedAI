@@ -71,6 +71,21 @@ test('envelope schema accepts valid actions and rejects unknown ones', () => {
   assert.equal(validate(schema, bad).length, 1);
 });
 
+test('interact: steps need a target, type/select need a value', () => {
+  const ok = { description: 'Fill in and submit', steps: [
+    { action: 'type', selector: '#email', value: 'a@b.c' },
+    { action: 'select', selector: 'select#course', value: 'SC2005' },
+    { action: 'check', text: 'I agree' },
+    { action: 'click', text: 'Register' },
+  ] };
+  assert.deepEqual(validateAction('interact', ok), []);
+  assert.match(validateAction('interact', { description: 'd', steps: [] }).join(), /1–25 steps/);
+  assert.match(validateAction('interact', { description: 'd', steps: [{ action: 'click' }] }).join(), /selector or text/);
+  assert.match(validateAction('interact', { description: 'd', steps: [{ action: 'type', selector: '#x' }] }).join(), /needs a value/);
+  assert.match(validateAction('interact', { description: 'd', steps: [{ action: 'hover', selector: '#x' }] }).join(), /must be one of/);
+  assert.match(validateAction('interact', { description: 'd', steps: [{ action: 'click', selector: '#x', onclick: 'y' }] }).join(), /not allowed/);
+});
+
 test('find_elements and inject_css toggle', () => {
   assert.deepEqual(validateAction('find_elements', { text: 'Sign in', limit: 5 }), []);
   assert.deepEqual(validateAction('find_elements', {}), []);

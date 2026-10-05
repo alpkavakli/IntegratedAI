@@ -127,9 +127,20 @@ Defined once in [extension/shared/actions.js](extension/shared/actions.js) and v
 | `screenshot` | read: an image of an element or of the visible page, so the AI can see colours and layout (shown to you in the chat too) | — |
 | `inject_css` | **change**: add a stylesheet (preferred). Optional `toggle`: an on/off button on the page | full (removeCSS) |
 | `modify_element` | **change**: styles, attributes, classes or text of one element | full (snapshot restore) |
+| `interact` | **change**: click, type, choose options, tick boxes, submit, with real events, one step at a time | typed values, selections and checkboxes yes; clicks and submits no |
 | `execute_js` | **change**: arbitrary JS. **Off by default.** | only if the model provided `undoCode` (best effort) |
 
 Read-only inspections run automatically unless you enable *"Ask before the AI reads page details"* in Options.
+
+**Doing things on pages (`interact`).** Ask for things like *"register me for SC2005 index 10102 and submit"*, *"change the language to Türkçe and save"* or *"fill in this form with …"*.
+- The AI finds the elements and proposes one card listing every step. Nothing happens until you click **Run steps**.
+- Steps use real browser events (a pointer/mouse sequence and `click()`, plus the native value setter followed by `input`/`change`), so React, Vue, Angular and MUI apps update their state. Setting attributes with `modify_element` doesn't do that.
+- Each step waits up to 5 s for its element, so menus that open after a click work.
+- A step can target an element by CSS selector or by its visible text.
+- If a step fails, the card says which steps already ran.
+- No JavaScript setting is needed.
+
+The system prompt tells the AI who it works for: the browser's owner, who approves every change, so everyday tasks on their own accounts are normal requests.
 
 **Screenshots.** The panel captures the inspected tab (`chrome.tabs.captureVisibleTab`) and crops it to the element. An off-screen element is scrolled into view first, and the page is scrolled back afterwards. The image is resized to at most 1280 px and sent as a JPEG, and a thumbnail appears in the chat ("📷 The AI looked at …"; click it to enlarge).
 - **Check it:** an applied or saved change has a **Check it** button. It asks the AI to screenshot the result and propose fixes for anything that still looks wrong, such as areas a dark theme missed or unreadable text.
@@ -305,7 +316,7 @@ Then add the class to `PROVIDERS` in [registry.js](server/src/providers/registry
 npm test
 ```
 
-72 unit tests cover:
+73 unit tests cover:
 - action validation and safety rules
 - auth (Origin, Host, token) and patch scopes
 - CLI argument building and output parsing, including session resume, cost differences, recovery from a lost session, decoding the streamed reply, enabling only the web tools and our MCP page tools, and the one-time correction when a model calls page actions as tools
