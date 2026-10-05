@@ -8,7 +8,7 @@
  *
  * Inside, it runs the same orchestrator, memory and request handling as the
  * server (../../shared/agent/), with:
- *   - the Anthropic API provider, using the vendored official SDK and the user's own API key
+ *   - the user's own API keys: Anthropic (vendored official SDK), OpenAI, Gemini, OpenRouter
  *   - conversations in IndexedDB and site memory in chrome.storage.local (./stores.js)
  *
  * Not available in direct mode (they need the local server): the Claude Code
@@ -19,30 +19,41 @@ import { MemoryStore } from '../../shared/agent/memory.js';
 import { Orchestrator } from '../../shared/agent/orchestrator.js';
 import { createRequestHandler } from '../../shared/agent/requests.js';
 import { AnthropicProvider } from '../../shared/providers/anthropic.js';
+import { PRESETS, openAICompatibleProvider } from '../../shared/providers/openai-compatible.js';
 import { IdbSessionStore, loadMemoryBackend, openDb } from './stores.js';
 
 const TOOL_TIMEOUT_MS = 120_000;
+
+/** Provider classes available in direct mode (Anthropic via the official SDK; the rest via the OpenAI-compatible API). */
+export const DIRECT_PROVIDERS = [
+  AnthropicProvider,
+  openAICompatibleProvider('openai'),
+  openAICompatibleProvider('gemini'),
+  openAICompatibleProvider('openrouter'),
+];
 
 /**
  * Settings → the config shape the shared code expects (like the server's config.json).
  * @param {import('../lib/settings.js').Settings} settings
  */
 export function directConfig(settings) {
-  return {
-    maxStepsPerTurn: 8,
-    providers: {
-      anthropic: {
-        apiKey: settings.anthropicApiKey,
-        model: settings.directModel || 'claude-opus-5-5',
-        effort: 'medium',
-        maxTokens: 32000,
-        fallbacks: true,
-      },
+  /** @type {Record<string, any>} */
+  const providers = {
+    anthropic: {
+      apiKey: settings.anthropicApiKey,
+      model: settings.directModel || 'claude-opus-5-5',
+      effort: 'medium',
+      maxTokens: 32000,
+      fallbacks: true,
     },
   };
+  for (const id of Object.keys(PRESETS)) {
+    providers[id] = { apiKey: settings.providerKeys?.[id] ?? '', model: settings.providerModels?.[id] ?? '' };
+  }
+  return { maxStepsPerTurn: 8, preferredProvider: settings.directProvider || 'anthropic', providers };
 }
 
-/** The providers available in direct mode (only the Anthropic API for now). */
+/** The providers available in direct mode, each usable once its key is set in Options. */
 export class DirectRegistry {
   /** @param {ReturnType<typeof directConfig>} config */
   constructor(config) {
@@ -51,40 +62,52 @@ export class DirectRegistry {
 
   /** @param {string} id */
   get(id) {
-    return id === AnthropicProvider.id ? AnthropicProvider : undefined;
+    return DIRECT_PROVIDERS.find((P) => P.id === id);
   }
 
   /** @param {string} id */
   async isAvailable(id) {
-    if (id !== AnthropicProvider.id) return { available: false, reason: 'Only the Anthropic API is available in direct mode.' };
-    return this.config.providers.anthropic.apiKey
-      ? { available: true }
-      : { available: false, reason: 'Add your Anthropic API key in Options.' };
+    const P = this.get(id);
+    if (!P) return { available: false, reason: `"${id}" needs the local agent server (Options → Connection).` };
+    if (P === AnthropicProvider) {
+      return this.config.providers.anthropic.apiKey
+        ? { available: true }
+        : { available: false, reason: 'Add your Anthropic API key in Options.' };
+    }
+    return P.checkAvailability(this.config);
   }
 
+  /** The provider chosen in Options if it has a key, otherwise the first one that has a key. */
   async pickDefault() {
-    return AnthropicProvider.id;
+    if ((await this.isAvailable(this.config.preferredProvider)).available) return this.config.preferredProvider;
+    for (const P of DIRECT_PROVIDERS) {
+      if ((await this.isAvailable(P.id)).available) return P.id;
+    }
+    return this.config.preferredProvider;
   }
 
   /** @param {string} id */
   create(id) {
-    if (id !== AnthropicProvider.id) throw new Error(`Provider "${id}" needs the local agent server`);
-    return new AnthropicProvider(this.config, {
-      browser: true,
-      loadSdk: () => import('../../vendor/anthropic-sdk.mjs'),
-    });
+    const P = this.get(id);
+    if (!P) throw new Error(`Provider "${id}" needs the local agent server`);
+    if (P === AnthropicProvider) {
+      return new AnthropicProvider(this.config, { browser: true, loadSdk: () => import('../../vendor/anthropic-sdk.mjs') });
+    }
+    return new P(this.config);
   }
 
   async list() {
-    const { available, reason } = await this.isAvailable(AnthropicProvider.id);
-    return [{
-      id: AnthropicProvider.id,
-      label: 'Anthropic API (direct)',
-      available,
-      reason,
-      models: AnthropicProvider.models,
-      defaultModel: this.config.providers.anthropic.model,
-    }];
+    return Promise.all(DIRECT_PROVIDERS.map(async (P) => {
+      const { available, reason } = await this.isAvailable(P.id);
+      return {
+        id: P.id,
+        label: P === AnthropicProvider ? 'Anthropic API (direct)' : P.label,
+        available,
+        reason,
+        models: P.models,
+        defaultModel: P.defaultModel(this.config),
+      };
+    }));
   }
 }
 
@@ -107,8 +130,8 @@ export class DirectClient extends EventTarget {
 
   async connect() {
     const settings = await this.getSettings();
-    if (!settings.anthropicApiKey) {
-      this.setStatus('unauthorized', 'Direct mode needs your Anthropic API key. Add it in Options.');
+    if (!settings.anthropicApiKey && !Object.values(settings.providerKeys ?? {}).some(Boolean)) {
+      this.setStatus('unauthorized', 'Direct mode needs an API key (Anthropic, OpenAI, Gemini or OpenRouter). Add one in Options.');
       return;
     }
     this.setStatus('connecting');

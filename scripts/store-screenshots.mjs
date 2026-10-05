@@ -242,6 +242,15 @@ const SCENARIOS = {
   },
 };
 
+// Small promo tile (440×280) from store/promo-tile.html; no AI involved.
+SCENARIOS['promo-tile'] = async () => {
+  const tile = await attach(pathToFileURL(join(root, 'store', 'promo-tile.html')).href);
+  await viewport(tile.session, 440, 280);
+  await sleep(800);
+  await capture(tile, join(OUT, 'promo-tile-440x280.png'));
+  log('saved store/screenshots/promo-tile-440x280.png');
+};
+
 const wanted = process.argv.slice(2);
 const failures = [];
 try {

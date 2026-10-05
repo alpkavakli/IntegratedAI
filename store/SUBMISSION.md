@@ -26,8 +26,10 @@ AI panel in Chrome DevTools: explains layout and console errors, previews CSS fi
 > - **Does things for you:** fills in forms, chooses options and clicks through flows with real browser events.
 > - **Remembers each site:** key selectors and your preferences, so the next conversation starts informed.
 > - **Explains console errors** and jumps to the source.
-> - **Your key, your data:** paste your Anthropic API key and go. It talks straight to the Anthropic API;
->   conversations and site memory stay in your browser. No account with us, no tracking.
+> - **Your key, your choice:** paste an API key for Anthropic (Claude), OpenAI, Google Gemini or OpenRouter and go.
+>   It talks straight to that provider; conversations and site memory stay in your browser. No account with us,
+>   no tracking.
+> - **Separate memories:** keep a conversation's notes private to it, or share them across the site.
 >
 > Developers can instead run the free local agent server to use a Claude subscription through Claude Code
 > and move CSS into their own project ("Apply to source"): https://github.com/alpkavakli/IntegratedAI
@@ -43,7 +45,8 @@ They come from real use of the extension on original demo pages (`store/demo-pag
 changes with `node scripts/store-screenshots.mjs` (needs Chrome and a logged-in Claude Code; makes a few real
 AI calls), or a single one with e.g. `node scripts/store-screenshots.mjs 03-forms`.
 
-**Still to make:** small promo tile 440×280 (optional). The 128×128 icon is `extension/icons/icon128.png`.
+**Small promo tile (440×280):** `store/screenshots/promo-tile-440x280.png` (from `store/promo-tile.html`, regenerate with
+`node scripts/store-screenshots.mjs promo-tile`). The 128×128 icon is `extension/icons/icon128.png`.
 
 ## Privacy practices tab
 
@@ -64,10 +67,10 @@ AI calls), or a single one with e.g. `node scripts/store-screenshots.mjs 03-form
 | Remote code | **No.** All code is in the package. The AI's suggestions are data; optional user-approved scripts run via DevTools' `inspectedWindow.eval`, never fetched from a server. |
 
 **Data usage disclosures** (check these in the form):
-- Website content: **yes**, only on pages the user inspects, sent to the Anthropic API with the user's own key
-  (direct mode) or to the user's local server and their chosen AI provider.
-- Authentication info: the user's own Anthropic API key is stored locally and sent only to api.anthropic.com
-  to authenticate their requests (declare it if the form asks; it is never sent to the developer).
+- Website content: **yes**, only on pages the user inspects, sent to the AI provider the user chose (Anthropic,
+  OpenAI, Google or OpenRouter) with the user's own key (direct mode), or to the user's local server.
+- Authentication info: the user's own API keys are stored locally and each is sent only to its own provider
+  to authenticate their requests (declare it if the form asks; never sent to the developer).
 - Web history, personally identifiable info, authentication info, financial/health data, personal communications,
   location, user activity: **no** (not collected; sensitive headers are removed before anything is sent).
 - Certify: not sold to third parties; not used for unrelated purposes; not used for creditworthiness/lending.

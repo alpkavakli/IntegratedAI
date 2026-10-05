@@ -44,6 +44,33 @@
 
     <div id="direct-section">
       <div class="field">
+        <label for="directProvider">AI provider</label>
+        <select id="directProvider">
+          <option value="anthropic">Anthropic (Claude)</option>
+          <option value="openai">OpenAI</option>
+          <option value="gemini">Google Gemini</option>
+          <option value="openrouter">OpenRouter (many models, one key)</option>
+        </select>
+        <div class="hint">New conversations use this provider. You can add keys for several and switch per conversation in the panel.</div>
+      </div>
+
+      <div id="compat-fields" hidden>
+        <div class="field">
+          <label for="compatKey"><span id="compat-label">Provider</span> API key</label>
+          <input type="password" id="compatKey" spellcheck="false" autocomplete="off">
+          <div class="hint">Create one at <a id="compat-key-link" target="_blank" rel="noopener"></a>.
+            It stays in this browser and is only sent to <span id="compat-host"></span>.</div>
+        </div>
+        <div class="field">
+          <label for="compatModel">Model</label>
+          <input type="text" id="compatModel" list="compatModels" spellcheck="false" autocomplete="off">
+          <datalist id="compatModels"></datalist>
+          <div class="hint">Any model id from this provider. "Test key" loads the list of models your key can use.</div>
+        </div>
+      </div>
+
+      <div id="anthropic-fields">
+      <div class="field">
         <label for="anthropicApiKey">Anthropic API key</label>
         <input type="password" id="anthropicApiKey" spellcheck="false" autocomplete="off" placeholder="sk-ant-…">
         <div class="hint">Create one at <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>.
@@ -57,6 +84,7 @@
           <option value="claude-haiku-4-5">Claude Haiku 4.5 (fastest, cheapest)</option>
           <option value="claude-fable-5-1">Claude Fable 5.1 (most capable, most expensive)</option>
         </select>
+      </div>
       </div>
       <button type="button" id="test-key">Test key</button><span id="test-key-result"></span>
     </div>

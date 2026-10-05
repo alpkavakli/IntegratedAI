@@ -16,8 +16,14 @@ export const DEFAULT_SETTINGS = {
   mode: '',
   /** Direct mode: the user's Anthropic API key (stays in this browser; sent only to api.anthropic.com). */
   anthropicApiKey: '',
-  /** Direct mode: model to use. */
+  /** Direct mode: Anthropic model to use. */
   directModel: 'claude-opus-5-5',
+  /** Direct mode: which provider new conversations use ('anthropic', 'openai', 'gemini', 'openrouter'). */
+  directProvider: 'anthropic',
+  /** Direct mode: API keys for the other providers (stay in this browser; each is sent only to its provider). */
+  providerKeys: { openai: '', gemini: '', openrouter: '' },
+  /** Direct mode: model per provider ('' = the provider's first suggestion). */
+  providerModels: { openai: '', gemini: '', openrouter: '' },
   serverUrl: `ws://127.0.0.1:${DEFAULT_PORT}/ws`,
   token: '',
   /** Allow the model to propose arbitrary JavaScript (each run still needs approval). */
@@ -39,6 +45,8 @@ export async function loadSettings() {
     ...DEFAULT_SETTINGS,
     ...settings,
     contextDefaults: { ...DEFAULT_SETTINGS.contextDefaults, ...settings?.contextDefaults },
+    providerKeys: { ...DEFAULT_SETTINGS.providerKeys, ...settings?.providerKeys },
+    providerModels: { ...DEFAULT_SETTINGS.providerModels, ...settings?.providerModels },
   };
   if (!merged.mode) merged.mode = merged.token ? 'server' : 'direct';
   return merged;

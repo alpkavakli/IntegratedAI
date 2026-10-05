@@ -3,6 +3,7 @@
 
 import { PROTOCOL_VERSION } from '../shared/protocol.js';
 import { loadSettings, saveSettings } from '../panel/lib/settings.js';
+import { PRESETS, httpError } from '../shared/providers/openai-compatible.js';
 
 const $ = (/** @type {string} */ id) => /** @type {HTMLInputElement} */ (document.getElementById(id));
 
@@ -39,17 +40,64 @@ for (const id of ['mode-direct', 'mode-server']) {
 $('anthropicApiKey').addEventListener('change', () => saveSettings({ anthropicApiKey: $('anthropicApiKey').value.trim() }));
 $('directModel').addEventListener('change', () => saveSettings({ directModel: $('directModel').value }));
 
-// Check the key with the official SDK (vendored): fetching the model's details costs nothing.
+// ── Which direct-mode provider; key and model fields for it
+/** Show the fields for one provider (Anthropic has its own; the others share one set). @param {string} provider */
+const showProvider = (provider) => {
+  $('directProvider').value = provider;
+  /** @type {HTMLElement} */ ($('anthropic-fields')).hidden = provider !== 'anthropic';
+  /** @type {HTMLElement} */ ($('compat-fields')).hidden = provider === 'anthropic';
+  $('test-key-result').textContent = '';
+  const preset = PRESETS[provider];
+  if (!preset) return;
+  $('compat-label').textContent = preset.label;
+  /** @type {HTMLAnchorElement} */ ($('compat-key-link')).href = preset.keyUrl;
+  $('compat-key-link').textContent = new URL(preset.keyUrl).host;
+  $('compat-host').textContent = new URL(preset.baseUrl).host;
+  $('compatKey').value = settings.providerKeys[provider] ?? '';
+  $('compatModel').value = settings.providerModels[provider] || preset.models[0];
+  $('compatModels').replaceChildren(...preset.models.map((m) => new Option(m, m)));
+};
+showProvider(settings.directProvider);
+$('directProvider').addEventListener('change', async () => {
+  settings.directProvider = $('directProvider').value;
+  await saveSettings({ directProvider: settings.directProvider });
+  showProvider(settings.directProvider);
+});
+$('compatKey').addEventListener('change', async () => {
+  settings.providerKeys = { ...settings.providerKeys, [settings.directProvider]: $('compatKey').value.trim() };
+  await saveSettings({ providerKeys: settings.providerKeys });
+});
+$('compatModel').addEventListener('change', async () => {
+  settings.providerModels = { ...settings.providerModels, [settings.directProvider]: $('compatModel').value.trim() };
+  await saveSettings({ providerModels: settings.providerModels });
+});
+
+// Check the key. Anthropic: the official SDK (vendored) fetches the model's details.
+// Others: list the models the key can use (costs nothing) and check the chosen one is there.
 $('test-key').addEventListener('click', async () => {
   const result = $('test-key-result');
   result.className = '';
   result.textContent = 'Checking…';
+  const provider = $('directProvider').value;
   try {
-    const { default: Anthropic } = await import('../vendor/anthropic-sdk.mjs');
-    const client = new Anthropic({ apiKey: $('anthropicApiKey').value.trim(), dangerouslyAllowBrowser: true, maxRetries: 0 });
-    const model = await client.models.retrieve($('directModel').value);
-    result.className = 'ok';
-    result.textContent = `Key works ✔ (${model.display_name})`;
+    if (provider === 'anthropic') {
+      const { default: Anthropic } = await import('../vendor/anthropic-sdk.mjs');
+      const client = new Anthropic({ apiKey: $('anthropicApiKey').value.trim(), dangerouslyAllowBrowser: true, maxRetries: 0 });
+      const model = await client.models.retrieve($('directModel').value);
+      result.className = 'ok';
+      result.textContent = `Key works ✔ (${model.display_name})`;
+      return;
+    }
+    const preset = PRESETS[provider];
+    const res = await fetch(`${preset.baseUrl}/models`, { headers: { authorization: `Bearer ${$('compatKey').value.trim()}`, ...preset.headers } });
+    if (!res.ok) throw httpError(preset.label, res.status, await res.text());
+    const ids = ((await res.json()).data ?? []).map((/** @type {any} */ m) => String(m.id).replace(/^models\//, '')).sort();
+    $('compatModels').replaceChildren(...ids.map((id) => new Option(id, id)));
+    const chosen = $('compatModel').value.trim();
+    result.className = ids.includes(chosen) ? 'ok' : 'bad';
+    result.textContent = ids.includes(chosen)
+      ? `Key works ✔ (${ids.length} models available)`
+      : `Key works, but "${chosen}" isn't one of your ${ids.length} models. Pick one from the Model list.`;
   } catch (err) {
     const e = /** @type {any} */ (err);
     result.className = 'bad';

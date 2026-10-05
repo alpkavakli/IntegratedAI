@@ -30,12 +30,16 @@ Choose in **Options → Connection**:
 
 | | **Direct** (default for new installs) | **Local agent server** |
 |---|---|---|
-| Setup | Paste an [Anthropic API key](https://console.anthropic.com/settings/keys). Nothing to install. | Node.js 20+ and [Claude Code](https://code.claude.com), then `npm start` (below) |
-| Pays with | Your Anthropic API account | Your Claude subscription (via Claude Code), or an API key |
+| Setup | Paste an API key for Anthropic, OpenAI, Google Gemini or OpenRouter. Nothing to install. | Node.js 20+ and [Claude Code](https://code.claude.com), then `npm start` (below) |
+| Pays with | Your account with that provider | Your Claude subscription (via Claude Code), or an API key |
 | Where conversations and memory live | In the browser (IndexedDB, extension storage) | `~/.integratedai/` on your computer |
 | Extras | — | "Apply to source"; page tools as real Claude Code tools |
 
-Both use the **same agent code** (`extension/shared/agent/`: orchestrator, prompts, memory, request handling). In direct mode it runs inside the extension with a vendored build of the official Anthropic SDK (`extension/vendor/`, regenerate with `npm run vendor:sdk`).
+Both use the **same agent code** (`extension/shared/agent/`: orchestrator, prompts, memory, request handling). In direct mode it runs inside the extension: Anthropic through a vendored build of the official SDK (`extension/vendor/`, regenerate with `npm run vendor:sdk`); OpenAI, Gemini and OpenRouter through their OpenAI-compatible Chat Completions API (`extension/shared/providers/openai-compatible.js`; another compatible service is one more preset there).
+
+**Separate memories:** each conversation uses the site's shared memory (default), a private memory of its own, or none: choose in the Memory tab or from the empty chat.
+
+**Copy text:** the button next to the context chips copies the selected element's text to the clipboard. The extension does this itself; no AI is involved.
 
 The rest of this section sets up the local server.
 
@@ -357,7 +361,7 @@ Then add the class to `PROVIDERS` in [registry.js](server/src/providers/registry
 npm test
 ```
 
-88 unit tests cover:
+95 unit tests cover:
 - action validation and safety rules
 - auth (Origin, Host, token) and patch scopes
 - CLI argument building and output parsing, including session resume, cost differences, recovery from a lost session, decoding the streamed reply, enabling only the web tools and our MCP page tools, and the one-time correction when a model calls page actions as tools

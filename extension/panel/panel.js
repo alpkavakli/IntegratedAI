@@ -78,6 +78,9 @@ export class App {
       }
       const reconnect = s.mode === 'direct'
         ? s.anthropicApiKey !== this.settings.anthropicApiKey || s.directModel !== this.settings.directModel
+          || s.directProvider !== this.settings.directProvider
+          || JSON.stringify(s.providerKeys) !== JSON.stringify(this.settings.providerKeys)
+          || JSON.stringify(s.providerModels) !== JSON.stringify(this.settings.providerModels)
         : s.token !== this.settings.token || s.serverUrl !== this.settings.serverUrl;
       this.settings = s;
       this.chat.refreshCards();
