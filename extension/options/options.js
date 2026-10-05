@@ -89,7 +89,12 @@ $('test-key').addEventListener('click', async () => {
       return;
     }
     const preset = PRESETS[provider];
-    const res = await fetch(`${preset.baseUrl}/models`, { headers: { authorization: `Bearer ${$('compatKey').value.trim()}`, ...preset.headers } });
+    const auth = { authorization: `Bearer ${$('compatKey').value.trim()}`, ...preset.headers };
+    if (preset.keyCheckUrl) {
+      const check = await fetch(preset.keyCheckUrl, { headers: auth });
+      if (!check.ok) throw httpError(preset.label, check.status, await check.text());
+    }
+    const res = await fetch(`${preset.baseUrl}/models`, { headers: auth });
     if (!res.ok) throw httpError(preset.label, res.status, await res.text());
     const ids = ((await res.json()).data ?? []).map((/** @type {any} */ m) => String(m.id).replace(/^models\//, '')).sort();
     $('compatModels').replaceChildren(...ids.map((id) => new Option(id, id)));
@@ -101,9 +106,10 @@ $('test-key').addEventListener('click', async () => {
   } catch (err) {
     const e = /** @type {any} */ (err);
     result.className = 'bad';
+    // The SDK's errors carry a status; httpError() messages already say what to do.
     result.textContent = e?.status === 401 ? 'This key was not accepted. Check that you copied all of it.'
       : e?.status === 404 ? 'The key works, but this model is not available to your account. Pick another.'
-        : `Could not check the key: ${e?.message ?? e}`;
+        : String(e?.message ?? e);
   }
 });
 

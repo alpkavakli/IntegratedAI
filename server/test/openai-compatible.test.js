@@ -100,6 +100,9 @@ test('HTTP errors become readable messages', async () => {
   assert.match(httpError('OpenAI', 401, '{"error":{"message":"bad key"}}').message, /key was not accepted/);
   assert.match(httpError('OpenRouter', 402, '').message, /out of credits/);
   assert.match(httpError('Google Gemini', 404, '').message, /not available/);
+  // Real responses for a bad key (2026-10-05).
+  assert.match(httpError('Google Gemini', 400, '[{"error":{"code":400,"message":"Please pass a valid API key","status":"INVALID_ARGUMENT"}}]').message, /key was not accepted/);
+  assert.match(httpError('OpenRouter', 401, '{"error":{"message":"User not found.","code":401}}').message, /key was not accepted/);
   assert.match(httpError('OpenAI', 400, '{"error":{"message":"Invalid schema"}}').message, /400: Invalid schema/);
   const OpenRouter = openAICompatibleProvider('openrouter');
   const provider = new OpenRouter({ providers: { openrouter: { apiKey: 'x', model: 'm' } } }, { fetch: async () => sseResponse('{"error":{"message":"nope"}}', 401) });

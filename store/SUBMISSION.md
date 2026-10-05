@@ -59,7 +59,7 @@ AI calls), or a single one with e.g. `node scripts/store-screenshots.mjs 03-form
 
 | Permission | Justification |
 |---|---|
-| `storage` | Saves the user's settings, pairing token and CSS patches locally, and per-tab conversation/undo state. |
+| `storage` | Saves the user's settings, API keys or pairing token, and CSS patches locally, and per-tab conversation/undo state. In direct mode also the site memory notes (conversations are kept in the extension's IndexedDB). |
 | `scripting` | Inserts and removes the CSS changes the user approved (`insertCSS` / `removeCSS`), including saved per-site patches. |
 | `webNavigation` | Detects when a page the user saved a patch for starts loading, to reapply that patch. |
 | Host permission `<all_urls>` | The tool works on whatever page the user is inspecting in DevTools, so it must be able to read that page (on request), capture its console errors, take screenshots, and apply approved CSS on any site. |
@@ -75,8 +75,8 @@ AI calls), or a single one with e.g. `node scripts/store-screenshots.mjs 03-form
   location, user activity: **no** (not collected; sensitive headers are removed before anything is sent).
 - Certify: not sold to third parties; not used for unrelated purposes; not used for creditworthiness/lending.
 
-**Privacy policy URL:** publish `store/PRIVACY.md` (for example as a GitHub Pages page or the file's GitHub URL)
-and paste the link.
+**Privacy policy URL:** https://alpkavakli.github.io/IntegratedAI/privacy.html
+(GitHub Pages from `/docs` on `main`; rebuild with `npm run site` after changing `store/PRIVACY.md`, then push.)
 
 ## Before each release
 

@@ -23,6 +23,7 @@ import { newCallId, renderBlockAsText } from './common.js';
  * @property {string[]} models        suggestions; the user can type any model id (Options → Test key lists real ones)
  * @property {string} keyUrl          where to create a key
  * @property {boolean} includeUsage   send stream_options.include_usage (not every endpoint accepts it)
+ * @property {string} [keyCheckUrl]   where Test key checks the key, when the model list doesn't need one
  * @property {Record<string, string>} [headers]
  */
 
@@ -48,6 +49,8 @@ export const PRESETS = {
     models: ['anthropic/claude-sonnet-5.5', 'openai/gpt-6.1-sol', 'google/gemini-3.8-flash'],
     keyUrl: 'https://openrouter.ai/keys',
     includeUsage: true,
+    // OpenRouter's model list is public, so it can't tell a good key from a bad one.
+    keyCheckUrl: 'https://openrouter.ai/api/v1/key',
     // OpenRouter's optional app attribution.
     headers: { 'HTTP-Referer': 'https://github.com/alpkavakli/IntegratedAI', 'X-Title': 'IntegratedAI DevTools' },
   },
@@ -245,7 +248,10 @@ export function httpError(label, status, text) {
     const body = JSON.parse(text);
     detail = String((Array.isArray(body) ? body[0] : body)?.error?.message ?? '');
   } catch { detail = text.slice(0, 200); }
-  if (status === 401 || status === 403) return new Error(`The ${label} API key was not accepted. Check it in Options.`);
+  // Gemini answers a bad key with 400 "API key not valid" / "Please pass a valid API key".
+  if (status === 401 || status === 403 || (status === 400 && /api key/i.test(detail))) {
+    return new Error(`The ${label} API key was not accepted. Check it in Options.`);
+  }
   if (status === 404) return new Error(`This model is not available on ${label}. Pick another in Options (Test key lists them).`);
   if (status === 402) return new Error(`Your ${label} account is out of credits.`);
   if (status === 429) return new Error(`${label} rate limit or quota reached. Wait a moment and try again.`);
