@@ -15,7 +15,7 @@ import { WebSocketServer } from 'ws';
 import { checkUpgrade } from './auth.js';
 import { loadConfig } from './config.js';
 import { Connection, PanelHub } from './connection.js';
-import { Orchestrator } from './agent/orchestrator.js';
+import { Orchestrator } from '../../extension/shared/agent/orchestrator.js';
 import { PageTools } from './agent/page-tools.js';
 import { handleMcpRequest } from './mcp.js';
 import { ProviderRegistry } from './providers/registry.js';

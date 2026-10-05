@@ -7,14 +7,15 @@
  * flatten a whole message, including tool calls and results.
  */
 
-import { randomBytes } from 'node:crypto';
 
-/** @typedef {import('../../../extension/shared/protocol.js').NeutralMessage} NeutralMessage */
-/** @typedef {import('../../../extension/shared/protocol.js').ContentBlock} ContentBlock */
+/** @typedef {import('../protocol.js').NeutralMessage} NeutralMessage */
+/** @typedef {import('../protocol.js').ContentBlock} ContentBlock */
 
 /** Tool call ids look like "call_3f9a1c2b4d5e" (valid for every provider's id rules). */
 export function newCallId() {
-  return `call_${randomBytes(8).toString('hex')}`;
+  // Web Crypto works in Node 20+ and in the extension alike.
+  const bytes = crypto.getRandomValues(new Uint8Array(8));
+  return `call_${[...bytes].map((b) => b.toString(16).padStart(2, '0')).join('')}`;
 }
 
 /**

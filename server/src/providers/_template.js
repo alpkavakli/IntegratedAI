@@ -23,8 +23,8 @@
  */
 
 import { ACTIONS } from '../../../extension/shared/actions.js';
-import { Provider } from './base.js';
-import { renderContext } from './common.js';
+import { Provider } from '../../../extension/shared/providers/base.js';
+import { renderContext } from '../../../extension/shared/providers/common.js';
 
 export class ExampleProvider extends Provider {
   static id = 'example';

@@ -3,7 +3,7 @@
  * List of available providers. To add one, import its class and add it to PROVIDERS.
  */
 
-import { AnthropicProvider } from './anthropic.js';
+import { AnthropicProvider } from '../../../extension/shared/providers/anthropic.js';
 import { ClaudeCliProvider } from './claude-cli.js';
 
 /** @typedef {typeof import('./base.js').Provider} ProviderClass */

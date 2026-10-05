@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Orchestrator } from '../src/agent/orchestrator.js';
-import { Provider } from '../src/providers/base.js';
+import { Orchestrator } from '../../extension/shared/agent/orchestrator.js';
+import { Provider } from '../../extension/shared/providers/base.js';
 import { ProviderRegistry } from '../src/providers/registry.js';
 import { SessionStore } from '../src/sessions/store.js';
 import { testConfig } from './helpers.js';

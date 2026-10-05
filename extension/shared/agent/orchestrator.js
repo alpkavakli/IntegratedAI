@@ -18,20 +18,35 @@
  * decision" right away and later decisions are reported in an <action_updates> note.
  */
 
-import { ACTION_STATUS } from '../../../extension/shared/protocol.js';
-import { enabledActionNames, isReadOnly, isServerSide, validateAction } from '../../../extension/shared/actions.js';
-import { siteKey } from '../../../extension/shared/page-groups.js';
-import { createHash } from 'node:crypto';
-import { forPanel, snapshot } from '../sessions/store.js';
+import { ACTION_STATUS } from '../protocol.js';
+import { enabledActionNames, isReadOnly, isServerSide, validateAction } from '../actions.js';
+import { siteKey } from '../page-groups.js';
+import { formatResult } from './format-result.js';
+import { fingerprint, forPanel, snapshot } from './session-model.js';
 import { buildSystemPrompt } from './system-prompt.js';
-import { formatResult } from './page-tools.js';
 
-/** @typedef {import('../sessions/store.js').Session} Session */
-/** @typedef {import('../sessions/store.js').SessionStore} SessionStore */
-/** @typedef {import('../providers/registry.js').ProviderRegistry} ProviderRegistry */
-/** @typedef {import('../../../extension/shared/protocol.js').NeutralMessage} NeutralMessage */
-/** @typedef {import('../../../extension/shared/protocol.js').ContentBlock} ContentBlock */
-/** @typedef {import('../../../extension/shared/protocol.js').Usage} Usage */
+/** @typedef {import('./session-model.js').Session} Session */
+/** @typedef {import('../protocol.js').NeutralMessage} NeutralMessage */
+/** @typedef {import('../protocol.js').ContentBlock} ContentBlock */
+/** @typedef {import('../protocol.js').Usage} Usage */
+
+/**
+ * Where conversations are stored. Files on the agent server (server/src/sessions/store.js),
+ * IndexedDB in the extension's direct mode (panel/direct/stores.js).
+ * @typedef {object} SessionStore
+ * @property {(id: string) => Promise<Session | null>} get
+ * @property {(init: { url?: string, title?: string, provider: string, model: string }) => Session} create
+ * @property {(session: Session) => void} save
+ */
+
+/**
+ * The available AI providers (server: providers/registry.js; direct mode: panel/direct/).
+ * @typedef {object} ProviderRegistry
+ * @property {(id: string) => any} get
+ * @property {(id: string) => Promise<{ available: boolean, reason?: string }>} isAvailable
+ * @property {() => Promise<string>} pickDefault
+ * @property {(id: string) => import('../providers/base.js').Provider} create
+ */
 
 /**
  * How the orchestrator talks to the DevTools panel showing a conversation.
@@ -59,8 +74,8 @@ const STATUS_TEXT = {
 
 export class Orchestrator {
   /**
-   * @param {{ store: SessionStore, registry: ProviderRegistry, config: import('../config.js').Config, panel: PanelLink,
-   *   memory?: import('../memory/store.js').MemoryStore, pageTools?: import('./page-tools.js').PageTools }} deps
+   * @param {{ store: SessionStore, registry: ProviderRegistry, config: { maxStepsPerTurn: number } & Record<string, any>, panel: PanelLink,
+   *   memory?: import('./memory.js').MemoryStore, pageTools?: any }} deps
    *   pageTools: offers inspections as real tools to providers that support it (Claude Code via MCP)
    */
   constructor({ store, registry, config, panel, memory, pageTools }) {
@@ -420,7 +435,7 @@ export class Orchestrator {
     if (!this.memory || !session.lastUrl) return null;
     const data = this.memory.contextFor(session.lastUrl);
     if (!data) return null;
-    const hash = createHash('sha256').update(JSON.stringify(data)).digest('hex').slice(0, 16);
+    const hash = fingerprint(data);
     if (hash === session.memoryHash) return null;
     session.memoryHash = hash;
     return data;
@@ -449,7 +464,7 @@ export class Orchestrator {
       }
       // The model already knows about its own change; don't resend memory just for that.
       const data = this.memory.contextFor(session.lastUrl);
-      session.memoryHash = createHash('sha256').update(JSON.stringify(data)).digest('hex').slice(0, 16);
+      session.memoryHash = fingerprint(data);
       this.panel.send(session.id, { type: 'memory.changed', conversationId: session.id, site: siteKey(session.lastUrl), change });
       const id = change.note?.id ?? change.group?.id;
       return { content: `Saved (${change.kind.replace('_', ' ')}, id ${id}).` };
@@ -475,7 +490,7 @@ export class Orchestrator {
   }
 }
 
-/** @param {import('../sessions/store.js').StoredAction} action */
+/** @param {import('./session-model.js').StoredAction} action */
 function describeAction(action) {
   let text = STATUS_TEXT[action.status] ?? action.status;
   if (action.detail) text += ` Details: ${action.detail}`;

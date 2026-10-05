@@ -11,41 +11,13 @@
  * The server just stores conversations by id.
  */
 
-import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from 'node:fs';
 import { readFile, writeFile, rename } from 'node:fs/promises';
 import { join } from 'node:path';
+import { indexEntry, isSessionId, newSession } from '../../../extension/shared/agent/session-model.js';
 
-/** @typedef {import('../../../extension/shared/protocol.js').NeutralMessage} NeutralMessage */
-/** @typedef {import('../../../extension/shared/protocol.js').ActionRecord} ActionRecord */
-/** @typedef {import('../../../extension/shared/protocol.js').Usage} Usage */
-
-/**
- * @typedef {ActionRecord & { reportedStatus?: string }} StoredAction
- *   reportedStatus = the last status we told the model about (so status changes get reported once)
- *
- * @typedef {object} Session
- * @property {string} id
- * @property {number} createdAt
- * @property {number} updatedAt
- * @property {string} title
- * @property {string} url             URL of the page when the conversation started
- * @property {string} provider
- * @property {string} model
- * @property {NeutralMessage[]} messages
- * @property {Record<string, StoredAction>} actions   keyed by tool call id
- * @property {string[]} openToolCalls  tool calls that still need a tool_result in the next user message
- * @property {Record<string, any>} providerState     per-provider memory, e.g. Claude CLI session id
- * @property {Usage} usage
- * @property {string} [site]          site key of the latest page (e.g. "webnovel.com")
- * @property {string} [groupPattern]  page group pattern of the latest page
- * @property {string} [lastUrl]       latest page URL
- * @property {boolean} [titleFromUser] title was taken from the first message
- * @property {string} [memoryHash]    hash of the site memory last sent to the model
- * @property {Record<string, { content: string, isError?: boolean }>} [pendingResults]
- *   results of server-side actions (memory) waiting to be sent with the next user message
- * @property {boolean} [busy]          runtime only, not persisted
- */
+/** @typedef {import('../../../extension/shared/agent/session-model.js').Session} Session */
+/** @typedef {import('../../../extension/shared/agent/session-model.js').IndexEntry} IndexEntry */
 
 export class SessionStore {
   /** @param {string} dataDir */
@@ -64,23 +36,8 @@ export class SessionStore {
    * @param {{ url?: string, title?: string, provider: string, model: string }} init
    * @returns {Session}
    */
-  create({ url = '', title = '', provider, model }) {
-    const now = Date.now();
-    /** @type {Session} */
-    const session = {
-      id: randomUUID(),
-      createdAt: now,
-      updatedAt: now,
-      title: title || url || 'New conversation',
-      url,
-      provider,
-      model,
-      messages: [],
-      actions: {},
-      openToolCalls: [],
-      providerState: {},
-      usage: { inputTokens: 0, outputTokens: 0, costUsd: null },
-    };
+  create(init) {
+    const session = newSession(init);
     this.cache.set(session.id, session);
     this.save(session);
     return session;
@@ -91,7 +48,7 @@ export class SessionStore {
    * @returns {Promise<Session | null>}
    */
   async get(id) {
-    if (!/^[0-9a-f-]{36}$/.test(id)) return null; // ids are UUIDs; also prevents path tricks
+    if (!isSessionId(id)) return null; // ids are UUIDs; also prevents path tricks
     const cached = this.cache.get(id);
     if (cached) return cached;
     try {
@@ -193,61 +150,4 @@ export class SessionStore {
   file(id) {
     return join(this.dir, `${id}.json`);
   }
-}
-
-/**
- * @typedef {{ id: string, site: string, groupPattern: string, lastUrl: string, title: string,
- *   updatedAt: number, messageCount: number }} IndexEntry
- *
- * Index entry for a conversation; null if it has no user message or no site yet.
- * @param {Session} s
- * @returns {IndexEntry | null}
- */
-function indexEntry(s) {
-  const messageCount = s.messages.filter((m) => m.role === 'user' && m.content.some((b) => b.type === 'text')).length;
-  if (!s.site || !messageCount) return null;
-  return {
-    id: s.id, site: s.site, groupPattern: s.groupPattern ?? '/', lastUrl: s.lastUrl ?? s.url,
-    title: s.title, updatedAt: s.updatedAt, messageCount,
-  };
-}
-
-/**
- * A message as the panel sees it: no provider-internal raw content, and no image
- * data (screenshots are large and the panel shows them live when they are taken).
- * @param {import('../../../extension/shared/protocol.js').NeutralMessage} message
- */
-export function forPanel({ raw, ...message }) {
-  if (!message.content.some((b) => b.type === 'tool_result' && b.images)) return message;
-  return {
-    ...message,
-    content: message.content.map((b) => {
-      if (b.type !== 'tool_result' || !b.images) return b;
-      const { images, ...rest } = b;
-      return rest;
-    }),
-  };
-}
-
-/**
- * What the panel is allowed to see: everything except provider internals
- * (raw provider content, CLI session ids).
- * @param {Session} session
- */
-export function snapshot(session) {
-  return {
-    id: session.id,
-    title: session.title,
-    url: session.url,
-    provider: session.provider,
-    model: session.model,
-    busy: !!session.busy,
-    messages: session.messages.map(forPanel),
-    actions: Object.fromEntries(
-      Object.entries(session.actions).map(([id, { reportedStatus, ...a }]) => [id, a]),
-    ),
-    usage: session.usage,
-    site: session.site,
-    groupPattern: session.groupPattern,
-  };
 }

@@ -2,22 +2,33 @@
 /**
  * Provider: Anthropic API (Messages API via the official @anthropic-ai/sdk).
  *
- * Only offered when an API key is configured (config.providers.anthropic.apiKey
- * or the ANTHROPIC_API_KEY environment variable). The SDK is imported lazily, so
- * the server runs fine without ever loading it.
+ * Only offered when an API key is configured (config.providers.anthropic.apiKey,
+ * or on the server the ANTHROPIC_API_KEY environment variable). The SDK is loaded
+ * lazily, so the server runs fine without ever loading it.
+ *
+ * Shared by the agent server (Node: imports the npm package) and the extension's
+ * direct mode (browser: passes `loadSdk` for the vendored copy in extension/vendor/).
  *
  * Actions are native tools with `strict: true` schemas. Text is streamed.
  * The system prompt and tool list are static, and automatic prompt caching
  * (`cache_control` at the top level) caches the growing conversation prefix.
  */
 
-import { ACTIONS } from '../../../extension/shared/actions.js';
-import { anthropicApiKey } from '../config.js';
+import { ACTIONS } from '../actions.js';
 import { Provider } from './base.js';
 import { renderContext, renderMemory } from './common.js';
 import { estimateCost } from './pricing.js';
 
-/** @typedef {import('../../../extension/shared/protocol.js').NeutralMessage} NeutralMessage */
+/** @typedef {import('../protocol.js').NeutralMessage} NeutralMessage */
+
+/**
+ * The configured API key: config first, then (on the server) the environment.
+ * @param {{ providers: { anthropic: { apiKey?: string } } }} config
+ */
+export function anthropicApiKey(config) {
+  const fromEnv = typeof process !== 'undefined' ? process.env?.ANTHROPIC_API_KEY : '';
+  return config.providers.anthropic.apiKey || fromEnv || '';
+}
 
 // Models that accept the server-side refusal fallback (`fallbacks: "default"`).
 const FALLBACK_MODELS = new Set(['claude-opus-5-5', 'claude-fable-5-1', 'claude-sonnet-5-5']);
@@ -29,12 +40,12 @@ export class AnthropicProvider extends Provider {
   static models = ['claude-opus-5-5', 'claude-sonnet-5-5', 'claude-haiku-4-5', 'claude-fable-5-1'];
   static capabilities = { streaming: true, nativeTools: true, reportsCost: true, vision: true };
 
-  /** @param {import('../config.js').Config} config */
+  /** @param {import('./base.js').ProviderConfig} config */
   static defaultModel(config) {
     return config.providers.anthropic.model || this.models[0];
   }
 
-  /** @param {import('../config.js').Config} config */
+  /** @param {import('./base.js').ProviderConfig} config */
   static async checkAvailability(config) {
     if (!anthropicApiKey(config)) {
       return { available: false, reason: 'No API key. Set ANTHROPIC_API_KEY or providers.anthropic.apiKey in config.json.' };
@@ -43,18 +54,22 @@ export class AnthropicProvider extends Provider {
   }
 
   /**
-   * @param {import('../config.js').Config} config
-   * @param {{ client?: any }} [deps]  inject a fake client in tests
+   * @param {import('./base.js').ProviderConfig} config
+   * @param {{ client?: any, loadSdk?: () => Promise<any>, browser?: boolean }} [deps]
+   *   client: a ready client (tests); loadSdk: how to load the SDK module (browser: the vendored file);
+   *   browser: running in the extension, where the SDK needs dangerouslyAllowBrowser (the key is the user's own)
    */
   constructor(config, deps = {}) {
     super(config);
     this.client = deps.client ?? null;
+    this.loadSdk = deps.loadSdk ?? (() => import('@anthropic-ai/sdk'));
+    this.browser = deps.browser === true;
   }
 
   async getClient() {
     if (!this.client) {
-      const { default: Anthropic } = await import('@anthropic-ai/sdk');
-      this.client = new Anthropic({ apiKey: anthropicApiKey(this.config) });
+      const { default: Anthropic } = await this.loadSdk();
+      this.client = new Anthropic({ apiKey: anthropicApiKey(this.config), ...(this.browser ? { dangerouslyAllowBrowser: true } : {}) });
     }
     return this.client;
   }
@@ -224,7 +239,7 @@ export function toAnthropicMessages(messages) {
 }
 
 /**
- * @param {Extract<import('../../../extension/shared/protocol.js').ContentBlock, { type: 'tool_result' }>} b
+ * @param {Extract<import('../protocol.js').ContentBlock, { type: 'tool_result' }>} b
  * @param {boolean} withImages
  */
 function toolResultContent(b, withImages) {

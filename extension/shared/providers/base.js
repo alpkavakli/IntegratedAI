@@ -10,7 +10,13 @@
  * To add a provider: copy _template.js, implement it, register it in registry.js.
  */
 
-/** @typedef {import('../../../extension/shared/protocol.js').NeutralMessage} NeutralMessage */
+/** @typedef {import('../protocol.js').NeutralMessage} NeutralMessage */
+
+/**
+ * Provider settings: the server's config.json, or the extension's settings in direct mode.
+ * Each provider reads its own section, e.g. config.providers.anthropic.
+ * @typedef {{ providers: Record<string, any> } & Record<string, any>} ProviderConfig
+ */
 
 /**
  * @typedef {{ type: 'text_delta', text: string }
@@ -64,7 +70,7 @@ export class Provider {
 
   /**
    * Is this provider usable right now? (CLI installed and logged in, API key set, …)
-   * @param {import('../config.js').Config} _config
+   * @param {ProviderConfig} _config
    * @returns {Promise<{ available: boolean, reason?: string }>}
    */
   static async checkAvailability(_config) {
@@ -73,13 +79,13 @@ export class Provider {
 
   /**
    * Default model from config, if the provider has one.
-   * @param {import('../config.js').Config} _config
+   * @param {ProviderConfig} _config
    */
   static defaultModel(_config) {
     return this.models[0] ?? '';
   }
 
-  /** @param {import('../config.js').Config} config */
+  /** @param {ProviderConfig} config */
   constructor(config) {
     this.config = config;
   }

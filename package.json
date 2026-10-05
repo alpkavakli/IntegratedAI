@@ -11,10 +11,14 @@
     "start": "node server/src/index.js",
     "test": "node --test \"server/test/*.test.js\"",
     "check": "tsc --noEmit -p jsconfig.json",
-    "package": "node scripts/package-extension.js"
+    "package": "node scripts/package-extension.js",
+    "vendor:sdk": "node scripts/vendor-sdk.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",
     "ws": "^8.22.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
   }
 }

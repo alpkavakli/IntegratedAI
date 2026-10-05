@@ -3,11 +3,11 @@ import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { PageTools } from '../src/agent/page-tools.js';
 import { handleMcpRequest } from '../src/mcp.js';
-import { Orchestrator } from '../src/agent/orchestrator.js';
-import { Provider } from '../src/providers/base.js';
+import { Orchestrator } from '../../extension/shared/agent/orchestrator.js';
+import { Provider } from '../../extension/shared/providers/base.js';
 import { ProviderRegistry } from '../src/providers/registry.js';
 import { SessionStore } from '../src/sessions/store.js';
-import { buildSystemPrompt } from '../src/agent/system-prompt.js';
+import { buildSystemPrompt } from '../../extension/shared/agent/system-prompt.js';
 import { testConfig } from './helpers.js';
 
 /** Fake panel answering every inspection. */
@@ -198,7 +198,7 @@ test('orchestrator: screenshot results keep their image for providers that read 
 });
 
 test('panel snapshots and live messages leave out screenshot data', async () => {
-  const { forPanel, snapshot } = await import('../src/sessions/store.js');
+  const { forPanel, snapshot } = await import('../../extension/shared/agent/session-model.js');
   const msg = { role: 'user', ts: 0, content: [{ type: 'tool_result', toolCallId: 'c1', content: '{"image":"attached"}', images: [{ mediaType: 'image/png', data: PNG_1PX }] }] };
   assert.equal(forPanel(msg).content[0].images, undefined);
   assert.equal(msg.content[0].images.length, 1, 'the stored message keeps its image');

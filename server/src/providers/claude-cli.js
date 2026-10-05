@@ -32,8 +32,8 @@ import { createHash, randomUUID } from 'node:crypto';
 import { mkdirSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { ACTIONS, envelopeSchema } from '../../../extension/shared/actions.js';
-import { Provider } from './base.js';
-import { newCallId, renderAsText } from './common.js';
+import { Provider } from '../../../extension/shared/providers/base.js';
+import { newCallId, renderAsText } from '../../../extension/shared/providers/common.js';
 
 export class ClaudeCliProvider extends Provider {
   static id = 'claude-cli';

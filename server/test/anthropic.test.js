@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { AnthropicProvider, toAnthropicMessages, toAnthropicTools } from '../src/providers/anthropic.js';
+import { AnthropicProvider, toAnthropicMessages, toAnthropicTools } from '../../extension/shared/providers/anthropic.js';
 import { testConfig, collect } from './helpers.js';
 
 test('messages: merge same-role messages, tool_results first, raw content reused', () => {
