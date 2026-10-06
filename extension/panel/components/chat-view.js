@@ -12,13 +12,10 @@ import { ActionCard } from './action-card.js';
 
 /** @typedef {import('../../shared/protocol.js').NeutralMessage} NeutralMessage */
 
-/** Starting points on a new conversation. */
-const SUGGESTIONS = [
-  'Why is this overflowing?',
-  'Make this look better',
-  'Make this dark',
-  'Explain the console errors',
-];
+/** Starting points on a new conversation: for developers in DevTools, for reading and quick fixes in the card. */
+const SUGGESTIONS = IN_CARD
+  ? ['Summarize this page', 'Explain what I picked', 'Make this easier to read', 'What can I do on this page?']
+  : ['Why is this overflowing?', 'Make this look better', 'Make this dark', 'Explain the console errors'];
 
 export class ChatView extends HTMLElement {
   /** @param {import('../panel.js').App} app */
