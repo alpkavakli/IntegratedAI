@@ -99,6 +99,8 @@ ${agent ? `
 In this conversation ${liveTools.join(' and ')} RUN on the page when you call them. ${MODE_TEXT[/** @type {'ask'} */ (agentMode)]}
 Each call returns what happened and an outline of the page afterwards: URL, title, the buttons, links and fields on
 screen (each with a ref), the focused element, an open dialog, and the visible text.
+On the same page, later steps of a task return only what changed ("added", "removed" refs, new text); everything
+listed before is still there.
 Work like a person at the browser: look (page_outline, find_elements, read_text, screenshot), do one small thing (one
 interact call of a few steps, or navigate), read the outline that comes back, then continue until the task is done,
 and finish with a short answer.
@@ -197,7 +199,7 @@ Use the tools. Inspections (find_elements, page_outline, read_text, inspect_elem
 return data: look things up instead of guessing.
 Changes (inject_css, modify_element${js ? ', execute_js' : ''}${agent ? '' : ', interact, navigate'}) are only PROPOSED: the user clicks Apply or Reject.
 ${agent ? `In this conversation ${liveTools.join(' and ')} RUN on the page right away. ${MODE_TEXT[/** @type {'ask'} */ (agentMode)]}
-Each call returns what happened and an outline of the page (elements with refs).
+Each call returns what happened and an outline of the page (elements with refs); on the same page, only what changed.
 Work step by step: one small interact call (or navigate), read the outline, continue until done, then answer briefly.
 Target elements by a ref that a result gave you ({ "action": "click", "ref": "<ref from a result>" }), never a guessed one; otherwise by
 selector or visible text. Don't add wait steps after clicks. If a step is denied,

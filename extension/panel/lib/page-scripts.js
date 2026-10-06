@@ -242,7 +242,9 @@ export function pageHelpers() {
     const role = el.closest('a[href]') ? 'link' : el.closest('button, [role=button], input[type=submit], input[type=button], summary') ? 'button'
       : el.matches('[role=tab]') ? 'tab' : el.matches('[role=menuitem], [role=menuitemcheckbox], [role=menuitemradio]') ? 'menu item'
         : el.matches('li, [role=listitem], [role=option], [role=row], [role=treeitem], [role=gridcell]') ? 'item' : 'element';
-    return name ? `${role} ${quote(name)}` : `${role} ${label(el)}`;
+    if (name) return `${role} ${quote(name)}`;
+    // No name: its tag and id, but not class names (often generated, like "sc-651d33db-0 hygVWX").
+    return `${role} (no label: ${el.localName}${el.id && !/\d{3}/.test(el.id) ? `#${el.id}` : ''})`;
   }
 
   /**
@@ -557,9 +559,13 @@ export function pageOutline(h, selected, input = {}) {
   const dialogs = h.queryAll('dialog:modal, [aria-modal=true], [role=alertdialog]').filter((d) => h.visible(d) && h.onScreen(d));
   const scope = dialogs.length ? dialogs[dialogs.length - 1] : document.body;
 
-  const found = h.queryAll(INTERACTIVE, scope).filter((el) => h.visible(el) && where(el)
+  const shown = h.queryAll(INTERACTIVE, scope).filter((el) => h.visible(el) && where(el)
     // Not the parts of a link or button that is listed itself (an icon span with tabindex, …).
     && !(el.parentElement && el.parentElement.closest(CLICKABLE) && !el.matches('input, select, textarea')));
+  // The page's main content first (in page order), then the rest (header menus, footers): with a limit,
+  // the content is what should make it into the list.
+  const main = scope === document.body ? h.queryAll('main, [role=main]').find((m) => h.visible(m)) : null;
+  const found = main ? [...shown.filter((el) => main.contains(el)), ...shown.filter((el) => !main.contains(el))] : shown;
   const describe = (el) => {
     const bits = [`${h.refOf(el)} ${h.humanName(el)}`];
     if (el.matches('input[type=checkbox], input[type=radio]')) bits.push(el.checked ? '(ticked)' : '(not ticked)');
@@ -574,9 +580,11 @@ export function pageOutline(h, selected, input = {}) {
       let to = el.href;
       try {
         const u = new URL(el.href);
-        if (u.origin === location.origin) to = `${u.pathname}${u.search}${u.hash}`;
+        // Where it goes, not its tracking: a long query string is cut (the ref still clicks the real link).
+        const query = u.search.length > 40 ? '?…' : u.search;
+        to = `${u.origin === location.origin ? '' : u.origin}${u.pathname}${query}${u.hash.length > 30 ? '' : u.hash}`;
       } catch { /* keep as is */ }
-      bits.push(`→ ${to.length > 100 ? `${to.slice(0, 100)}…` : to}`);
+      bits.push(`→ ${to.length > 80 ? `${to.slice(0, 80)}…` : to}`);
       if (el.target === '_blank') bits.push('(opens a new tab)');
     }
     return bits.join(' ');

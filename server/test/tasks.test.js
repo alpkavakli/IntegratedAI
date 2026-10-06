@@ -24,3 +24,24 @@ test('recordStep: steps without an element (scroll the page, press a key) stay a
   assert.equal(recordStep({ action: 'click', ref: 'e1' }, { selector: 'button', text: 'Pay' }, 'https://pay.example/f').frame, 'https://pay.example/f');
   assert.equal(describeStep({ kind: 'navigate', input: { url: 'https://a.example/x' } }), 'Go to https://a.example/x');
 });
+
+test('the outline after a step: in full on a new page, only the changes on the same page', async () => {
+  const { outlineChanges } = await import('../../extension/panel/lib/agent-runner.js');
+  const first = { url: 'https://t.me/a', title: 'Chats', elements: ['e1 the "Message" field', 'e2 button "Send"', 'e3 link "Alice"'], text: 'Hello', headings: ['Chats'] };
+  assert.equal(outlineChanges(undefined, first), first, 'first step: all of it');
+  const typed = { ...first, elements: ['e1 the "Message" field = "Hi"', 'e2 button "Send"', 'e3 link "Alice"'] };
+  const diff = outlineChanges(first, typed);
+  assert.deepEqual(diff.added, ['e1 the "Message" field = "Hi"']);
+  assert.deepEqual(diff.removed, ['e1']);
+  assert.equal(diff.text, 'unchanged');
+  assert.equal('elements' in diff, false);
+  assert.match(diff.sameAsBefore, /still there/);
+  assert.equal(outlineChanges(first, { ...first }).elements, 'unchanged');
+  assert.equal(outlineChanges(first, { ...first, url: 'https://t.me/b' }).url, 'https://t.me/b', 'another page: in full');
+  const replaced = { ...first, elements: ['e7 a', 'e8 b', 'e9 c', 'e10 d', 'e11 e'] };
+  assert.deepEqual(outlineChanges(first, replaced).elements, replaced.elements, 'mostly new: in full');
+  // A real page lists ~40 elements: one change is a small fraction of the full outline.
+  const big = { ...first, elements: Array.from({ length: 40 }, (_, i) => `e${i + 1} link "Item number ${i + 1}" → /items/${i + 1}`), text: 'x'.repeat(1200) };
+  const oneChange = { ...big, elements: big.elements.map((e, i) => (i === 3 ? `${e} (current)` : e)) };
+  assert.ok(JSON.stringify(outlineChanges(big, oneChange)).length < JSON.stringify(oneChange).length / 5);
+});

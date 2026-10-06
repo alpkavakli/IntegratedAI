@@ -69,6 +69,8 @@ export class AgentRunner {
     this.recorded = [];
     this.startUrl = '';
     this.aborted = false;
+    // Each turn starts with a full outline (older results may have been shortened in the history meanwhile).
+    this.lastOutlines = {};
   }
 
   /** Stop what's running (between steps; a step that has started finishes). */
@@ -147,7 +149,26 @@ export class AgentRunner {
     if (!['ask', 'auto', 'full'].includes(mode)) throw new Error('Page actions only run in Ask, Auto or Full auto mode');
     if (!this.startUrl) this.startUrl = (await pageNow().catch(() => null))?.url ?? '';
     const done = name === 'navigate' ? [await this.navigate(input, mode)] : await this.interact(input, mode);
-    return { done, ...(await observe(name === 'interact' ? input.frame : undefined)) };
+    return { done, ...(await this.observe(name === 'interact' ? input.frame : undefined)) };
+  }
+
+  /**
+   * How the page looks after the steps, for the model: an outline of what's on screen (and of the frame the
+   * steps ran in). On the same page as the previous step of this turn, only what changed (outlineChanges):
+   * the refs from the earlier outline stay valid, and long tasks don't resend the same list every step.
+   * Falls back to the URL and title if the page can't be read.
+   * @param {string} [frame]
+   */
+  async observe(frame) {
+    this.lastOutlines ??= {};
+    const page = await callInPage(pageOutline, STEP_OUTLINE).catch(() => pageNow().catch(() => null));
+    const top = page?.elements ? outlineChanges(this.lastOutlines.top, page) : page;
+    if (page?.elements) this.lastOutlines.top = page;
+    if (!frame) return { page: top };
+    const inFrame = await callInPage(pageOutline, STEP_OUTLINE, frame).catch((err) => ({ error: String(err?.message ?? err) }));
+    const frameOut = inFrame?.elements ? outlineChanges(this.lastOutlines[frame], inFrame) : inFrame;
+    if (inFrame?.elements) this.lastOutlines[frame] = inFrame;
+    return { page: page && { url: page.url, title: page.title }, frame: frameOut };
   }
 
   /**
@@ -301,15 +322,31 @@ function pageNow() {
 }
 
 /**
- * How the page looks after the steps, for the model: an outline of what's on screen (and of
- * the frame the steps ran in). Falls back to the URL and title if the page can't be read.
- * @param {string} [frame]
+ * The outline after a step, as sent to the model: in full on a new page (or the first step of a turn), or
+ * on the same page only the differences from the previous one (elements that appeared or went, and the
+ * text if it changed), unless most of the list changed anyway.
+ * @param {any} prev the previous full outline of this page/frame in this turn, or undefined
+ * @param {any} next the new full outline
  */
-async function observe(frame) {
-  const page = await callInPage(pageOutline, STEP_OUTLINE).catch(() => pageNow().catch(() => null));
-  if (!frame) return { page };
-  const inFrame = await callInPage(pageOutline, STEP_OUTLINE, frame).catch((err) => ({ error: String(err?.message ?? err) }));
-  return { page: page && { url: page.url, title: page.title }, frame: inFrame };
+export function outlineChanges(prev, next) {
+  if (!prev || prev.url !== next.url) return next;
+  const before = new Set(prev.elements);
+  const after = new Set(next.elements);
+  const added = next.elements.filter((/** @type {string} */ e) => !before.has(e));
+  const removed = prev.elements.filter((/** @type {string} */ e) => !after.has(e)).map((/** @type {string} */ e) => e.split(' ')[0]);
+  // Mostly new (more than 60% of the list, and more than a few elements): send it all.
+  if (added.length + removed.length > Math.max(next.elements.length * 0.6, 6)) return next;
+  const { elements, text, headings, frames, ...rest } = next;
+  return {
+    ...rest,
+    sameAsBefore: 'Same page as after the previous step: the elements listed then are still there, except as below.',
+    ...(added.length ? { added } : {}),
+    ...(removed.length ? { removed } : {}),
+    ...(!added.length && !removed.length ? { elements: 'unchanged' } : {}),
+    ...(JSON.stringify(headings) !== JSON.stringify(prev.headings) ? { headings } : {}),
+    ...(JSON.stringify(frames) !== JSON.stringify(prev.frames) ? { frames } : {}),
+    text: text === prev.text ? 'unchanged' : text,
+  };
 }
 
 /**
