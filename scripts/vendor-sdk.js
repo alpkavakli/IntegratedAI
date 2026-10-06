@@ -11,7 +11,7 @@
  */
 
 import { build } from 'esbuild';
-import { readFileSync } from 'node:fs';
+import { copyFileSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
@@ -33,3 +33,6 @@ await build({
   },
   logLevel: 'info',
 });
+
+// The SDK's MIT license asks for its notice to ship with every copy: next to the bundle.
+copyFileSync(`${root}/node_modules/@anthropic-ai/sdk/LICENSE`, `${root}/extension/vendor/anthropic-sdk-LICENSE.txt`);

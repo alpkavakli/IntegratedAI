@@ -290,6 +290,12 @@ export function interactStep(h, selected, { actionId, step, dry = false, hold = 
   const name = `${step.ref ? `${step.ref} ` : ''}${h.label(el)}${step.text ? ` "${step.text}"` : ''}`;
   // Several elements fit the step: say which one was used, so the AI can pick another by ref.
   const which = matches > 1 ? ` (the first of ${matches} matches; use a ref from find_elements or page_outline for another one)` : '';
+  /** The text of a form field's own label ('' if the element isn't a labelled field). */
+  function fieldLabel(node) {
+    const f = field(node);
+    if (!f.matches('input, select, textarea')) return '';
+    return ((f.labels && f.labels[0] && f.labels[0].innerText) || '').trim();
+  }
   /** The form field an element stands for (itself, its label's control, or a field inside it). Hoisted: the dry run uses it. */
   function field(node) {
     return node.matches('input, textarea, select, [contenteditable=""], [contenteditable="true"]') || node.isContentEditable
@@ -304,7 +310,9 @@ export function interactStep(h, selected, { actionId, step, dry = false, hold = 
    */
   const target = {
     selector: h.cssPath(el),
-    text: String(step.text || el.getAttribute('aria-label') || (el.innerText || '').trim()).replace(/\s+/g, ' ').slice(0, 80),
+    // A form field is named by its label ("Workshop", "New to this"): its own text is empty (or, for a
+    // menu, every option), and finding the label by its text leads back to the field on replay.
+    text: String(step.text || fieldLabel(el) || el.getAttribute('aria-label') || (el.innerText || '').trim()).replace(/\s+/g, ' ').slice(0, 80),
     ...(step.action === 'type' && field(el).matches('input[type=password], [autocomplete=one-time-code], [autocomplete*=password]') ? { secret: true } : {}),
   };
   const result = (() => {

@@ -68,6 +68,13 @@ const handlers = {
   // The panel's Server button: start / stop / check the local agent server through the native host.
   'services.call': async ({ cmd }) => servicesCall(cmd),
 
+  // The setup page's "Try it now": an article with the card open on it.
+  'card.tryIt': async () => {
+    const tab = await chrome.tabs.create({ url: 'https://en.wikipedia.org/wiki/World_Wide_Web' });
+    // Opens on its own once the page has loaded (webNavigation.onDOMContentLoaded, below).
+    if (tab.id !== undefined) await sessionSet(`card:${tab.id}`, { open: true, minimized: false });
+  },
+
   // The DevTools panel opened on this tab: the card there steps aside (the conversation continues in DevTools).
   'card.devtoolsOpened': async ({ tabId }) => {
     if ((await sessionGet(`card:${tabId}`))?.open) chrome.tabs.sendMessage(tabId, { type: 'card.devtools' }).catch(() => {});

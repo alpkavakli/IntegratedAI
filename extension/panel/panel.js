@@ -35,7 +35,7 @@ import { collectContext } from './lib/context.js';
 import { callInPage, selectInElementsPanel } from './lib/inspected.js';
 import { runInspection } from './lib/inspections.js';
 import { highlight, pageInfo, pickElement, selectedLabel, selectedText } from './lib/page-scripts.js';
-import { loadSettings, onSettingsChanged } from './lib/settings.js';
+import { loadSettings, onSettingsChanged, saveSettings } from './lib/settings.js';
 import { saveTask, updateTask } from './lib/tasks.js';
 import { ServerClient } from './lib/ws-client.js';
 import { DirectClient } from './direct/direct-client.js';
@@ -171,6 +171,12 @@ export class App {
     $('copy-text').addEventListener('click', () => this.copySelectedText());
     $('server-toggle').addEventListener('click', () => this.toggleServer());
     if (IN_CARD) {
+      // Once: point out the full version in DevTools.
+      if (!this.settings.cardTipSeen) $('card-tip').hidden = false;
+      $('card-tip-ok').addEventListener('click', () => {
+        $('card-tip').hidden = true;
+        saveSettings({ cardTipSeen: true });
+      });
       $('pick-element').addEventListener('click', () => this.startPicking());
       // Esc minimises the card (the page around this frame can't see the key, so tell it).
       addEventListener('keydown', (e) => {

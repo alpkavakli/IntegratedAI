@@ -189,16 +189,51 @@ async function compose(/** @type {string} */ name, /** @type {string} */ caption
 
 /** @type {Record<string, () => Promise<void>>} Scenarios by output name; run all, or the names given as arguments. */
 const SCENARIOS = {
-  // Diagnose a layout bug and preview the fix.
-  '01-diagnose': async () => {
-    const pricing = await openScenario('pricing.html', '.plan .badge', 'dark');
-    log('asking');
-    await pricing.ask('Why is this badge cut off? Fix it so the whole label is visible.');
-    log('preview');
-    await pricing.click('Preview');
+  // The card on the page (toolbar button): pick the cut-off badge, ask, preview the fix. No DevTools.
+  '01-card': async () => {
+    const url = `http://127.0.0.1:${PORTS.pages}/pricing.html`;
+    const page = await attach(url);
+    await viewport(page.session, 1280, 736);
+    await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }] }, page.session);
     await sleep(1200);
-    await pricing.scrollChat();
-    await pricing.shoot('01-diagnose', 'Ask about any element — get the cause and a fix you can preview');
+    const tabId = await ev(sw, `chrome.tabs.query({}).then(t => t.findLast(x => x.url === ${JSON.stringify(url)}).id)`);
+    // What the toolbar button does (headless Chrome has no toolbar).
+    await ev(sw, `chrome.storage.local.set({ cardLayout: { mode: 'float', x: -1, y: -1, w: 430, h: 680, fade: 'off' } })
+      .then(() => chrome.storage.session.set({ 'card:${tabId}': { open: true, minimized: false } }))
+      .then(() => chrome.scripting.executeScript({ target: { tabId: ${tabId} }, files: ['content/card-host.js'] }))`);
+    let frame;
+    for (let i = 0; i < 40 && !frame; i++) {
+      await sleep(250);
+      frame = (await cdp('Target.getTargets')).result.targetInfos.find((/** @type {any} */ t) => t.url.includes(`panel.html?card=1&tabId=${tabId}`));
+    }
+    const card = (await cdp('Target.attachToTarget', { targetId: frame.targetId, flatten: true })).result.sessionId;
+    await cdp('Runtime.enable', {}, card);
+    await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }] }, card);
+    const ui = (/** @type {string} */ expr) => ev(card, expr);
+    for (let i = 0; i < 40 && !(await ui(`!document.getElementById('session-row').hidden`)); i++) await sleep(250);
+    await ui(`document.getElementById('card-tip-ok')?.click()`);
+    // Pick element: a real click on the badge.
+    await ui(`document.getElementById('pick-element').click()`);
+    await sleep(400);
+    const at = await ev(page.session, `(() => { const r = document.querySelector('.plan .badge').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
+    for (const type of ['mouseMoved', 'mousePressed', 'mouseReleased']) {
+      await cdp('Input.dispatchMouseEvent', { type, x: at.x, y: at.y, button: 'left', clickCount: 1 }, page.session);
+      await sleep(100);
+    }
+    await sleep(600);
+    log('asking (card)');
+    await ui(`document.getElementById('prompt').value = 'Why is this badge cut off? Fix it so the whole label is visible.'; document.getElementById('composer').requestSubmit()`);
+    for (let i = 0; i < 240; i++) {
+      await sleep(1000);
+      if (await ui(`!!document.querySelector('ai-action-card') && !document.querySelector('.thinking')`)) break;
+    }
+    await ui(`[...document.querySelectorAll('ai-action-card button')].find(b => b.textContent.trim().startsWith('Preview'))?.click()`);
+    await sleep(1500);
+    await ui(`(() => { const chat = document.getElementById('chat'); const msgs = chat.querySelectorAll('.msg.user'); const last = msgs[msgs.length - 1]; chat.scrollTop = last ? last.offsetTop - 8 : 0; })()`);
+    await cdp('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 1100, y: 400 }, page.session); // over the card: solid
+    await sleep(500);
+    const png = await capture(page, join(WORK, 'card.png'));
+    await compose('01-card', 'Quick help on any page: click the icon, ask, and preview the fix', png, null);
   },
 
   // A dark reading theme with an on/off button in the nav bar, saved for the site; then its Memory tab.
@@ -216,11 +251,7 @@ const SCENARIOS = {
     await blog.click('Save patch');
     await sleep(2000);
     await blog.scrollToCard();
-    await blog.shoot('02-theme-toggle', 'Themes and fixes, saved per site — with an on/off button on the page');
-    log('memory tab');
-    await blog.ui(`document.querySelector('[data-tab=memory]').click()`);
-    await sleep(1500);
-    await blog.shoot('04-memory', 'Remembers each site, so the next conversation starts informed');
+    await blog.shoot('02-theme-toggle', 'In DevTools: themes and fixes, saved per site, with an on/off button on the page');
   },
 
   // Auto mode: it fills in the form by itself and asks before submitting (the button is outlined on the page).
@@ -233,8 +264,19 @@ const SCENARIOS = {
     await cdp('Target.activateTarget', { targetId: signup.page.targetId });
     for (let i = 0; i < 240 && !(await signup.ui(`!!document.querySelector('.ask-step')`)); i++) await sleep(1000);
     await sleep(600);
-    await signup.shoot('03-forms', 'Works through tasks on the page by itself — and asks before anything risky');
+    await signup.shoot('03-forms', 'Works through tasks on the page by itself, and asks before anything risky');
     await signup.ui(`[...document.querySelectorAll('.ask-step button')].find((b) => b.textContent === 'Allow')?.click()`);
+    // Then: save those steps as a task, and show it in the Tasks tab.
+    for (let i = 0; i < 240 && !(await signup.ui(`!!document.querySelector('.save-task') && !document.querySelector('.thinking')`)); i++) await sleep(1000);
+    await signup.ui(`document.querySelector('.save-task button.link').click()`);
+    await signup.ui(`(() => { const box = document.querySelector('.save-task'); box.querySelector('input').value = 'Sign up for a workshop';
+      [...box.querySelectorAll('button')].find((b) => b.textContent === 'Save').click(); })()`);
+    await sleep(800);
+    await signup.ui(`document.querySelector('[data-tab=tasks]').click()`);
+    await sleep(600);
+    await signup.ui(`document.querySelector('ai-tasks details')?.setAttribute('open', '')`);
+    await sleep(300);
+    await signup.shoot('04-tasks', 'Save what it did as a task, and run it again with one click, no AI needed');
   },
 
   // Options: choose how to connect.
@@ -246,7 +288,7 @@ const SCENARIOS = {
     await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }] }, options.session);
     await sleep(1500);
     const optionsPng = await capture(options, join(WORK, 'options.png'));
-    await compose('05-options', 'Your own API key, free local models with Ollama, or your Claude subscription', optionsPng, null);
+    await compose('05-options', 'Set up in two minutes: your own API key, free local models, or your Claude subscription', optionsPng, null);
   },
 };
 

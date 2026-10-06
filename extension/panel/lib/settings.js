@@ -28,6 +28,8 @@ export const DEFAULT_SETTINGS = {
   providerUrls: { ollama: '' },
   /** Ollama: short prompts and tool descriptions, for models with a small context window (8K tokens or less). */
   ollamaCompact: false,
+  /** The card on the page has shown its one-time tip about the full version in DevTools. */
+  cardTipSeen: false,
   serverUrl: `ws://127.0.0.1:${DEFAULT_PORT}/ws`,
   token: '',
   /** Allow the model to propose arbitrary JavaScript (each run still needs approval). */

@@ -145,6 +145,19 @@ harness) or the owner's GitHub/Telegram test is the next thing to do.
   token / wrong token / a web page). The owner's Chrome is registered for the extension ID
   chmojffncgjblieclbphmeebjgkoklnd (the unpacked `extension` folder).
 
+## Done in the fifth session (2026-10-06): onboarding, license, store screenshots
+
+- Setup page: choices grouped (easiest: API key, Gemini free tier / free and private: Ollama / for developers);
+  Ollama commands per OS with Copy buttons; the check also flags a too-small Ollama context (api/ps, when loaded).
+  Step 3 "Start using it": the card (real shortcut from chrome.commands, **Try it now** → Wikipedia with the card,
+  service-worker `card.tryIt`), F12 → AI, pinned or not (action.getUserSettings).
+- Card: one-time tip about the DevTools version (setting `cardTipSeen`); icon-only toolbar below 480px.
+- Saved tasks name form fields by their label (readable steps, sturdier replay).
+- MIT LICENSE (also in the package), the SDK's license file shipped next to it (vendor-sdk.js copies it),
+  "license": "MIT" in package.json. Donation line at the bottom of the setup page, hidden until `DONATE_URL` is set
+  (owner hasn't chosen GitHub Sponsors / Ko-fi / … yet).
+- Store screenshots now: 01-card, 02-theme-toggle, 03-forms, 04-tasks, 05-options (real Claude Code answers).
+
 ## Next work, in order
 
 0. **Chinese models (owner's next request):** providers like DeepSeek, Qwen (DashScope / Alibaba Cloud Model Studio),

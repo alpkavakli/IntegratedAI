@@ -24,6 +24,73 @@ $('ctx-network').checked = settings.contextDefaults.network;
 $('directModel').value = settings.directModel;
 $('compatUrl').value = settings.providerUrls.ollama ?? '';
 
+// ── Ollama's setup commands, for this computer's system, each with a Copy button.
+
+const system = /Win/.test(navigator.platform) ? 'windows' : /Mac/.test(navigator.platform) ? 'mac' : 'linux';
+/** What lets the extension use Ollama, and gives models room for its instructions (Ollama's default is too small). */
+const OLLAMA_COMMANDS = {
+  windows: ['setx OLLAMA_ORIGINS "chrome-extension://*"', 'setx OLLAMA_CONTEXT_LENGTH 16384'],
+  mac: ['launchctl setenv OLLAMA_ORIGINS "chrome-extension://*"', 'launchctl setenv OLLAMA_CONTEXT_LENGTH 16384'],
+  linux: ['sudo systemctl edit ollama', '[Service]\nEnvironment="OLLAMA_ORIGINS=chrome-extension://*"\nEnvironment="OLLAMA_CONTEXT_LENGTH=16384"'],
+};
+$('ollama-terminal').textContent = { windows: 'PowerShell', mac: 'Terminal', linux: 'a terminal' }[system];
+$('ollama-commands').replaceChildren(...OLLAMA_COMMANDS[system].map((text, i) => {
+  const row = document.createElement('div');
+  row.className = 'command';
+  const code = document.createElement('code');
+  code.textContent = text;
+  const copy = document.createElement('button');
+  copy.type = 'button';
+  copy.className = 'copy';
+  copy.textContent = 'Copy';
+  if (system === 'linux' && i === 1) {
+    // systemctl edit opens an editor: these lines go into it.
+    const note = document.createElement('div');
+    note.className = 'hint';
+    note.textContent = 'In the editor that opens, add these lines, save, then run: sudo systemctl restart ollama';
+    row.append(code, copy);
+    const wrap = document.createElement('div');
+    wrap.append(note, row);
+    return wrap;
+  }
+  row.append(code, copy);
+  return row;
+}));
+$('ollama-restart').textContent = {
+  windows: 'Quit Ollama (right-click its icon by the clock, then Quit) and start it again from the Start menu.',
+  mac: 'Quit Ollama (its icon in the menu bar, then Quit Ollama) and open it again.',
+  linux: 'If you used systemctl above, Ollama has restarted already. Otherwise, restart it.',
+}[system];
+// Copy buttons: copy the command next to them.
+document.addEventListener('click', async (e) => {
+  const button = /** @type {HTMLElement} */ (e.target);
+  if (!button.matches?.('.command .copy')) return;
+  await navigator.clipboard.writeText(button.parentElement?.querySelector('code')?.textContent ?? '');
+  button.textContent = 'Copied';
+  setTimeout(() => { button.textContent = 'Copy'; }, 1500);
+});
+
+// ── Step 3: how to start, with this computer's shortcut, whether the icon is pinned, and a try-out.
+
+chrome.commands.getAll().then((commands) => {
+  const shortcut = commands.find((c) => c.name === '_execute_action')?.shortcut;
+  if (shortcut) $('card-shortcut').textContent = shortcut;
+  else $('card-shortcut-text').textContent = ' (you can give it a keyboard shortcut at chrome://extensions/shortcuts)';
+}).catch(() => {});
+chrome.action.getUserSettings?.().then((user) => {
+  if (!user.isOnToolbar) return;
+  $('pin-text').textContent = 'The IntegratedAI icon is pinned to your toolbar.';
+  $('pin-use').classList.add('done');
+}).catch(() => {});
+$('try-card').addEventListener('click', () => chrome.runtime.sendMessage({ cmd: 'card.tryIt' }));
+
+// ── Donations: shown once there is a page to donate on (GitHub Sponsors, Ko-fi, …).
+const DONATE_URL = '';
+if (DONATE_URL) {
+  /** @type {HTMLAnchorElement} */ ($('donate-link')).href = DONATE_URL;
+  hide('donate', false);
+}
+
 // ── Step 1: which AI. "server" means the local agent server; everything else is direct mode.
 
 /** Where each key-based provider hands out keys (Anthropic isn't in PRESETS). */
@@ -171,7 +238,7 @@ async function check() {
     };
   });
   if (run !== checking) return; // a newer check started meanwhile
-  setStatus(result.ok ? `✓ ${result.text} You're ready: open the AI tab (step 3).` : result.text, result.ok ? 'ok' : 'bad');
+  setStatus(result.ok ? `✓ ${result.text} You're ready: see step 3.` : result.text, result.ok ? 'ok' : 'bad');
   markDone(result.ok);
 }
 
@@ -224,6 +291,13 @@ async function checkProvider(provider) {
   const caps = Array.isArray(info.capabilities) ? info.capabilities : null; // older Ollama versions don't say
   if (caps && !caps.includes('tools')) {
     return { ok: false, text: `Ollama is running, but ${chosen} can't use tools, which this extension needs. Pick another model (for example qwen3).` };
+  }
+  // The context window: Ollama only reports it for a model that has run (api/ps). Too small, and Ollama
+  // silently cuts off the extension's instructions, so the model doesn't know what to do.
+  const loaded = await presetFetch(provider, fetch, `${root}/api/ps`).then((r) => r.json()).catch(() => null) // (older versions: no api/ps)
+    .then((ps) => ps?.models?.find((/** @type {any} */ m) => m.name === chosen || m.name === `${chosen}:latest`));
+  if (loaded?.context_length && loaded.context_length < 8192) {
+    return { ok: false, text: `Ollama is running, but it gives ${chosen} only ${loaded.context_length} tokens of context, too few for this extension's instructions. Do step 3 above (OLLAMA_CONTEXT_LENGTH) and restart Ollama.` };
   }
   return { ok: true, text: `Ollama is running (using ${chosen}${caps && !caps.includes('vision') ? "; it can't see screenshots" : ''}).` };
 }

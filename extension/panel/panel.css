@@ -107,7 +107,7 @@ pre {
 .toolbar-main .tabs { min-width: 0; overflow-x: auto; scrollbar-width: none; }
 /* History / New: words when there's room, symbols in a narrow panel. */
 .toolbar .glyph { display: none; }
-@media (max-width: 420px) {
+@media (max-width: 480px) {
   .toolbar .glyph { display: block; }
   .toolbar .label { display: none; }
   .tabs button { padding: 3px 4px; }
@@ -263,6 +263,11 @@ body:not([data-connection="server"]) .server-only { display: none !important; }
 #server-toggle[aria-pressed="true"] .glyph { color: var(--ok, #188038); }
 #server-toggle.working { opacity: .6; pointer-events: none; }
 #pick-element.active { border-color: var(--accent); color: var(--accent); }
+.tip { display: flex; align-items: center; gap: 8px; margin: 8px 8px 0; padding: 6px 8px; border: 1px solid var(--border);
+  border-radius: 4px; background: var(--bg-alt); font-size: 12px; }
+.tip[hidden] { display: none; }
+.tip span { flex: 1; }
+.tip kbd { border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 3px; padding: 0 3px; font-family: inherit; }
 .list-heading { font-weight: 600; margin: 8px 0 4px; color: var(--fg-muted); }
 .item { border: 1px solid var(--border); border-radius: 4px; padding: 6px 8px; margin-bottom: 6px; }
 .item .row { display: flex; align-items: center; gap: 6px; }

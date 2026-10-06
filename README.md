@@ -67,9 +67,13 @@ than the hosted ones; larger models give better results.
 ### Quick start (direct mode)
 
 1. Install the extension (from the Chrome Web Store, or: `chrome://extensions` → **Developer mode** → **Load unpacked** → the `extension/` folder). The setup page opens.
-2. **Choose your AI**: Claude, GPT, Gemini, OpenRouter, Ollama, or Claude Code through the local server.
-3. **Paste your API key.** It's saved and checked right away (Ollama and the server have a **Check connection** button instead).
-4. **Open the AI tab:** press F12 on any page. Tabs that were already open need a reload.
+2. **Choose your AI.** Easiest: an API key (Claude, Gemini (free tier), GPT, OpenRouter). Free and private: Ollama
+   (the page shows the commands for your system, with Copy buttons). For developers: Claude Code through the local server.
+3. **Paste your API key.** It's saved and checked right away (Ollama and the server have a **Check connection** button
+   instead, which says which step is missing, including an Ollama context window that is too small).
+4. **Start using it** (step 3 of the setup page): the toolbar icon or Alt+Shift+A opens the card on any page
+   (**Try it now** opens an article with it), F12 → **AI** has everything, and the page says whether the icon is
+   pinned. The card shows a one-time tip pointing to the DevTools version. Tabs that were already open need a reload.
 
 Everything else (the model, what the AI sees, permissions, addresses, your data) is under **Advanced settings**.
 
@@ -507,6 +511,15 @@ below are passed in memory instead of over the WebSocket.
 Approval, validation, page inspection and storage are handled for every provider by the orchestrator.
 Providers with function calling pass `ACTIONS[name].inputSchema` directly as tool parameters; providers without
 tool calling can reuse `envelopeSchema()` like the CLI provider does.
+
+## License, and supporting it
+
+IntegratedAI is free and open source under the [MIT license](LICENSE): use it, change it, share it, sell it, as long
+as the copyright notice stays. The vendored Anthropic SDK is MIT too; its license ships with the extension
+(`extension/vendor/anthropic-sdk-LICENSE.txt`).
+
+Wanna donate? We'll use the money to buy more AI credits, duh. (A Donate link appears at the bottom of the setup page
+once `DONATE_URL` in `extension/options/options.js` points to a donation page.)
 
 ## Planned extensions (and where they plug in)
 

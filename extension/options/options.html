@@ -37,6 +37,18 @@
       .provider-card strong { font-size: 14px; }
       .provider-card span { color: var(--fg-muted); font-size: 12px; }
 
+      .choice-group { color: var(--fg-muted); font-size: 12px; margin: 12px 0 6px; }
+      .choice-group:first-of-type { margin-top: 0; }
+      .command { display: flex; align-items: center; gap: 6px; margin: 4px 0; }
+      .command code { flex: 1; min-width: 0; padding: 4px 8px; border: 1px solid var(--border); border-radius: 4px;
+        background: var(--bg-alt); white-space: pre-wrap; word-break: break-all; }
+      .command .copy { flex: none; }
+      .uses { display: grid; gap: 12px; }
+      .use { display: flex; gap: 10px; align-items: flex-start; }
+      .use > svg { width: 20px; height: 20px; flex: none; color: var(--accent); margin-top: 1px; }
+      .use .row-buttons { margin: 6px 0 0; }
+      .donate, .license-note { color: var(--fg-muted); font-size: 12px; margin: 24px 0 0; }
+      .license-note { margin-top: 6px; }
       .key-row { display: flex; gap: 8px; }
       .key-row input { flex: 1; min-width: 0; }
       input[type="text"], input[type="password"], select { padding: 6px 8px; border-radius: 4px; font-size: 13px; }
@@ -68,25 +80,32 @@
       <img src="../icons/icon128.png" alt="">
       <div>
         <h1>IntegratedAI</h1>
-        <p>An AI assistant inside Chrome DevTools. Three steps, about two minutes.</p>
+        <p>An AI assistant for the page you're on, and inside Chrome DevTools. Three steps, about two minutes.</p>
       </div>
     </header>
 
     <section class="step" id="step-1">
       <h2><span class="num"><span>1</span></span> Choose your AI</h2>
+      <div class="choice-group">Easiest: an API key. Gemini's has a free tier.</div>
       <div class="providers" role="radiogroup" aria-label="AI provider">
         <label class="provider-card"><input type="radio" name="provider" value="anthropic">
-          <strong>Claude</strong><span>by Anthropic · needs an API key</span></label>
-        <label class="provider-card"><input type="radio" name="provider" value="openai">
-          <strong>GPT</strong><span>by OpenAI · needs an API key</span></label>
+          <strong>Claude</strong><span>by Anthropic · API key · best results</span></label>
         <label class="provider-card"><input type="radio" name="provider" value="gemini">
-          <strong>Gemini</strong><span>by Google · needs an API key</span></label>
+          <strong>Gemini</strong><span>by Google · API key · free tier</span></label>
+        <label class="provider-card"><input type="radio" name="provider" value="openai">
+          <strong>GPT</strong><span>by OpenAI · API key</span></label>
         <label class="provider-card"><input type="radio" name="provider" value="openrouter">
-          <strong>OpenRouter</strong><span>many models, one API key</span></label>
+          <strong>OpenRouter</strong><span>many models, one key · some free</span></label>
+      </div>
+      <div class="choice-group">Free and private, on your computer. Needs a few setup steps.</div>
+      <div class="providers" role="radiogroup" aria-label="Local AI">
         <label class="provider-card"><input type="radio" name="provider" value="ollama">
-          <strong>Ollama</strong><span>free, runs on your computer</span></label>
+          <strong>Ollama</strong><span>free models · nothing leaves your computer</span></label>
+      </div>
+      <div class="choice-group">For developers.</div>
+      <div class="providers" role="radiogroup" aria-label="Developer setup">
         <label class="provider-card"><input type="radio" name="provider" value="server">
-          <strong>Claude Code</strong><span>your Claude subscription · for developers</span></label>
+          <strong>Claude Code</strong><span>your Claude subscription · needs this project from GitHub</span></label>
       </div>
     </section>
 
@@ -104,13 +123,13 @@
 
       <div id="ollama-setup" hidden>
         <ol>
-          <li>Install Ollama from <a href="https://ollama.com/download" target="_blank" rel="noopener">ollama.com</a>
-            and download a model, for example: <code>ollama pull qwen3</code></li>
-          <li>Allow this extension to use it, and give models room for its instructions (Ollama's default of 4,096
-            tokens is too small). On Windows, run <code>setx OLLAMA_ORIGINS "chrome-extension://*"</code> and
-            <code>setx OLLAMA_CONTEXT_LENGTH 16384</code>, then quit Ollama and start it again.
-            (<a href="https://github.com/alpkavakli/IntegratedAI#two-ways-to-run-it" target="_blank" rel="noopener">Mac and Linux</a>)</li>
-          <li>Click <strong>Check connection</strong>.</li>
+          <li>Install Ollama from <a href="https://ollama.com/download" target="_blank" rel="noopener">ollama.com</a>.</li>
+          <li>Download a model that can use tools. In a terminal (<span id="ollama-terminal">PowerShell</span>), run:
+            <div class="command"><code>ollama pull qwen3</code><button type="button" class="copy">Copy</button></div></li>
+          <li>Let this extension use Ollama, and give models room for its instructions (Ollama's default is too small):
+            <div id="ollama-commands"></div></li>
+          <li id="ollama-restart">Quit Ollama (right-click its icon by the clock, then Quit) and start it again.</li>
+          <li>Click <strong>Check connection</strong>. It tells you which step is missing, if any.</li>
         </ol>
       </div>
 
@@ -148,11 +167,30 @@
     </section>
 
     <section class="step" id="step-3">
-      <h2><span class="num"><span>3</span></span> Open the AI tab</h2>
-      <p>On any web page, press <kbd>F12</kbd> (or right-click and choose <strong>Inspect</strong>), then open the
-        <strong>AI</strong> tab. If you don't see it, click <strong>»</strong> in the DevTools tab bar.</p>
-      <p class="hint">Pages that were already open need a reload. Select an element in the Elements panel and ask about
-        it, or just ask about the page. Nothing changes on the page until you approve it.</p>
+      <h2><span class="num"><span>3</span></span> Start using it</h2>
+      <div class="uses">
+        <div class="use">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="11" rx="1"/><rect x="8" y="7" width="5" height="5" rx=".5"/></svg>
+          <div><strong>Quick questions, on any page.</strong> Click the IntegratedAI icon in the toolbar<span id="card-shortcut-text">, or press
+            <kbd id="card-shortcut">Alt+Shift+A</kbd></span>. A small card opens on the page: ask about it, have it read or
+            explain things, fix how it looks. Drag it anywhere, or against the side as a panel.
+            <div class="row-buttons"><button type="button" id="try-card" class="primary">Try it now</button>
+              <span class="hint">Opens a Wikipedia article with the card.</span></div></div>
+        </div>
+        <div class="use">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="11" rx="1"/><path d="M1.5 9h13"/><path d="M4 11.2h3"/></svg>
+          <div><strong>Everything, in DevTools.</strong> Press <kbd>F12</kbd> (or right-click and choose
+            <strong>Inspect</strong>) and open the <strong>AI</strong> tab (behind <strong>»</strong> if you don't see it).
+            There it can also fill in forms and work through pages step by step, edit elements, save tasks to run again,
+            and read the network log.</div>
+        </div>
+        <div class="use" id="pin-use">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 2.5 13.5 6l-2.5 1-2 2 .5 3L6 8.5 2.5 12"/><path d="M6 8.5 9 5.5"/></svg>
+          <div id="pin-text"><strong>Pin the icon</strong> so it's always there: click the puzzle piece in the toolbar,
+            then the pin next to IntegratedAI.</div>
+        </div>
+      </div>
+      <p class="hint">Pages that were already open need a reload. Nothing changes on a page until you approve it.</p>
     </section>
 
     <details class="advanced">
@@ -222,6 +260,12 @@
         pairing token are never exported.
       </div>
     </details>
+
+    <p class="donate" id="donate" hidden>
+      Wanna donate? We'll use the money to buy more AI credits, duh.
+      <a id="donate-link" target="_blank" rel="noopener">Donate</a>
+    </p>
+    <p class="license-note">Free and open source (MIT license). <a href="https://github.com/alpkavakli/IntegratedAI" target="_blank" rel="noopener">Source code</a></p>
     </main>
 
     <script src="options.js" type="module"></script>
