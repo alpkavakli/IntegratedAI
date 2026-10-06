@@ -123,6 +123,11 @@
         <div class="key-row">
           <input type="password" id="token" spellcheck="false" autocomplete="off" placeholder="Pairing token" aria-label="Pairing token">
         </div>
+        <div class="hint">No need to run <code>npm start</code> each time: the panel's <strong>Server</strong> button starts
+          and stops the server. It needs a one-time setup in the IntegratedAI folder:
+          <code id="services-command">npm run services:install -- --id …</code>, and your OK:
+          <button type="button" id="services-allow" class="link">allow the Server button</button>
+          <span id="services-status" role="status"></span></div>
       </div>
 
       <div class="row-buttons">

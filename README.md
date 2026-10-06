@@ -107,6 +107,24 @@ Load the extension:
 
 For local `file://` pages, also turn on *Allow access to file URLs* in the extension's details.
 
+### Start the server from the extension (no `npm start` each time)
+
+The **Server** button in the panel's toolbar (F12 and the card, local server mode only) starts and stops the agent
+server; when it isn't running, the panel shows **Start server**. A browser extension can't start programs by itself,
+so this goes through a small helper that Chrome may start for this extension only (native messaging). Set it up
+once, in this folder:
+
+```bash
+npm run services:install -- --id <extension id>
+```
+
+The extension shows this command with its ID filled in the first time you click Server (and in Options). The first
+click also asks for your OK to talk to the helper (the optional `nativeMessaging` permission). The helper
+(`server/native-host/host.js`) does three things only: report whether the server is running, start it in the
+background (output in `~/.integratedai/logs/server.log`), and stop it (it asks the server to save and exit through
+`POST /shutdown`, which needs the pairing token and refuses requests from web pages). `npm run services:uninstall`
+removes it; `npm start` keeps working as before.
+
 ## Using it
 
 The core workflow:

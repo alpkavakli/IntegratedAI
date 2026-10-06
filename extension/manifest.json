@@ -25,6 +25,7 @@
     }
   },
   "permissions": ["storage", "scripting", "webNavigation"],
+  "optional_permissions": ["nativeMessaging"],
   "host_permissions": ["<all_urls>"],
   "content_scripts": [
     {

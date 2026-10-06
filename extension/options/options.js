@@ -264,6 +264,19 @@ for (const input of /** @type {NodeListOf<HTMLInputElement>} */ (document.queryS
   input.addEventListener('change', () => saveSettings({ defaultAgentMode: /** @type {any} */ (input.value) }));
 }
 $('ollamaCompact').checked = settings.ollamaCompact;
+
+// The panel's Server button (local server mode): its setup command, and the permission it needs.
+$('services-command').textContent = `npm run services:install -- --id ${chrome.runtime.id}`;
+const showServicesPermission = async () => {
+  const granted = await chrome.permissions.contains({ permissions: ['nativeMessaging'] });
+  $('services-allow').hidden = granted;
+  $('services-status').textContent = granted ? 'Allowed.' : '';
+};
+$('services-allow').addEventListener('click', async () => {
+  await chrome.permissions.request({ permissions: ['nativeMessaging'] }).catch(() => false);
+  showServicesPermission();
+});
+showServicesPermission();
 for (const id of ['executeJs', 'askBeforeInspections', 'webTools', 'ollamaCompact']) {
   $(id).addEventListener('change', () => saveSettings({ [id]: $(id).checked }));
 }

@@ -65,6 +65,9 @@ const handlers = {
 
   'options.open': async () => chrome.runtime.openOptionsPage(),
 
+  // The panel's Server button: start / stop / check the local agent server through the native host.
+  'services.call': async ({ cmd }) => servicesCall(cmd),
+
   // The DevTools panel opened on this tab: the card there steps aside (the conversation continues in DevTools).
   'card.devtoolsOpened': async ({ tabId }) => {
     if ((await sessionGet(`card:${tabId}`))?.open) chrome.tabs.sendMessage(tabId, { type: 'card.devtools' }).catch(() => {});
@@ -272,6 +275,34 @@ chrome.webNavigation.onCommitted.addListener(async ({ tabId, frameId, url }) => 
     insertCss(tabId, patchCss(patch)).catch((err) => console.warn('Patch injection failed', patch.name, err));
   }
 });
+
+// ─────────────────────────────────────────────────────────── the local server (Server button)
+
+/** The native messaging host registered by `npm run services:install` (server/native-host/host.js). */
+const SERVICES_HOST = 'com.integratedai.server';
+
+/**
+ * Ask the helper program to start, stop or check the local agent server. Needs the optional
+ * nativeMessaging permission (the panel asks for it on the first click) and the helper registered once.
+ * @param {string} cmd
+ * @returns {Promise<{ running?: boolean, port?: number, logFile?: string, note?: string, error?: string,
+ *   needsPermission?: true, notInstalled?: true, installCommand?: string }>}
+ */
+async function servicesCall(cmd) {
+  if (!['status', 'start', 'stop'].includes(cmd)) throw new Error('Unknown command');
+  if (!(await chrome.permissions.contains({ permissions: ['nativeMessaging'] })) || !chrome.runtime.sendNativeMessage) {
+    return { needsPermission: true };
+  }
+  try {
+    return await chrome.runtime.sendNativeMessage(SERVICES_HOST, { cmd });
+  } catch (err) {
+    const message = String(/** @type {any} */ (err)?.message ?? err);
+    if (/not found|forbidden|access.*denied/i.test(message)) {
+      return { notInstalled: true, installCommand: `npm run services:install -- --id ${chrome.runtime.id}` };
+    }
+    return { error: message };
+  }
+}
 
 // ─────────────────────────────────────────────────────────── the card on the page
 

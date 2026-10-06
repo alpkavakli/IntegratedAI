@@ -90,6 +90,7 @@ export class App {
     else bg('card.devtoolsOpened', { tabId: this.tabId }).catch(() => {});
 
     this.settings = await loadSettings();
+    document.body.dataset.connection = this.settings.mode === 'direct' ? 'direct' : 'server';
     this.client = this.settings.mode === 'direct' ? new DirectClient(() => loadSettings()) : new ServerClient(() => loadSettings());
     this.applyContextDefaults();
     onSettingsChanged((s) => {
@@ -168,6 +169,7 @@ export class App {
 
     $('new-chat').addEventListener('click', () => this.newConversation());
     $('copy-text').addEventListener('click', () => this.copySelectedText());
+    $('server-toggle').addEventListener('click', () => this.toggleServer());
     if (IN_CARD) {
       $('pick-element').addEventListener('click', () => this.startPicking());
       // Esc minimises the card (the page around this frame can't see the key, so tell it).
@@ -312,9 +314,11 @@ export class App {
       } else if (status === 'unauthorized') {
         this.showBanner(error, true, 'Open settings', () => bg('options.open'));
       } else if (status === 'disconnected') {
-        this.showBanner(this.settings.mode === 'direct' ? error : `Agent server disconnected: ${error} Retrying…`, true,
-          this.settings.mode === 'direct' ? 'Open settings' : undefined, () => bg('options.open'));
+        if (this.settings.mode === 'direct') this.showBanner(error, true, 'Open settings', () => bg('options.open'));
+        // (error is the client's own wording, which says to run npm start: the button does that now.)
+        else this.showBanner("The local server isn't running.", true, 'Start server', () => this.toggleServer('start'));
       }
+      this.renderServerToggle();
       this.updateComposer();
       this.chat.refreshCards();
     });
@@ -942,6 +946,57 @@ export class App {
   stopTask() {
     this.agent.abort();
     this.chat.cancelAsks();
+  }
+
+  // ───────────────────────────────────────────────────────── the local server
+
+  /** The Server button shows whether the local server is running (= connected to it). */
+  renderServerToggle() {
+    const on = Boolean(this.connected);
+    $('server-toggle').setAttribute('aria-pressed', String(on));
+    $('server-toggle').title = on ? 'The local server is running. Click to stop it' : 'Start the local server';
+    $('server-toggle').setAttribute('aria-label', on ? 'Stop the local server' : 'Start the local server');
+  }
+
+  /**
+   * Start or stop the local agent server (no `npm start` needed): through the helper program that
+   * `npm run services:install` registers once. The first click asks for the permission to talk to it.
+   * @param {'start' | 'stop'} [want]
+   */
+  async toggleServer(want = this.connected ? 'stop' : 'start') {
+    const button = $('server-toggle');
+    if (!(await chrome.permissions.contains({ permissions: ['nativeMessaging'] }))) {
+      const granted = await chrome.permissions.request({ permissions: ['nativeMessaging'] }).catch(() => false);
+      if (!granted) {
+        this.showBanner('To start the server from here, IntegratedAI needs your OK to talk to its helper program on this computer. '
+          + 'Click Server again and allow it, or allow it in the settings.', true, 'Open settings', () => bg('options.open'));
+        return;
+      }
+    }
+    button.classList.add('working');
+    this.showBanner(want === 'start' ? 'Starting the local server…' : 'Stopping the local server…');
+    try {
+      /** @type {any} */
+      const reply = await bg('services.call', { cmd: want });
+      if (reply.needsPermission) {
+        this.showBanner('Allow IntegratedAI to talk to its helper program first (click Server again).', true);
+      } else if (reply.notInstalled) {
+        this.showBanner(`One-time setup: in the IntegratedAI folder, run  ${reply.installCommand}  then click Server again.`, true,
+          'Copy command', () => copyToClipboard(reply.installCommand).then(() => this.showBanner('Copied. Run it in a terminal in the IntegratedAI folder, then click Server again.')));
+      } else if (reply.error) {
+        this.showBanner(reply.error, true);
+      } else if (want === 'start') {
+        this.hideBanner();
+        this.client.reconnect();
+      } else {
+        this.showBanner('The local server is stopped. Click Server to start it again.');
+      }
+    } catch (err) {
+      this.showBanner(String(/** @type {any} */ (err)?.message ?? err), true);
+    } finally {
+      button.classList.remove('working');
+      this.renderServerToggle();
+    }
   }
 
   /** @param {number} n */

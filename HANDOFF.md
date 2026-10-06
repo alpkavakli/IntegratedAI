@@ -131,6 +131,20 @@ harness) or the owner's GitHub/Telegram test is the next thing to do.
   back after reload, Esc, pill, DevTools handoff, axe), page-check (the card is invisible to page tools), and the card
   on the real GitHub and Wikipedia pages (strict CSP) in headless Chrome.
 
+## Done in the fourth session, part 2: the Server button
+
+- Toolbar **Server** toggle (F12 panel and card, local server mode only) and **Start server** in the
+  "isn't running" banner. Through native messaging: `server/native-host/host.js` (status / start / stop only),
+  registered with `npm run services:install -- --id <id>` (`scripts/services.mjs`: launcher + manifest in
+  ~/.integratedai/native-host, HKCU registry keys for Chrome/Chromium/Edge, folders on macOS/Linux).
+  `nativeMessaging` is an optional permission, requested on the first click (Options has the same button).
+  Stop = `POST /shutdown` (token, no Origin) so conversations are saved; then the started PID as a fallback.
+- Gotcha: in the helper, use node:http with agent:false, not fetch: exiting with fetch's open connection crashes
+  Node on Windows (libuv assertion, exit 0xC0000409).
+- Tested end to end in headless Chrome (Chrome → helper → server, start/stop, the shutdown endpoint refusing no
+  token / wrong token / a web page). The owner's Chrome is registered for the extension ID
+  chmojffncgjblieclbphmeebjgkoklnd (the unpacked `extension` folder).
+
 ## Next work, in order
 
 0. **Chinese models (owner's next request):** providers like DeepSeek, Qwen (DashScope / Alibaba Cloud Model Studio),

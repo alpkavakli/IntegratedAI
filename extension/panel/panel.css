@@ -258,6 +258,10 @@ ai-tasks .item .row input { flex: 1; min-width: 0; }
 body:not([data-surface="card"]) .card-only,
 body[data-surface="card"] .devtools-only { display: none !important; }
 #to-devtools { font-size: 12px; }
+/* The Server button only matters with the local server (not in direct mode). */
+body:not([data-connection="server"]) .server-only { display: none !important; }
+#server-toggle[aria-pressed="true"] .glyph { color: var(--ok, #188038); }
+#server-toggle.working { opacity: .6; pointer-events: none; }
 #pick-element.active { border-color: var(--accent); color: var(--accent); }
 .list-heading { font-weight: 600; margin: 8px 0 4px; color: var(--fg-muted); }
 .item { border: 1px solid var(--border); border-radius: 4px; padding: 6px 8px; margin-bottom: 6px; }

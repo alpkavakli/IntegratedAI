@@ -64,6 +64,12 @@ All storage is local to your computer:
   view, back up or delete this folder at any time; individual memory notes can be edited or deleted in the
   panel's Memory tab.
 
+## Starting the local server (optional)
+
+Only in local server mode, and only if you set it up and allow it: the panel's **Server** button asks a small
+helper program on your computer (installed with `npm run services:install`) to start or stop the agent server.
+The extension sends it nothing but "status", "start" or "stop"; no page content or personal data.
+
 ## What the extension does on pages
 
 - When you click its toolbar button, shows the AI card on that page (and on the tab's next pages until you close

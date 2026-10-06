@@ -8,6 +8,7 @@
  *   GET /health   → { ok: true }               (no data, no auth: lets the panel show "server running")
  *   WS  /ws       → the DevTools panel protocol (see extension/shared/protocol.js)
  *   POST /mcp     → page inspections as MCP tools for Claude Code (see mcp.js)
+ *   POST /shutdown → save and exit (pairing token, no browser Origin; the extension's "Stop server")
  */
 
 import { createServer } from 'node:http';
@@ -50,6 +51,17 @@ const server = createServer((req, res) => {
     res.end(JSON.stringify({ ok: true }));
     return;
   }
+  // The extension's "Stop server" (through the native host, see native-host/host.js): save and exit.
+  // Only with the pairing token, and never from a web page (browsers always send an Origin).
+  if (req.method === 'POST' && req.url === '/shutdown') {
+    if (req.headers.origin || req.headers['x-integratedai-token'] !== config.token) {
+      res.writeHead(403).end();
+      return;
+    }
+    res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ ok: true }));
+    shutdown();
+    return;
+  }
   if (req.url === '/mcp') {
     handleMcpRequest(req, res, { pageTools, port: config.port }).catch((err) => {
       console.error(`[mcp] ${err?.message ?? err}`);
@@ -90,9 +102,8 @@ server.listen(config.port, config.host, async () => {
 });
 
 // Save pending conversation writes before exiting.
-for (const signal of ['SIGINT', 'SIGTERM']) {
-  process.on(signal, async () => {
-    await store.flush();
-    process.exit(0);
-  });
+async function shutdown() {
+  await store.flush();
+  process.exit(0);
 }
+for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, shutdown);
