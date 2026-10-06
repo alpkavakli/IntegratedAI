@@ -84,6 +84,24 @@ function checkCall(call, settings, offered, card) {
   return errors;
 }
 
+/**
+ * The JSON array in a translation answer (models sometimes wrap it in a code block or a sentence), keeping only
+ * well-formed pieces with ids that were asked for.
+ * @param {string} text
+ * @param {Set<number>} ids
+ * @returns {{ id: number, text: string }[]}
+ */
+export function parseTranslation(text, ids) {
+  const start = text.indexOf('[');
+  const end = text.lastIndexOf(']');
+  if (start < 0 || end <= start) return [];
+  let items;
+  try { items = JSON.parse(text.slice(start, end + 1)); } catch { return []; }
+  if (!Array.isArray(items)) return [];
+  return items.filter((i) => i && ids.has(i.id) && typeof i.text === 'string' && i.text.length <= 8000)
+    .map((i) => ({ id: i.id, text: i.text }));
+}
+
 /** Model calls per turn in the agent modes, where each page step is one call (config.maxAgentSteps overrides). */
 const AGENT_STEPS = 40;
 /** Stop a turn after this many model calls in a row with only invalid tool calls (small models can loop on one mistake). */
@@ -285,6 +303,35 @@ export class Orchestrator {
       this.store.save(session);
       this.panel.send(id, { type: 'turn.done', conversationId: id, usage: turnUsage, sessionUsage: session.usage, stopReason });
     }
+  }
+
+  /**
+   * Translate one batch of page text (translate_page) with the conversation's provider and model: a plain
+   * request outside the conversation (no tools, nothing added to the chat). Returns the pieces it got back
+   * as translated; anything malformed is left out, and those texts simply stay as they were.
+   * @param {Session} session
+   * @param {string} language
+   * @param {{ id: number, text: string }[]} pieces
+   * @returns {Promise<{ id: number, text: string }[]>}
+   */
+  async translate(session, language, pieces) {
+    if (!language.trim()) throw new Error('No language to translate into');
+    const valid = pieces.filter((p) => Number.isInteger(p?.id) && typeof p.text === 'string' && p.text.length <= 4000);
+    if (!valid.length) return [];
+    const available = await this.registry.isAvailable(session.provider);
+    if (!available.available) throw new Error(`Provider unavailable: ${available.reason}`);
+    const provider = this.registry.create(session.provider);
+    const system = `You translate the text of a web page into ${language}. You get a JSON array of pieces, each {"id", "text"}. `
+      + 'Translate every piece, keeping its meaning, tone, names, numbers and punctuation; leave code, URLs and product names '
+      + 'as they are; a piece that is already in that language stays the same. Answer with ONLY a JSON array of '
+      + '{"id": <the same id>, "text": <the translation>}, one per piece, and nothing else.';
+    let text = '';
+    const events = provider.turn({
+      messages: [{ role: 'user', ts: Date.now(), content: [{ type: 'text', text: JSON.stringify(valid) }] }],
+      system, actionNames: [], webTools: false, model: session.model, state: {}, signal: new AbortController().signal,
+    });
+    for await (const ev of events) if (ev.type === 'text_delta') text += ev.text;
+    return parseTranslation(text, new Set(valid.map((p) => p.id)));
   }
 
   /**

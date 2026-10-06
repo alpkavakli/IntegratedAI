@@ -344,6 +344,25 @@ export const ACTIONS = {
     },
   },
 
+  translate_page: {
+    label: 'Translate the page',
+    readOnly: false,
+    risk: 'low',
+    description:
+      'Propose translating the visible text of the page into another language (the user applies it; Undo restores the original). ' +
+      'Use it for "translate this page", "show this in Turkish", "I can\'t read this". Only the text changes, not the layout, links or forms. ' +
+      'Large pages are translated in parts and can take a while; up to about 40,000 characters.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        description: { type: 'string', description: 'One short sentence, e.g. "Translate the page into Turkish".' },
+        language: { type: 'string', description: 'The language to translate into, in English, e.g. "Turkish", "German", "Simplified Chinese".' },
+      },
+      required: ['description', 'language'],
+      additionalProperties: false,
+    },
+  },
+
   interact: {
     label: 'Interact with the page',
     readOnly: false,
@@ -456,6 +475,7 @@ const BRIEF = {
   interact: 'Operate the page: steps of {action, ref|selector|text, value}. action: click, hover, type, select, check, uncheck, submit, '
     + 'scroll (value down/up/top/bottom), press (value: key), wait (value: seconds). Steps wait for the page to settle.',
   navigate: 'Open a URL in this tab (url), or go: back, forward, reload.',
+  translate_page: 'Propose translating the page\'s visible text into a language (user applies; undoable).',
   execute_js: 'Last resort: propose JavaScript (body of an async function) for the user to run; give undoCode if possible.',
 };
 
@@ -466,7 +486,7 @@ const BRIEF = {
  */
 export const CARD_ACTIONS = [
   'find_elements', 'page_outline', 'read_text', 'inspect_element', 'inspect_console', 'screenshot',
-  'remember', 'forget', 'define_page_group', 'inject_css',
+  'remember', 'forget', 'define_page_group', 'inject_css', 'translate_page',
 ];
 
 /** Actions left out in compact mode: rarely needed, and every tool costs context. */
@@ -679,6 +699,7 @@ export function validateAction(name, input, settings) {
     errors.push('css must be plain CSS without <style> tags');
   }
   if (name === 'remember' && (!i.note.trim() || i.note.length > 300)) errors.push('note must be 1–300 characters');
+  if (name === 'translate_page' && (!i.language.trim() || i.language.length > 40)) errors.push('language must be 1–40 characters');
   if (name === 'define_page_group') {
     if (!i.name.trim() || i.name.length > 40) errors.push('name must be 1–40 characters');
     if (!/^\/[^\s?#]*$/.test(i.pattern) || i.pattern.length > 200) errors.push('pattern must be a path starting with "/" (no spaces, ? or #)');
@@ -707,7 +728,7 @@ export function envelopeSchema(names) {
       actions: {
         type: 'array',
         description: 'Inspections to run or changes to propose. Empty array if none. These actions are not callable tools: listing them here is the only way to use them.',
-        items: {
+        items: names.length === 0 ? { type: 'object', properties: {}, additionalProperties: false } : {
           anyOf: names.map((name) => ({
             type: 'object',
             properties: {

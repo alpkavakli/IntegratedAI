@@ -40,6 +40,7 @@ import { saveTask, updateTask } from './lib/tasks.js';
 import { ServerClient } from './lib/ws-client.js';
 import { DirectClient } from './direct/direct-client.js';
 import { boostCss } from '../shared/css-boost.js';
+import { conversationToMarkdown } from '../shared/conversation-markdown.js';
 import { PRESETS, baseUrlFor } from '../shared/providers/openai-compatible.js';
 
 const $ = (/** @type {string} */ id) => /** @type {any} */ (document.getElementById(id));
@@ -126,6 +127,11 @@ export class App {
     this.pageUrl = page.url;
     await this.changes.load(page.timeOrigin);
 
+    // translate_page cards: each batch goes to the conversation's provider; progress shows on the card.
+    this.changes.translator = async (/** @type {any[]} */ pieces, /** @type {string} */ language) =>
+      (await this.client.request({ type: 'translate.batch', conversationId: this.session?.id, language, pieces }, 180_000)).items ?? [];
+    this.changes.onTranslateProgress = (/** @type {number} */ done, /** @type {number} */ total) =>
+      this.showBanner(done < total ? `Translating the page… part ${done + 1} of ${total}` : 'Translated.');
     this.patchesView = $('patches').bind(this);
     this.tasksView = $('tasks').bind(this);
     this.consoleView = $('console').bind(this);
@@ -177,6 +183,7 @@ export class App {
     $('new-chat').addEventListener('click', () => this.newConversation());
     $('copy-text').addEventListener('click', () => this.copySelectedText());
     $('server-toggle').addEventListener('click', () => this.toggleServer());
+    $('save-markdown').addEventListener('click', () => this.saveMarkdown());
     $('ollama-unload').addEventListener('click', () => this.unloadOllama());
     if (IN_CARD) {
       // Once: point out the full version in DevTools.
@@ -1138,6 +1145,22 @@ export class App {
       if (err instanceof TypeError) this.showBanner("Ollama isn't running, so no model is loaded: your graphics card is already free. Start Ollama again before your next message.");
       else this.showBanner(`Couldn't unload the model: ${/** @type {any} */ (err).message}`, true);
     }
+  }
+
+  /** Save the conversation as a Markdown file (to read or share; no page data beyond what's in the chat). */
+  saveMarkdown() {
+    if (!this.session?.messages.length) {
+      this.showBanner('Nothing to save yet: this conversation is empty.');
+      return;
+    }
+    const text = conversationToMarkdown(/** @type {any} */ (this.session));
+    let site = 'page';
+    try { site = new URL(this.session.url ?? this.pageUrl).hostname.replace(/^www\./, ''); } catch { /* keep "page" */ }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type: 'text/markdown' }));
+    a.download = `integratedai-${site}-${new Date().toISOString().slice(0, 10)}.md`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
   }
 
   /** @param {number} n */

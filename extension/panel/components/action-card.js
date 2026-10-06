@@ -134,6 +134,12 @@ export class ActionCard extends HTMLElement {
       return h('div', null, input.url ? ['Open ', h('code', null, input.url)] : `Go ${input.go}`);
     }
 
+    if (name === 'translate_page') {
+      return h('div', null,
+        h('div', null, `Translate the visible text of the page into ${input.language}.`),
+        h('div', { class: 'note' }, 'Uses your AI (a request for every few dozen pieces of text). Only the text changes; Undo restores it.'));
+    }
+
     if (name === 'execute_js') {
       return h('div', null,
         h('div', { class: 'warning' }, '⚠ Runs arbitrary JavaScript in this page, with access to its data and logged-in session.'),
@@ -219,6 +225,9 @@ export class ActionCard extends HTMLElement {
           ' I reviewed this code'),
         h('button', { type: 'button', class: 'primary', disabled: disabled || !this.reviewed, onclick: run(() => app.applyAction(actionId)) }, 'Run script'),
       );
+    } else if (name === 'translate_page') {
+      buttons.push(h('button', { type: 'button', class: 'primary', disabled, onclick: run(() => app.applyAction(actionId)) },
+        status === 'proposed' ? 'Translate' : 'Translate again'));
     } else if (name === 'interact' || name === 'navigate') {
       buttons.push(h('button', { type: 'button', class: 'primary', disabled, onclick: run(() => app.applyAction(actionId)) },
         name === 'navigate' ? (status === 'proposed' ? 'Go' : 'Go again') : status === 'proposed' ? 'Run steps' : 'Run again'));

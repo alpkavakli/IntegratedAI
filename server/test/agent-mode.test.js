@@ -192,3 +192,14 @@ test('the card on the page: only the basic actions, never page actions, and the 
   assert.doesNotMatch(seen[0].system, /Working on the page yourself/, 'never an agent mode in the card');
   assert.match(JSON.stringify(sent), /Invalid action|invalid/, 'interact is refused');
 });
+
+test('translate: one batch with the conversation\'s provider, no tools, and only well-formed pieces kept', async () => {
+  const { parseTranslation } = await import('../../extension/shared/agent/orchestrator.js');
+  const { orchestrator, seen } = setup([[{ type: 'text_delta', text: 'Here you go:\n```json\n[{"id":0,"text":"Merhaba"},{"id":1,"text":"Dünya"},{"id":9,"text":"extra"},{"id":2}]\n```' }]]);
+  const session = await orchestrator.openSession({});
+  const items = await orchestrator.translate(session, 'Turkish', [{ id: 0, text: 'Hello' }, { id: 1, text: 'World' }, { id: 2, text: 'Bye' }]);
+  assert.deepEqual(items, [{ id: 0, text: 'Merhaba' }, { id: 1, text: 'Dünya' }], 'ids not asked for and pieces without text are dropped');
+  assert.match(seen[0].system, /into Turkish/);
+  assert.equal(session.messages.length, 0, 'nothing added to the conversation');
+  assert.deepEqual(parseTranslation('no json here', new Set([0])), []);
+});

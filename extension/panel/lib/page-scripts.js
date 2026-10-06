@@ -617,6 +617,69 @@ export function pageOutline(h, selected, input = {}) {
   };
 }
 
+/**
+ * translate_page, step 1: the page's visible text, as numbered pieces (one per text node), to translate in
+ * batches. The nodes are kept in the hidden state (translate.nodes) for applyTranslations. Skips code,
+ * form fields, hidden text and our own UI. Leading/trailing spaces stay out of the pieces (and are kept).
+ * @returns {{ pieces: { id: number, text: string }[], cut: boolean }}  cut: the page had more than the limit
+ */
+export function collectTexts(h, selected, { maxPieces = 600, maxChars = 40000 } = {}) {
+  const state = h.state();
+  state.translate = state.translate ?? { nodes: [], originals: new Map() };
+  const nodes = [];
+  const pieces = [];
+  let chars = 0;
+  let cut = false;
+  const SKIP = 'script, style, noscript, template, code, pre, kbd, samp, textarea, input, select, svg, math, [contenteditable=""], [contenteditable="true"], #integratedai-card, #integratedai-working, #integratedai-highlight';
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      const text = node.textContent.trim();
+      if (text.length < 2 || !/\p{L}/u.test(text)) return NodeFilter.FILTER_REJECT; // no letters: numbers, symbols
+      const parent = node.parentElement;
+      if (!parent || parent.closest(SKIP) || !h.visible(parent)) return NodeFilter.FILTER_REJECT;
+      return NodeFilter.FILTER_ACCEPT;
+    },
+  });
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    const text = node.textContent.trim();
+    if (pieces.length >= maxPieces || chars + text.length > maxChars) { cut = true; break; }
+    nodes.push(node);
+    pieces.push({ id: nodes.length - 1, text });
+    chars += text.length;
+  }
+  state.translate.nodes = nodes;
+  return { pieces, cut };
+}
+
+/**
+ * translate_page, step 2: put translated pieces in place of the originals (kept for undoTranslation).
+ * @param {{ items: { id: number, text: string }[] }} args
+ */
+export function applyTranslations(h, selected, { items }) {
+  const t = h.state().translate;
+  if (!t?.nodes.length) throw new Error('The page changed since its text was read: translate it again');
+  let done = 0;
+  for (const { id, text } of items) {
+    const node = t.nodes[id];
+    if (!node || !node.isConnected || typeof text !== 'string') continue;
+    if (!t.originals.has(node)) t.originals.set(node, node.textContent);
+    const original = t.originals.get(node);
+    // Keep the spaces around the text: they separate it from its neighbours.
+    node.textContent = `${original.match(/^\s*/)[0]}${text}${original.match(/\s*$/)[0]}`;
+    done++;
+  }
+  return done;
+}
+
+/** Undo translate_page: every translated text back to its original. */
+export function undoTranslation(h) {
+  const t = h.state().translate;
+  if (!t?.originals.size) throw new Error('Nothing to undo (the page was probably reloaded)');
+  for (const [node, original] of t.originals) if (node.isConnected) node.textContent = original;
+  t.originals.clear();
+  return true;
+}
+
 /** Empty the console buffer filled by content/console-capture.js (the Console tab's Clear). */
 export function clearConsole() {
   window[Symbol.for('integratedai.console')]?.clear();

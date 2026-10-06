@@ -109,9 +109,11 @@ export class AnthropicProvider extends Provider {
       max_tokens: cfg.maxTokens,
       system,
       tools: [...toAnthropicTools(actionNames), ...(webTools ? webToolsFor(model) : [])],
+      // (A plain request, such as a translation, has none.)
       messages: toAnthropicMessages(messages),
       cache_control: { type: 'ephemeral' }, // automatic prompt caching of the prefix
     };
+    if (!params.tools.length) delete params.tools;
     // Haiku 4.5 does not support the effort parameter.
     if (!model.startsWith('claude-haiku')) params.output_config = { effort: cfg.effort };
     // On a safety refusal, let the API retry on a suitable fallback model.

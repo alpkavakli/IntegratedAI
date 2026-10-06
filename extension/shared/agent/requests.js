@@ -90,6 +90,15 @@ export function createRequestHandler({ orchestrator, store, registry, memory, on
         orchestrator.cancel(String(msg.conversationId));
         return null;
 
+      // translate_page, after the user applied it: one batch of the page's text, translated with the
+      // conversation's provider and model (the panel splits the page into batches and puts them in place).
+      case 'translate.batch': {
+        const session = await load(msg.conversationId);
+        const pieces = Array.isArray(msg.pieces) ? msg.pieces.slice(0, 200) : [];
+        const items = await orchestrator.translate(session, String(msg.language ?? '').slice(0, 40), pieces);
+        return { type: 'translate.result', items };
+      }
+
       case 'action.status': {
         const session = await load(msg.conversationId);
         orchestrator.setActionStatus(session, String(msg.actionId), String(msg.status), msg.detail);

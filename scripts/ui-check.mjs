@@ -77,6 +77,21 @@ const ollama = http.createServer((req, res) => {
     const send = (/** @type {unknown} */ chunk) => res.write(`data: ${JSON.stringify(chunk)}\n\n`);
     res.writeHead(200, { 'content-type': 'text/event-stream' });
     const request = JSON.parse(body);
+    // Translation batches (translate_page): "translate" into capitals, so the test can see it happened.
+    if (/You translate the text of a web page/.test(request.messages[0].content)) {
+      const pieces = JSON.parse(request.messages.at(-1).content);
+      send({ choices: [{ delta: { content: JSON.stringify(pieces.map((/** @type {any} */ p) => ({ id: p.id, text: p.text.toUpperCase() }))) } }] });
+      send({ choices: [{ delta: {}, finish_reason: 'stop' }] });
+      return res.end('data: [DONE]\n\n');
+    }
+    // "Translate this page": propose it.
+    const askedAt = request.messages.findLastIndex((/** @type {any} */ m) => m.role === 'user' && typeof m.content === 'string');
+    const asked = request.messages[askedAt]?.content ?? '';
+    if (/Translate this page/.test(asked) && !request.messages.slice(askedAt).some((/** @type {any} */ m) => m.role === 'tool')) {
+      send({ choices: [{ delta: { tool_calls: [{ index: 0, id: `call_tr_${Date.now()}`, type: 'function', function: { name: 'translate_page', arguments: JSON.stringify({ description: 'Translate the page into capitals', language: 'Capitals' }) } }] } }] });
+      send({ choices: [{ delta: {}, finish_reason: 'tool_calls' }] });
+      return res.end('data: [DONE]\n\n');
+    }
     // (The full prompt has a section for it; the compact one, which Ollama gets, says the steps RUN on the page.)
     if (/Working on the page yourself|RUN on the page right away/.test(request.messages[0].content)) {
       // Tool results since the user's message (screenshots come as user messages that start with an image note).
@@ -482,6 +497,21 @@ try {
   // Minimised (it stepped aside), the page has all its room back.
   const margin = await ev(cardPage.session, `getComputedStyle(document.documentElement).marginRight`);
   if (margin !== '0px') violations.push(`card: minimised, but the page is still pushed aside (margin ${margin})`);
+  // Translate this page (from the card): the card proposes it, Translate swaps the text, Undo restores it.
+  cardSession = await cardFrame();
+  for (let i = 0; i < 40 && !(await ev(cardSession, `!document.getElementById('session-row').hidden`)); i++) await sleep(250);
+  await ev(cardSession, `document.getElementById('prompt').value = 'Translate this page'; document.getElementById('composer').requestSubmit()`);
+  for (let i = 0; i < 60 && !(await ev(cardSession, `[...document.querySelectorAll('ai-action-card')].some((c) => /Translate the visible text/.test(c.innerText))`)); i++) await sleep(250);
+  const clickCard = (/** @type {string} */ label) => ev(cardSession, `(() => { const cards = [...document.querySelectorAll('ai-action-card')]; const b = [...cards.at(-1).querySelectorAll('button')].find((x) => x.textContent.trim() === ${JSON.stringify(label)}); b?.click(); return !!b; })()`);
+  await clickCard('Translate');
+  let heading = '';
+  for (let i = 0; i < 40 && (heading = await ev(cardPage.session, `document.querySelector('h1').textContent`)) !== 'SIMPLE, HONEST PRICING'; i++) await sleep(250);
+  log(`card: translated → "${heading}"`);
+  if (heading !== 'SIMPLE, HONEST PRICING') violations.push(`card: Translate this page did not translate (${heading})`);
+  await clickCard('Undo');
+  await sleep(800);
+  const restored = await ev(cardPage.session, `document.querySelector('h1').textContent`);
+  if (restored !== 'Simple, honest pricing') violations.push(`card: Undo did not restore the text (${restored})`);
   await ev(sw, `chrome.storage.session.set({ 'card:${cardTab}': { open: false } })`);
 
   // Nothing set up yet: the panel's first-run screen.

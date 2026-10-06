@@ -25,6 +25,10 @@ import { bg } from './bg.js';
 import { callInPage, evalInPage, runApprovedScript } from './inspected.js';
 import { applyModify, revertModify } from './page-scripts.js';
 import { interactStep, revertInteract } from './page-interact.js';
+import { applyTranslations, collectTexts, undoTranslation } from './page-scripts.js';
+
+/** translate_page: pieces of text per request to the AI, and characters at most. */
+const TRANSLATE_BATCH = { pieces: 40, chars: 3000 };
 import { boostCss } from '../../shared/css-boost.js';
 
 const STEP_TIMEOUT_MS = 5000;   // how long a step waits for its element to appear
@@ -123,6 +127,9 @@ export class ChangeManager {
     let undoable;
     if (name === 'interact') {
       ({ detail, undoable } = await this.runSteps(id, input.steps, input.frame));
+    } else if (name === 'translate_page') {
+      detail = await this.translatePage(input.language);
+      undoable = true;
     } else if (name === 'navigate') {
       if (input.url) await evalInPage(`location.href = ${JSON.stringify(input.url)}`);
       else if (input.go === 'reload') chrome.devtools.inspectedWindow.reload({});
@@ -213,6 +220,40 @@ export class ChangeManager {
     return { detail: `Done: ${done.map((d, i) => `${i + 1}) ${d}`).join('; ')}`, undoable };
   }
 
+  /**
+   * translate_page: read the page's visible text, have the AI translate it batch by batch (this.translator,
+   * set by the panel: the conversation's provider), and put each batch in place as it comes back.
+   * @param {string} language
+   * @returns {Promise<string>} what was done
+   */
+  async translatePage(language) {
+    if (!this.translator) throw new Error('Translation is not available here');
+    const { pieces, cut } = await callInPage(collectTexts, {});
+    if (!pieces.length) throw new Error('There is no text to translate on this page');
+    /** @type {{ id: number, text: string }[][]} */
+    const batches = [];
+    let batch = [];
+    let chars = 0;
+    for (const piece of pieces) {
+      if (batch.length && (batch.length >= TRANSLATE_BATCH.pieces || chars + piece.text.length > TRANSLATE_BATCH.chars)) {
+        batches.push(batch);
+        batch = [];
+        chars = 0;
+      }
+      batch.push(piece);
+      chars += piece.text.length;
+    }
+    if (batch.length) batches.push(batch);
+    let done = 0;
+    for (const [i, part] of batches.entries()) {
+      this.onTranslateProgress?.(i, batches.length);
+      const items = await this.translator(part, language);
+      done += await callInPage(applyTranslations, { items });
+    }
+    this.onTranslateProgress?.(batches.length, batches.length);
+    return `Translated ${done} of ${pieces.length} pieces of text into ${language}${cut ? ' (the first part of a long page)' : ''}.`;
+  }
+
   /** @param {string} id */
   async revert(id) {
     const change = this.data.changes[id];
@@ -223,6 +264,9 @@ export class ChangeManager {
         break;
       case 'modify_element':
         await callInPage(revertModify, { actionId: id });
+        break;
+      case 'translate_page':
+        await callInPage(undoTranslation);
         break;
       case 'interact':
         await callInPage(revertInteract, { actionId: id }, change.frame);

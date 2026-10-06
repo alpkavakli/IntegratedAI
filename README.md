@@ -88,6 +88,13 @@ than the hosted ones; larger models give better results.
 
 **Separate memories:** each conversation uses the site's shared memory (default), a private memory of its own, or none: choose in the Memory tab or from the empty chat.
 
+**Translate this page:** ask (in the card or DevTools, e.g. "translate this page into Turkish"); the AI proposes a
+`translate_page` card, and **Translate** has your AI translate the visible text in batches and puts it in place.
+Only the text changes; **Undo** restores it. Long pages: up to about 40,000 characters.
+
+**Save as Markdown:** the download icon next to the model saves the conversation (questions, answers, what it
+looked at, and each change with what happened to it) as a `.md` file.
+
 **Copy text:** the button next to the context chips copies the selected element's text to the clipboard. The extension does this itself; no AI is involved.
 
 ### Quick start (direct mode)

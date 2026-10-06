@@ -249,10 +249,13 @@ export function openAICompatibleProvider(id) {
       const body = {
         model,
         messages: toOpenAIMessages(system, messages, { compact, reasoningFor: preset.sendReasoning ? id : undefined }),
-        tools: actionNames.map((name) => {
-          const spec = toolSpec(name, compact);
-          return { type: 'function', function: { name, description: spec.description, parameters: spec.inputSchema } };
-        }),
+        // (Left out when there are none: OpenAI refuses an empty list.)
+        ...(actionNames.length ? {
+          tools: actionNames.map((name) => {
+            const spec = toolSpec(name, compact);
+            return { type: 'function', function: { name, description: spec.description, parameters: spec.inputSchema } };
+          }),
+        } : {}),
         stream: true,
         ...(preset.includeUsage ? { stream_options: { include_usage: true } } : {}),
       };

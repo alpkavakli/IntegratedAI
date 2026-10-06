@@ -37,7 +37,7 @@ const CARD_TEXT = `
 
 ## The card on the page
 The user is talking to you in the small card on the page (opened from the toolbar button), not in DevTools. Here you
-can read and look at the page, explain it, change its CSS and use site memory. There is no Elements panel: "this" is
+can read and look at the page, explain it, translate it (translate_page), change its CSS and use site memory. There is no Elements panel: "this" is
 the element the user picked with Pick element, when the context shows one. Filling in forms, clicking or typing on
 the page, going to other pages, element edits, scripts and the network log are only available in DevTools: when the
 user asks for one of those, say so in a sentence and tell them to click "Continue in DevTools" (the conversation
