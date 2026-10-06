@@ -106,8 +106,12 @@ harness) or the owner's GitHub/Telegram test is the next thing to do.
    the prompt section. How to test: see "Testing agent mode on a real site" below.
 2. **Tune the outline on real sites:** size per step (tokens add up over 40 steps), which elements are worth listing,
    and whether the visible text is enough or the AI still calls read_text every time.
-3. **Real-key test of direct mode** (needs the owner's key): Anthropic first, then OpenAI/Gemini/OpenRouter, then a
-   real Ollama (`OLLAMA_ORIGINS=chrome-extension://*`). Model id suggestions are in
+3. **Real-key test of direct mode** (needs the owner's key): Anthropic first, then OpenAI/Gemini/OpenRouter.
+   Ollama is done (2026-10-06): `qwen3:8b` on the owner's RTX 4060 passed a CSS fix, the sign-up form in Auto mode
+   and a page summary. Found on the way: Ollama's default context (4,096 tokens) is smaller than our instructions and
+   tools (~6,500), so it silently cut them off; the setup page and README now say `OLLAMA_CONTEXT_LENGTH=16384`. The
+   owner's PC has no page file (commit limit = RAM), so loading the model failed until Chrome tabs were closed;
+   "unable to allocate CUDA_Host buffer" from Ollama means that. Model id suggestions are in
    `shared/providers/openai-compatible.js` (`PRESETS`, checked 2026-10-05); Test key lists what a key can use.
 4. **Decide and implement** the `execute_js` store-build question above.
 5. **Owner's new feature idea, NOT to be built yet (discussion pending):** make the agent "untraceable and human-like"

@@ -106,8 +106,9 @@
         <ol>
           <li>Install Ollama from <a href="https://ollama.com/download" target="_blank" rel="noopener">ollama.com</a>
             and download a model, for example: <code>ollama pull qwen3</code></li>
-          <li>Allow this extension to use it. On Windows, run <code>setx OLLAMA_ORIGINS "chrome-extension://*"</code>,
-            then quit Ollama and start it again.
+          <li>Allow this extension to use it, and give models room for its instructions (Ollama's default of 4,096
+            tokens is too small). On Windows, run <code>setx OLLAMA_ORIGINS "chrome-extension://*"</code> and
+            <code>setx OLLAMA_CONTEXT_LENGTH 16384</code>, then quit Ollama and start it again.
             (<a href="https://github.com/alpkavakli/IntegratedAI#two-ways-to-run-it" target="_blank" rel="noopener">Mac and Linux</a>)</li>
           <li>Click <strong>Check connection</strong>.</li>
         </ol>

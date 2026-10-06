@@ -43,10 +43,15 @@ Choose in **Options → Connection**:
 Both use the **same agent code** (`extension/shared/agent/`: orchestrator, prompts, memory, request handling). In direct mode it runs inside the extension: Anthropic through a vendored build of the official SDK (`extension/vendor/`, regenerate with `npm run vendor:sdk`); OpenAI, Gemini, OpenRouter and Ollama through their OpenAI-compatible Chat Completions API (`extension/shared/providers/openai-compatible.js`; another compatible service is one more preset there).
 
 **Ollama (free, local models).** Install [Ollama](https://ollama.com/download), download a model that supports tools
-(`ollama pull qwen3`), and allow browser extensions to call it. Ollama refuses them by default:
-- Windows: `setx OLLAMA_ORIGINS "chrome-extension://*"`, then quit Ollama from the tray and start it again.
-- macOS: `launchctl setenv OLLAMA_ORIGINS "chrome-extension://*"`, then restart the Ollama app.
-- Linux (systemd): add `Environment="OLLAMA_ORIGINS=chrome-extension://*"` with `systemctl edit ollama`, then restart it.
+(`ollama pull qwen3`), allow browser extensions to call it (Ollama refuses them by default), and raise its context
+length: Ollama gives models 4,096 tokens by default (less on small GPUs), and the extension's instructions and tools
+alone are about 6,500, so with the default Ollama silently cuts them off and the model loses its instructions.
+- Windows: `setx OLLAMA_ORIGINS "chrome-extension://*"` and `setx OLLAMA_CONTEXT_LENGTH 16384`, then quit Ollama from the tray and start it again.
+- macOS: `launchctl setenv OLLAMA_ORIGINS "chrome-extension://*"` and `launchctl setenv OLLAMA_CONTEXT_LENGTH 16384`, then restart the Ollama app.
+- Linux (systemd): add `Environment="OLLAMA_ORIGINS=chrome-extension://*"` and `Environment="OLLAMA_CONTEXT_LENGTH=16384"` with `systemctl edit ollama`, then restart it.
+
+On a GPU with 8 GB, also setting `OLLAMA_FLASH_ATTENTION=1` and `OLLAMA_KV_CACHE_TYPE=q8_0` keeps an 8B model plus 16K of context
+in video memory.
 
 Then pick **Ollama** in Options and click **Check connection**: it lists your models, checks that Ollama accepts the
 extension, and warns if the chosen model can't use tools. Small local models follow the instructions less reliably
@@ -480,7 +485,10 @@ These were also checked against real Chrome and the real `claude` CLI during dev
 - Claude Code (Sonnet) calling the page inspections over MCP: through the real server on a new and a resumed session, and with the real panel code in Chromium on a webnovel-like test page (the panel ran in a tab with a `chrome.devtools` stand-in). There, "Make a toggle button in the nav bar…" found `nav.g_nav`, and Apply, Save as site patch + toggle, reload and the toggle all worked.
 - screenshots with the real panel code in Chromium: of the nav bar, and of a footer 2,400 px below the fold. The page was scrolled to the footer and back, and Sonnet read both images correctly.
 - Apply to source end to end in Chromium with Claude Code (Sonnet) on a small test project. It changed the existing `.main-nav` rules instead of pasting the browser CSS, wrote only after the click, and Undo restored the file.
-- direct mode in Chromium with recorded-style API answers (Anthropic, OpenAI), the key check against the real APIs with invalid keys, Ollama against a stand-in server with Ollama's origin rules, and export / import / delete of the stored data. **Not yet done: direct mode with real API keys and a real Ollama.**
+- direct mode in Chromium with recorded-style API answers (Anthropic, OpenAI), the key check against the real APIs with invalid keys, Ollama against a stand-in server with Ollama's origin rules, and export / import / delete of the stored data. **Not yet done: direct mode with real API keys.**
+- a real Ollama (0.35, `qwen3:8b` on an 8 GB RTX 4060, 16K context) driven through the real panel in Chromium: a CSS
+  fix in Suggest mode (16 s), filling in and submitting the demo sign-up form in Auto mode with the risky submit
+  asked first (51 s), and summarising the blog page (10 s).
 
 ## Debugging
 
