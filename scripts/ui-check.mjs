@@ -57,6 +57,8 @@ const AGENT_SCRIPT = [
   ['interact', { description: 'Reserve the spot', steps: [{ action: 'click', text: 'Reserve my spot' }] }],
   ['navigate', { description: 'Open the pricing page', url: `http://127.0.0.1:${PORTS.pages}/pricing.html` }],
 ];
+/** What the page steps returned to the stand-in AI (each should carry an outline of the page). @type {string[]} */
+const agentResults = [];
 
 /**
  * Speaks the part of Ollama's API the extension uses. In Suggest mode every chat answer is the
@@ -77,7 +79,9 @@ const ollama = http.createServer((req, res) => {
     if (/Working on the page yourself/.test(request.messages[0].content)) {
       // Tool results since the user's message (screenshots come as user messages that start with an image note).
       const lastAsk = request.messages.findLastIndex((/** @type {any} */ m) => m.role === 'user' && typeof m.content === 'string');
-      const step = AGENT_SCRIPT[request.messages.slice(lastAsk).filter((/** @type {any} */ m) => m.role === 'tool').length];
+      const results = request.messages.slice(lastAsk).filter((/** @type {any} */ m) => m.role === 'tool');
+      if (results.length) agentResults[results.length - 1] = String(results.at(-1).content);
+      const step = AGENT_SCRIPT[results.length];
       if (step) {
         send({ choices: [{ delta: { tool_calls: [{ index: 0, id: `call_${Date.now()}`, type: 'function', function: { name: step[0], arguments: JSON.stringify(step[1]) } }] } }] });
         send({ choices: [{ delta: {}, finish_reason: 'tool_calls' }] });
@@ -317,6 +321,9 @@ try {
   if (!/Reserve my spot/.test(asked) || !/submits a form/.test(asked)) violations.push(`agent: the risky click was not asked about (${asked})`);
   if (typedWithoutAsking !== 'Sam Rivera / sam@example.com') violations.push(`agent: typing didn't run on its own (${typedWithoutAsking})`);
   if (pageNow !== '/pricing.html') violations.push(`agent: it didn't open the next page (${pageNow})`);
+  // After each step the AI gets an outline of the page: refs to target, and what it says.
+  const outline = agentResults[2] ?? '';
+  if (!/"elements":\["e\d+ /.test(outline) || !/pricing\.html/.test(outline)) violations.push(`agent: no page outline after the step (${outline.slice(0, 300)})`);
   await audit(agent.panel.session, 'panel, Auto mode (light)');
   await sleep(1000);
   if (await ev(agent.page.session, `!!document.getElementById('integratedai-working')`)) violations.push('agent: the badge stayed after the turn');

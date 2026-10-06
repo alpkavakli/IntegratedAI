@@ -165,7 +165,9 @@ Defined once in [extension/shared/actions.js](extension/shared/actions.js) and v
 
 | Action | Kind | Undo |
 |---|---|---|
-| `find_elements` | read: search the page by selector or visible text (e.g. find the nav bar); page landmarks by default | — |
+| `find_elements` | read: search the page by selector or visible text (e.g. find the nav bar); page landmarks by default. Each match has a ref (`e12`) that later steps can target | — |
+| `page_outline` | read: what's on screen, like a person scanning the page: buttons, links and fields with refs and their state, the focused element, an open dialog, headings, iframes, visible text | — |
+| `read_text` | read: the text of the page or one element (headings, lists, tables, field values, text areas such as code viewers), 12,000 characters at a time | — |
 | `inspect_element` | read: computed styles, matching CSS rules, ancestors, children, HTML | — |
 | `inspect_console` | read: captured console messages | — |
 | `inspect_network` | read: DevTools network log, sensitive headers/params redacted, no bodies | — |
@@ -173,7 +175,7 @@ Defined once in [extension/shared/actions.js](extension/shared/actions.js) and v
 | `screenshot` | read: an image of an element or of the visible page, so the AI can see colours and layout (shown to you in the chat too) | — |
 | `inject_css` | **change**: add a stylesheet (preferred). Optional `toggle`: an on/off button on the page | full (removeCSS) |
 | `modify_element` | **change**: styles, attributes, classes or text of one element | full (snapshot restore) |
-| `interact` | **page action**: click, type, choose options, tick boxes, submit, scroll, press keys, wait, with real events, one step at a time | typed values, selections and checkboxes yes; clicks and submits no |
+| `interact` | **page action**: click, hover, type, choose options, tick boxes, submit, scroll, press keys, wait, with real events, one step at a time | typed values, selections and checkboxes yes; clicks and submits no |
 | `navigate` | **page action**: open a URL, go back/forward, reload, and wait for the page to load | no |
 | `execute_js` | **change**: arbitrary JS. **Off by default.** | only if the model provided `undoCode` (best effort) |
 
@@ -181,9 +183,10 @@ Read-only inspections run automatically unless you enable *"Ask before the AI re
 
 **Doing things on pages (`interact`).** Ask for things like *"register me for SC2005 index 10102 and submit"*, *"change the language to Türkçe and save"* or *"fill in this form with …"*.
 - The AI finds the elements and proposes one card listing every step. Nothing happens until you click **Run steps**.
-- Steps use real browser events (a pointer/mouse sequence and `click()`, plus the native value setter followed by `input`/`change`), so React, Vue, Angular and MUI apps update their state. Setting attributes with `modify_element` doesn't do that.
+- Steps use real browser events (a pointer/mouse sequence and `click()`; typing through the browser's own "insert text" editing command, which fires trusted `input` events, falling back to the native value setter plus `input`/`change`), so React, Vue, Angular and MUI apps and the rich text editors in chat apps update their state. Setting attributes with `modify_element` doesn't do that.
 - Each step waits up to 5 s for its element, so menus that open after a click work.
-- A step can target an element by CSS selector or by its visible text.
+- A step can target an element by ref (from `find_elements` or `page_outline`: always exactly that element, also among identical rows), by CSS selector, or by its visible text. Open shadow roots are searched too.
+- A click on a disabled button fails with a clear message; a click on something covered by a banner or overlay, or on a link that opens a new tab, says so in its result.
 - If a step fails, the card says which steps already ran.
 - No JavaScript setting is needed.
 
@@ -203,8 +206,10 @@ step, like Claude Code's permission modes:
 | **Full auto** | Never asks. Only per conversation, after confirming a warning. |
 
 How it works: in the agent modes `interact` and `navigate` run **during** the AI's turn and their result (what was done, and
-the page's URL and title afterwards) goes back to it, so it looks, acts, checks and continues until the task is done
-(up to 40 steps per message, `maxAgentSteps`). Before each step the target is outlined on the page with a label
+an outline of the page afterwards: what's on screen with refs to target, and the visible text) goes back to it, so it looks, acts, checks and continues until the task is done
+(up to 40 steps per message, `maxAgentSteps`). After each step it waits until the page has settled (a load or route
+change finished and nothing re-rendered for half a second), so the AI doesn't need wait steps. Steps can run inside an
+iframe (`frame`: the frame's URL, which `page_outline` lists). Before each step the target is outlined on the page with a label
 ("IntegratedAI: click button "Send""), and the chat lists every step as it happens. While it works, a small
 **"IntegratedAI is working on this page ■ Stop"** badge sits in the page's corner (shown again after every page load); it and the
 **■** button in the panel stop it at any time.
@@ -442,7 +447,7 @@ tool calling can reuse `envelopeSchema()` like the CLI provider does.
 npm test
 ```
 
-112 unit tests cover:
+115 unit tests cover:
 - action validation and safety rules
 - auth (Origin, Host, token) and patch scopes
 - CLI argument building and output parsing, including session resume, cost differences, recovery from a lost session, decoding the streamed reply, enabling only the web tools and our MCP page tools, and the one-time correction when a model calls page actions as tools
@@ -454,12 +459,18 @@ npm test
 - site memory and page types: URL categorisation, note scopes, renaming groups, memory sent only when it changes, history per site, and shared / private / no memory per conversation
 - direct mode: the shared request handler, provider choice, and the OpenAI-compatible providers (streamed tool calls, cut-off answers, readable errors for bad keys, Ollama's address, missing server and refused origin)
 - export / import (no secrets, version 1 files, merging conversations and memory), data folder versions and backups
+- action validation including refs, frames, `page_outline` and `read_text`; strict Anthropic tool schemas kept within the API's budget (24 optional parameters per request)
 - agent modes: which actions run live, denied steps, more steps per turn, Full auto never a default, the new steps and navigate, MCP tools only in agent modes
 - CSS boosting, screenshots re-sent only for the last 3, and approved scripts that use `await` (timeouts, reloads)
 
 **UI check:** `npm run ui-check` opens the panel and the setup page in headless Chrome against a scripted stand-in
 AI (no key, no cost), saves a screenshot of each state, and runs an accessibility audit (axe-core, WCAG 2 A/AA)
 plus layout checks. It exits with 1 on any problem.
+
+**Page check:** `npm run page-check` runs the in-page code (finding, refs, outline, text reading, clicking, typing,
+waiting for the page to settle) in headless Chrome on a test page with what tripped the agent up on real sites:
+rows of identical markup, a code viewer's text area, shadow DOM, an overlay, a disabled button, a modal dialog, a chat
+composer that only trusts real input events, a new-tab link and an iframe. No AI, no extension.
 
 These were also checked against real Chrome and the real `claude` CLI during development:
 - page scripts and console capture
@@ -485,9 +496,10 @@ These were also checked against real Chrome and the real `claude` CLI during dev
 - Each Claude Code CLI call starts a new `claude` process, so the first words take a few seconds to appear (about 4–6 s). The reply then streams live. The streamed text is a preview; the stored reply is the schema-validated `structured_output`.
 - Patches are inserted when navigation commits, so a very fast page may show its original style for a moment.
 - Injected CSS beats ordinary page rules: before inserting, every selector gets `:not(#integratedai)` added, which matches everything but counts as one more ID (`extension/shared/css-boost.js`). Cards and patches still show the CSS as the AI wrote it. Page rules with `!important`, inline styles and selectors with two or more IDs can still win; the AI uses `!important` for those.
-- Only the top frame is inspected and patched (no iframes).
+- CSS patches, `modify_element`, screenshots and the selected-element context are top-frame only. The AI can look into
+  and operate iframes (`find_elements`, `page_outline`, `read_text`, `inspect_element`, `interact` with `frame`).
 - Console capture starts when the page loads; tabs opened before installing the extension need a reload.
 - `execute_js` results are awaited for up to 30 seconds; a script that takes longer keeps running in the page, but its result isn't reported.
 - Undo info is tied to one page load: after a reload or navigation the page is fresh, so earlier cards show as no longer active.
 - The page controls its own JS environment and could tamper with data returned to the panel. That only affects what the AI sees, never what gets executed without your click.
-- Agent modes act through the page's DOM with synthetic events (`isTrusted` is false): most sites accept them, a few ignore them. They can't use iframes, closed shadow roots, canvas-drawn apps, file pickers, drag and drop, or captchas. After each step the AI gets the URL and title back and looks again with its inspection tools.
+- Agent modes act through the page's DOM with synthetic events (`isTrusted` is false): most sites accept them, a few ignore them. They can't use closed shadow roots, canvas-drawn apps, file pickers, drag and drop, or captchas. Pages that never stop changing (a clock, a live feed) make each step wait up to 3 s (8 s after a page change) before the AI looks again.

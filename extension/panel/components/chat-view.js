@@ -134,7 +134,8 @@ export class ChatView extends HTMLElement {
     if (!record && this.app && runsLive(call.name, this.app.agentMode())) return this.renderLiveLine(call, { status: 'running' });
     if (isReadOnly(call.name) || !ACTIONS[call.name]) {
       const i = call.input ?? {};
-      const details = i.include?.join(', ') || i.urlContains || i.readContentOf || i.selector || (i.text ? `"${i.text}"` : '') || i.query
+      const details = i.include?.join(', ') || i.urlContains || i.readContentOf || i.selector || i.ref || (i.text ? `"${i.text}"` : '') || i.query
+        || (i.all ? 'whole page' : '')
         || (i.fullViewport ? 'visible page' : '');
       return h('div', { class: 'inspection' }, `${ACTIONS[call.name]?.label ?? call.name}${details ? ` (${details})` : ''}`);
     }

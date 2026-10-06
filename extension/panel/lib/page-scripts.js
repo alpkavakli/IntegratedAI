@@ -34,17 +34,30 @@ export function pageHelpers() {
     'font-family', 'font-size', 'font-weight', 'line-height', 'text-align',
   ];
 
-  /** Short, unique-if-possible CSS selector for an element. */
+  /**
+   * Short, unique-if-possible CSS selector for an element: its id, a stable attribute
+   * (test id, name, aria-label, link target), or a path of tags/classes/positions that
+   * is unique on the page. Inside a shadow root the selector is relative to that root;
+   * use the element's ref (refOf) to target those.
+   */
   function cssPath(el) {
     if (!(el instanceof Element)) return '';
+    const root = el.getRootNode();
     const unique = (sel) => {
-      try { return document.querySelectorAll(sel).length === 1; } catch { return false; }
+      try { return root.querySelectorAll(sel).length === 1; } catch { return false; }
     };
     if (el.id && unique(`#${CSS.escape(el.id)}`)) return `#${CSS.escape(el.id)}`;
+    for (const attr of ['data-testid', 'data-test-id', 'data-qa', 'name', 'aria-label', 'href']) {
+      const value = el.getAttribute(attr);
+      if (!value || value.length > 120 || /[\n\r]/.test(value)) continue;
+      const sel = `${el.localName}[${attr}="${value.replace(/["\\]/g, '\\$&')}"]`;
+      if (unique(sel)) return sel;
+    }
 
     const parts = [];
     let node = el;
-    while (node && node.nodeType === 1 && node !== document.documentElement && parts.length < 6) {
+    // Long enough to reach the row of a table or list, where rows of identical markup differ.
+    while (node && node.nodeType === 1 && node !== document.documentElement && parts.length < 12) {
       if (node.id && unique(`#${CSS.escape(node.id)}`)) {
         parts.unshift(`#${CSS.escape(node.id)}`);
         break;
@@ -131,10 +144,12 @@ export function pageHelpers() {
     }
   }
 
-  /** Find the target element: by selector, or the selected element ($0). */
-  function target(selector, selected) {
+  /** Find the target element: by ref (from find_elements / page_outline), by selector, or the selected element ($0). */
+  function target(selector, selected, ref) {
+    if (ref) return byRef(ref);
     if (selector) {
-      const el = document.querySelector(selector);
+      let el;
+      try { el = document.querySelector(selector) || queryAll(selector)[0]; } catch { throw new Error(`Invalid selector: ${selector}`); }
       if (!el) throw new Error(`No element matches ${selector}`);
       return el;
     }
@@ -149,7 +164,190 @@ export function pageHelpers() {
     return window[KEY];
   }
 
-  return { KEY_PROPERTIES, cssPath, label, computed, rect, overflowInfo, htmlExcerpt, toJson, target, state };
+  /**
+   * A short reference to an element ("e12") that the AI can target in later calls. Unlike a
+   * selector it always means exactly this element, also among rows of identical markup and
+   * inside shadow roots. Refs stay valid until the page reloads (and the element is removed).
+   */
+  function refOf(el) {
+    const s = state();
+    s.refs = s.refs || { next: 0, byId: new Map(), ids: new WeakMap() };
+    let id = s.refs.ids.get(el);
+    if (!id) {
+      id = `e${++s.refs.next}`;
+      s.refs.ids.set(el, id);
+      s.refs.byId.set(id, new WeakRef(el));
+    }
+    return id;
+  }
+
+  /** The element behind a ref; throws when it is gone. */
+  function byRef(id) {
+    const el = state().refs?.byId.get(id)?.deref();
+    if (!el || !el.isConnected) throw new Error(`${id} is not on the page any more (the page changed or reloaded); look the element up again`);
+    return el;
+  }
+
+  /** querySelectorAll that also looks inside open shadow roots (web components). */
+  function queryAll(selector, root = document) {
+    const out = [...root.querySelectorAll(selector)];
+    for (const host of root.querySelectorAll('*')) {
+      if (host.shadowRoot) out.push(...queryAll(selector, host.shadowRoot));
+    }
+    return out;
+  }
+
+  /** Our own outline and badge are not part of the page. */
+  const OWN_IDS = new Set(['integratedai-highlight', 'integratedai-working']);
+
+  /** Is the element rendered with a size (it may still be scrolled out of view)? */
+  function visible(el) {
+    if (OWN_IDS.has(el.id)) return false;
+    const r = el.getBoundingClientRect();
+    if (!r.width || !r.height) return false;
+    const cs = getComputedStyle(el);
+    return cs.visibility !== 'hidden' && cs.display !== 'none';
+  }
+
+  /** Is (part of) the element inside the visible area of the tab? */
+  function onScreen(el) {
+    const r = el.getBoundingClientRect();
+    return r.bottom > 0 && r.right > 0 && r.top < innerHeight && r.left < innerWidth;
+  }
+
+  /**
+   * What a person would call an element: its role and visible name, e.g. 'the "Search Wikipedia" field',
+   * 'button "Send"', 'link "Pricing"' (the CSS-like label is for the AI, not for the questions we ask people).
+   */
+  function humanName(el) {
+    if (!el || el === document.body || el === document.documentElement) return 'the page';
+    const quote = (s) => `"${s.length > 60 ? `${s.slice(0, 60)}…` : s}"`;
+    const clean = (s) => String(s || '').replace(/\s+/g, ' ').trim();
+    const labelledBy = el.getAttribute('aria-labelledby');
+    const byId = labelledBy && labelledBy.split(/\s+/).map((id) => document.getElementById(id)?.innerText || '').join(' ');
+    const labelled = clean(el.getAttribute('aria-label') || byId || (el.labels && el.labels[0] && el.labels[0].innerText)
+      || el.getAttribute('placeholder') || el.getAttribute('title') || el.getAttribute('alt'));
+    if (el.matches('input:not([type=button]):not([type=submit]):not([type=checkbox]):not([type=radio]), textarea, [contenteditable=""], [contenteditable="true"], [role=textbox], [role=searchbox], [role=combobox]')) {
+      return labelled ? `the ${quote(labelled)} field` : el.matches('[type=search], [role=searchbox]') ? 'the search field' : 'a text field';
+    }
+    if (el.tagName === 'SELECT') return labelled ? `the ${quote(labelled)} menu` : 'a menu';
+    if (el.matches('input[type=checkbox], [role=checkbox], [role=switch]')) return labelled ? `the ${quote(labelled)} checkbox` : 'a checkbox';
+    if (el.matches('input[type=radio], [role=radio]')) return labelled ? `the ${quote(labelled)} option` : 'an option';
+    const name = labelled || clean(el.innerText || el.value);
+    const role = el.closest('a[href]') ? 'link' : el.closest('button, [role=button], input[type=submit], input[type=button], summary') ? 'button'
+      : el.matches('[role=tab]') ? 'tab' : el.matches('[role=menuitem], [role=menuitemcheckbox], [role=menuitemradio]') ? 'menu item'
+        : el.matches('li, [role=listitem], [role=option], [role=row], [role=treeitem], [role=gridcell]') ? 'item' : 'element';
+    return name ? `${role} ${quote(name)}` : `${role} ${label(el)}`;
+  }
+
+  /**
+   * The readable text of an element, roughly as a person sees it: one line per block,
+   * "#" before headings, "- " before list items, form fields with their values, and
+   * hidden parts left out. Open shadow roots are included.
+   * @param {Element} root
+   * @param {{ links?: boolean, onScreenOnly?: boolean, max?: number }} opts
+   *   links: add each link's address; onScreenOnly: only text in the visible area;
+   *   max: stop after about this many characters.
+   */
+  function readable(root, { links = false, onScreenOnly = false, max = Infinity } = {}) {
+    const SKIP = new Set(['script', 'style', 'noscript', 'template', 'svg', 'canvas', 'iframe', 'head', 'meta', 'link']);
+    const lines = [];
+    let line = '';
+    let lineIsPre = false;
+    let size = 0;
+    let visited = 0;
+    const flush = () => {
+      const text = lineIsPre ? line.replace(/\s+$/, '') : line.replace(/\s+/g, ' ').replace(/( \|)+\s*$/, '').trim();
+      if (text.trim()) { lines.push(text); size += text.length + 1; }
+      line = '';
+      lineIsPre = false;
+    };
+    const field = (el) => {
+      const name = humanName(el);
+      if (el.matches('input[type=checkbox], input[type=radio]')) return `[${el.checked ? 'x' : ' '}] ${name}`;
+      if (el.tagName === 'SELECT') return `[${name}: ${el.selectedOptions[0]?.text.trim() ?? ''}]`;
+      if (el.matches('input[type=password]')) return `[${name}${el.value ? ': ••••' : ''}]`;
+      if (el.matches('input[type=button], input[type=submit], input[type=reset]')) return `[button "${el.value}"]`;
+      if (el.matches('input[type=hidden]')) return '';
+      const value = String(el.value ?? '');
+      return `[${name}${value ? `: ${value.length > 20000 ? `${value.slice(0, 20000)}…` : value}` : ''}]`;
+    };
+    /** Add text that keeps its own line breaks and indentation (a <pre>, a text area's value). */
+    const addPre = (text) => {
+      text.split('\n').forEach((part, i) => {
+        if (i) { lineIsPre = true; flush(); }
+        line += part;
+        if (part) lineIsPre = true;
+      });
+    };
+    /**
+     * @param {Node} node
+     * @param {boolean} pre inside white-space: pre*
+     * @param {boolean} hidden inside visibility: hidden
+     * @param {boolean} cell inside a table cell: blocks there don't start new lines (the row stays one line)
+     */
+    const walk = (node, pre, hidden, cell) => {
+      if (size >= max || ++visited > 60000) return;
+      if (node.nodeType === 3) {
+        if (hidden) return;
+        if (onScreenOnly) {
+          const range = document.createRange();
+          range.selectNodeContents(node);
+          const r = range.getBoundingClientRect();
+          if (!(r.bottom > 0 && r.right > 0 && r.top < innerHeight && r.left < innerWidth)) return;
+        }
+        if (pre && !cell) addPre(node.textContent);
+        else line += node.textContent;
+        return;
+      }
+      if (node.nodeType !== 1 && node.nodeType !== 11) return;
+      if (node.nodeType === 11) { for (const child of node.childNodes) walk(child, pre, hidden, cell); return; }
+      const el = node;
+      if (SKIP.has(el.localName) || OWN_IDS.has(el.id)) return;
+      if (el.localName === 'br') { if (cell) line += ' '; else flush(); return; }
+      const cs = getComputedStyle(el);
+      if (cs.display === 'none') return;
+      // visibility is inherited but a child can be visible again, so walk on and skip hidden text.
+      const isHidden = cs.visibility !== 'visible';
+      if (el.localName === 'slot') { for (const child of el.assignedNodes({ flatten: true })) walk(child, pre, isHidden, cell); return; }
+      // Table cells stay on their row's line, separated by " | ".
+      const isCell = /^(td|th)$/.test(el.localName) || cs.display === 'table-cell';
+      const block = !cell && !isCell && !cs.display.startsWith('inline') && cs.display !== 'contents';
+      if (block) flush();
+      else if (cell) line += ' ';
+      if (el.matches('input, textarea, select')) {
+        if (isHidden || (onScreenOnly && !onScreen(el))) return;
+        if (el.localName === 'textarea' && /\n/.test(el.value) && !cell) {
+          // A multi-line text area (a code viewer, a long message): its text on its own lines.
+          flush();
+          line = `[${humanName(el)}:]`;
+          flush();
+          addPre(el.value.length > 20000 ? `${el.value.slice(0, 20000)}…` : el.value);
+          flush();
+          return;
+        }
+        line += ` ${field(el)} `;
+        if (block) flush();
+        return;
+      }
+      if (/^h[1-6]$/.test(el.localName)) line += `${'#'.repeat(Number(el.localName[1]))} `;
+      else if (el.localName === 'li') line += '- ';
+      else if (el.localName === 'img' && el.alt && !isHidden && (!onScreenOnly || onScreen(el))) line += ` [image: ${el.alt}] `;
+      const isPre = pre || /^pre/.test(cs.whiteSpace);
+      for (const child of (el.shadowRoot ? el.shadowRoot.childNodes : el.childNodes)) walk(child, isPre, isHidden, cell || isCell);
+      if (links && el.localName === 'a' && el.href && !/^javascript:/i.test(el.href)) line += ` (${el.getAttribute('href').slice(0, 200)})`;
+      if (isCell && !cell) line += ' | ';
+      if (block) flush();
+    };
+    walk(root, false, false, false);
+    flush();
+    return lines.join('\n');
+  }
+
+  return {
+    KEY_PROPERTIES, cssPath, label, computed, rect, overflowInfo, htmlExcerpt, toJson, target, state,
+    refOf, byRef, queryAll, visible, onScreen, humanName, readable,
+  };
 }
 
 // ───────────────────────────────────────────────────────────── context
@@ -205,9 +403,9 @@ export function describeSelected(h, selected) {
 
 /** inspect_element: details on request. */
 export function inspectElement(h, selected, input) {
-  const el = h.target(input.selector, selected);
+  const el = h.target(input.selector, selected, input.ref);
   const include = new Set(input.include || []);
-  const out = { selector: h.cssPath(el), element: h.label(el), box: h.rect(el) };
+  const out = { ref: h.refOf(el), selector: h.cssPath(el), element: h.label(el), box: h.rect(el) };
 
   if (include.has('computed_all')) out.computed = h.computed(el);
 
@@ -277,7 +475,7 @@ export function findElements(h, selected, input) {
     || (input.text ? '*' : 'header, nav, main, footer, aside, [role="banner"], [role="navigation"], [role="main"], [role="contentinfo"]');
   let candidates;
   try {
-    candidates = [...document.body.querySelectorAll(selector)];
+    candidates = h.queryAll(selector).filter((el) => el !== document.body && el !== document.documentElement && el.localName !== 'head' && !el.closest('head'));
   } catch {
     throw new Error(`Invalid selector: ${selector}`);
   }
@@ -286,26 +484,123 @@ export function findElements(h, selected, input) {
     const needle = input.text.toLowerCase();
     // Match where the text actually lives: the element's own text nodes, or its value/label.
     const own = (el) => [...el.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join(' ')
-      + ` ${el.getAttribute('aria-label') || ''} ${el.getAttribute('title') || ''} ${el.value || ''} ${el.getAttribute('placeholder') || ''}`;
+      + ` ${el.getAttribute('aria-label') || ''} ${el.getAttribute('title') || ''} ${el.type === 'password' ? '' : el.value || ''} ${el.getAttribute('placeholder') || ''}`;
     candidates = candidates.filter((el) => own(el).toLowerCase().includes(needle));
   }
   const skip = new Set(['script', 'style', 'noscript', 'template', 'meta', 'link']);
-  candidates = candidates.filter((el) => !skip.has(el.localName));
+  candidates = candidates.filter((el) => !skip.has(el.localName) && !el.closest('#integratedai-highlight, #integratedai-working'));
+  // Visible matches first: those are the ones a person (and the interact steps) can use.
+  const shown = candidates.filter((el) => h.visible(el));
+  const ordered = [...shown, ...candidates.filter((el) => !shown.includes(el))];
 
   return {
     total: candidates.length,
-    matches: candidates.slice(0, limit).map((el) => {
-      const box = h.rect(el);
-      const text = (el.innerText || el.value || '').trim().replace(/\s+/g, ' ');
+    note: 'Target a match in interact steps by its ref (e.g. { "ref": "e12" }); refs stay valid until the page reloads.',
+    matches: ordered.slice(0, limit).map((el) => {
+      const value = el.matches('input[type=password]') ? '' : el.value; // never read out passwords
+      const text = (el.innerText || value || '').trim().replace(/\s+/g, ' ');
       return {
+        ref: h.refOf(el),
+        name: h.humanName(el),
         selector: h.cssPath(el),
         element: h.label(el),
-        box,
-        visible: box.width > 0 && box.height > 0 && getComputedStyle(el).visibility !== 'hidden',
+        box: h.rect(el),
+        visible: shown.includes(el),
         children: el.children.length,
         text: text.length > 80 ? `${text.slice(0, 80)}…` : text,
       };
     }),
+  };
+}
+
+/**
+ * read_text: the readable text of the page (or one element), in chunks the AI can page
+ * through with `offset`. For reading articles, messages, search results, file contents.
+ */
+export function readText(h, selected, input) {
+  const MAX = 12000;
+  const root = input.ref || input.selector ? h.target(input.selector, selected, input.ref) : document.body;
+  const from = Math.max(0, input.offset || 0);
+  const all = h.readable(root, { links: input.links === true, max: from + MAX + 1 });
+  const text = all.slice(from, from + MAX);
+  const more = all.length > from + MAX;
+  return {
+    of: root === document.body ? 'the page' : `${h.humanName(root)} (${h.cssPath(root)})`,
+    text: text || (from ? '(no more text)' : '(no visible text)'),
+    ...(more ? { more: true, nextOffset: from + MAX, note: 'Call read_text again with nextOffset for the rest.' } : {}),
+  };
+}
+
+/**
+ * page_outline (and the page report after each agent step): what's on screen, the way a
+ * person scanning the page sees it. Buttons, links and fields with refs to target them, the
+ * focused element, an open dialog, headings, frames, and the visible text (short).
+ * @param {{ all?: boolean, limit?: number, textChars?: number }} input
+ *   all: the whole page instead of only what's on screen
+ */
+export function pageOutline(h, selected, input = {}) {
+  const limit = Math.min(Math.max(input.limit || 60, 1), 200);
+  const textChars = input.textChars ?? 1500;
+  const INTERACTIVE = 'a[href], button, input:not([type=hidden]), select, textarea, summary, [contenteditable=""], [contenteditable="true"], '
+    + '[role=button], [role=link], [role=tab], [role=menuitem], [role=menuitemcheckbox], [role=menuitemradio], [role=option], [role=checkbox], '
+    + '[role=radio], [role=switch], [role=textbox], [role=searchbox], [role=combobox], [role=treeitem], [role=slider]';
+  const CLICKABLE = 'a[href], button, [role=button], [role=link]';
+  const where = (el) => input.all || h.onScreen(el);
+
+  // An open dialog takes over the page: outline only that.
+  // (Only modal ones: some sites keep a non-modal role=dialog, like a chat widget, open all the time.)
+  const dialogs = h.queryAll('dialog:modal, [aria-modal=true], [role=alertdialog]').filter((d) => h.visible(d) && h.onScreen(d));
+  const scope = dialogs.length ? dialogs[dialogs.length - 1] : document.body;
+
+  const found = h.queryAll(INTERACTIVE, scope).filter((el) => h.visible(el) && where(el)
+    // Not the parts of a link or button that is listed itself (an icon span with tabindex, …).
+    && !(el.parentElement && el.parentElement.closest(CLICKABLE) && !el.matches('input, select, textarea')));
+  const describe = (el) => {
+    const bits = [`${h.refOf(el)} ${h.humanName(el)}`];
+    if (el.matches('input[type=checkbox], input[type=radio]')) bits.push(el.checked ? '(ticked)' : '(not ticked)');
+    else if (el.getAttribute('aria-checked')) bits.push(el.getAttribute('aria-checked') === 'true' ? '(ticked)' : '(not ticked)');
+    else if (el.tagName === 'SELECT') bits.push(`= "${el.selectedOptions[0]?.text.trim() ?? ''}"`);
+    else if (el.matches('input:not([type=password]), textarea') && el.value) bits.push(`= "${el.value.length > 60 ? `${el.value.slice(0, 60)}…` : el.value}"`);
+    else if (el.isContentEditable && el.innerText.trim()) bits.push(`= "${el.innerText.trim().slice(0, 60)}"`);
+    if (el.disabled || el.getAttribute('aria-disabled') === 'true') bits.push('(disabled)');
+    if (el.getAttribute('aria-expanded')) bits.push(el.getAttribute('aria-expanded') === 'true' ? '(open)' : '(closed)');
+    if (el.getAttribute('aria-selected') === 'true' || (el.getAttribute('aria-current') && el.getAttribute('aria-current') !== 'false')) bits.push('(current)');
+    if (el.localName === 'a' && el.href && !/^javascript:/i.test(el.href)) {
+      let to = el.href;
+      try {
+        const u = new URL(el.href);
+        if (u.origin === location.origin) to = `${u.pathname}${u.search}${u.hash}`;
+      } catch { /* keep as is */ }
+      bits.push(`→ ${to.length > 100 ? `${to.slice(0, 100)}…` : to}`);
+      if (el.target === '_blank') bits.push('(opens a new tab)');
+    }
+    return bits.join(' ');
+  };
+
+  const focused = document.activeElement && document.activeElement !== document.body ? document.activeElement : null;
+  const headings = h.queryAll('h1, h2, h3, [role=heading]', scope).filter((el) => h.visible(el) && where(el))
+    .slice(0, 12).map((el) => el.innerText.replace(/\s+/g, ' ').trim().slice(0, 100)).filter(Boolean);
+  const frames = [...document.querySelectorAll('iframe, frame')].filter((f) => h.visible(f)).slice(0, 10).map((f) => {
+    let url = f.src;
+    try { url = f.contentWindow.location.href; } catch { /* cross-origin: its src is the best we know */ }
+    return { url, title: f.title || undefined, onScreen: h.onScreen(f) };
+  }).filter((f) => /^https?:/.test(f.url));
+
+  const page = document.scrollingElement || document.documentElement;
+  const text = textChars > 0 ? h.readable(scope, { onScreenOnly: !input.all, max: textChars + 1 }) : '';
+  return {
+    url: location.href,
+    title: document.title,
+    scroll: page.scrollHeight > innerHeight + 4
+      ? `screen ${Math.floor(scrollY / innerHeight) + 1} of ${Math.ceil(page.scrollHeight / innerHeight)}`
+      : 'the whole page fits on screen',
+    ...(dialogs.length ? { dialog: `${h.humanName(scope)} is open; only its contents are listed` } : {}),
+    ...(focused ? { focused: `${h.refOf(focused)} ${h.humanName(focused)}` } : {}),
+    ...(headings.length ? { headings } : {}),
+    elements: found.slice(0, limit).map(describe),
+    ...(found.length > limit ? { more: `${found.length - limit} more; use find_elements to search them` } : {}),
+    ...(frames.length ? { frames } : {}),
+    ...(text ? { text: text.length > textChars ? `${text.slice(0, textChars)}… (read_text for all of it)` : text } : {}),
   };
 }
 
@@ -329,10 +624,10 @@ export function readConsole(h, selected, input) {
 export function prepareScreenshot(h, selected, input) {
   const viewport = { width: innerWidth, height: innerHeight };
   const scroll = { x: scrollX, y: scrollY };
-  if (input.fullViewport || (!input.selector && !(selected instanceof Element))) {
+  if (input.fullViewport || (!input.ref && !input.selector && !(selected instanceof Element))) {
     return { viewport, scroll, scrolled: false, rect: null, label: 'the visible page' };
   }
-  const el = h.target(input.selector, selected);
+  const el = h.target(input.selector, selected, input.ref);
   let r = el.getBoundingClientRect();
   if (!r.width || !r.height) throw new Error(`${h.cssPath(el)} has no visible size (hidden or empty)`);
   let scrolled = false;
@@ -416,9 +711,9 @@ export function revertModify(h, selected, { actionId }) {
 }
 
 /** Draw a temporary outline around an element (hover on an action card). */
-export function highlight(h, selected, { selector, ms = 1200 }) {
+export function highlight(h, selected, { selector, ref, ms = 1200 }) {
   let el;
-  try { el = h.target(selector, selected); } catch { return false; }
+  try { el = h.target(selector, selected, ref); } catch { return false; }
   const r = el.getBoundingClientRect();
   const box = document.createElement('div');
   box.setAttribute('data-integratedai-highlight', '');

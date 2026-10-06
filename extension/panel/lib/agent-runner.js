@@ -3,9 +3,10 @@
  * Runs page actions (interact, navigate) during a turn, in the agent modes.
  *
  * Each step: find and outline the target on the page (so the user can follow),
- * ask the user first if the mode says so, pause briefly, do it, and wait for any
- * page load it started. The result (what was done, and the page's URL and title
- * afterwards) goes back to the model, which decides the next step.
+ * ask the user first if the mode says so, pause briefly, do it, and wait until the
+ * page has settled (a page load or route change finished, no more elements coming in).
+ * The result (what was done, and an outline of the page afterwards: what's on screen,
+ * with refs to target it) goes back to the model, which decides the next step.
  *
  *   ask  → ask before every step ("Allow all for this task" stops asking, except for risky steps)
  *   auto → ask only before risky steps (submitting, sending, paying, deleting, passwords, another site)
@@ -15,7 +16,8 @@
  */
 
 import { callInPage, evalInPage } from './inspected.js';
-import { clearHighlight, interactStep } from './page-interact.js';
+import { clearHighlight, interactStep, quietFor } from './page-interact.js';
+import { pageOutline } from './page-scripts.js';
 
 const STEP_TIMEOUT_MS = 5000;
 const WAIT_MAX_MS = 10_000;
@@ -25,6 +27,13 @@ const FOLLOW_PAUSE_MS = 450;
 const LOAD_TIMEOUT_MS = 20_000;
 /** How long a step looks again for an element that was there a moment ago (re-rendered). */
 const RERENDER_GRACE_MS = 2000;
+/** After a step, the page counts as settled once nothing has changed for this long. */
+const QUIET_MS = 500;
+/** Pages that never stop changing (a clock, a live feed): stop waiting after this long, or this long after a page change. */
+const BUSY_PAGE_MS = 3000;
+const BUSY_PAGE_NAV_MS = 8000;
+/** The outline sent back after each step: enough to pick the next target without looking it up. */
+const STEP_OUTLINE = { limit: 40, textChars: 1200 };
 
 const sleep = (/** @type {number} */ ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -81,20 +90,20 @@ export class AgentRunner {
   async run(name, input, mode) {
     if (!['ask', 'auto', 'full'].includes(mode)) throw new Error('Page actions only run in Ask, Auto or Full auto mode');
     const done = name === 'navigate' ? [await this.navigate(input, mode)] : await this.interact(input, mode);
-    return { done, page: await pageNow() };
+    return { done, ...(await observe(name === 'interact' ? input.frame : undefined)) };
   }
 
   /**
-   * @param {{ steps: any[] }} input
+   * @param {{ steps: any[], frame?: string }} input
    * @param {string} mode
    */
-  async interact({ steps }, mode) {
+  async interact({ steps, frame }, mode) {
     const actionId = `live-${Date.now()}-${++this.counter}`;
     /** @type {string[]} */
     const done = [];
     for (const [index, step] of steps.entries()) {
       // A plain pause.
-      if (step.action === 'wait' && !step.selector && !step.text) {
+      if (step.action === 'wait' && !step.selector && !step.text && !step.ref) {
         const line = this.ui.activity(`Waiting ${step.value} s`);
         await sleep(Math.min(Number(step.value) * 1000, WAIT_MAX_MS));
         line.done(`Waited ${step.value} s`);
@@ -106,31 +115,32 @@ export class AgentRunner {
       let preview;
       try {
         // hold: the outline stays on the target while the user is asked and until the step runs.
-        while (!(preview = await callInPage(interactStep, { actionId, step, dry: true, hold: true }))?.found && Date.now() < deadline) await sleep(POLL_MS);
+        while (!(preview = await callInPage(interactStep, { actionId, step, dry: true, hold: true }, frame))?.found && Date.now() < deadline) await sleep(POLL_MS);
       } catch (err) {
         throw new Error(`Step ${index + 1} failed: ${/** @type {any} */ (err).message}${soFar(done)}`);
       }
       if (!preview?.found) {
-        const what = [step.selector, step.text && `"${step.text}"`].filter(Boolean).join(' ');
+        const what = [step.ref, step.selector, step.text && `"${step.text}"`].filter(Boolean).join(' ');
         throw new Error(`Step ${index + 1} (${step.action} ${what}): no matching element on the page.${soFar(done)}`);
       }
       try {
         await this.approve(mode, preview.what, preview.risky);
       } catch (err) {
-        await callInPage(clearHighlight).catch(() => {});
+        await callInPage(clearHighlight, {}, frame).catch(() => {});
         throw new Error(`${/** @type {any} */ (err).message}${soFar(done)}`);
       }
 
       const line = this.ui.activity(capitalize(preview.what));
       await sleep(FOLLOW_PAUSE_MS);
       const before = await pageNow().catch(() => null);
+      await callInPage(quietFor, {}, frame).catch(() => {}); // start watching for changes before the step
       let result;
       try {
         // Pages re-render while you use them (a search box is replaced as you type): look again briefly.
         const retryUntil = Date.now() + RERENDER_GRACE_MS;
-        while (!(result = await callInPage(interactStep, { actionId, step }))?.found && Date.now() < retryUntil) await sleep(POLL_MS);
+        while (!(result = await callInPage(interactStep, { actionId, step }, frame))?.found && Date.now() < retryUntil) await sleep(POLL_MS);
       } catch (err) {
-        await callInPage(clearHighlight).catch(() => {});
+        await callInPage(clearHighlight, {}, frame).catch(() => {});
         line.done(`Failed: ${preview.what}`, false);
         throw new Error(`Step ${index + 1} failed: ${/** @type {any} */ (err).message}${soFar(done)}`);
       }
@@ -141,7 +151,7 @@ export class AgentRunner {
       // The chat says it the way it was asked; the AI gets the precise version (selectors, values).
       line.done(/^(couldn't|.* was already)/.test(result.did) ? capitalize(result.did) : capitalize(preview.what));
       done.push(result.did);
-      await settle(before?.url);
+      await settle(before?.url, false, frame);
     }
     return done;
   }
@@ -181,21 +191,39 @@ function pageNow() {
 }
 
 /**
- * Wait for a page load the last step may have started: until the page reports
- * "complete" again (polling through the moment the old page is gone).
+ * How the page looks after the steps, for the model: an outline of what's on screen (and of
+ * the frame the steps ran in). Falls back to the URL and title if the page can't be read.
+ * @param {string} [frame]
+ */
+async function observe(frame) {
+  const page = await callInPage(pageOutline, STEP_OUTLINE).catch(() => pageNow().catch(() => null));
+  if (!frame) return { page };
+  const inFrame = await callInPage(pageOutline, STEP_OUTLINE, frame).catch((err) => ({ error: String(err?.message ?? err) }));
+  return { page: page && { url: page.url, title: page.title }, frame: inFrame };
+}
+
+/**
+ * Wait until the page has settled after a step: a page load it started has finished
+ * (polling through the moment the old page is gone), and nothing has been added, removed
+ * or re-rendered for QUIET_MS (a route change in an app, a list that loaded, a menu that
+ * opened). So the model sees the result without adding wait steps.
  * @param {string} [beforeUrl]
  * @param {boolean} [expectLoad] a navigation was started on purpose
+ * @param {string} [frame] the steps ran in this iframe: watch it for changes
  */
-async function settle(beforeUrl, expectLoad = false) {
-  await sleep(expectLoad ? 500 : 300);
-  const deadline = Date.now() + LOAD_TIMEOUT_MS;
+async function settle(beforeUrl, expectLoad = false, frame = undefined) {
+  await sleep(expectLoad ? 400 : 150);
+  const start = Date.now();
+  const deadline = start + LOAD_TIMEOUT_MS;
+  let changedPage = expectLoad;
   while (Date.now() < deadline) {
     try {
-      const state = await evalInPage('({ url: location.href, ready: document.readyState })');
-      if (state.ready === 'complete') {
-        // Give apps a moment to render after a new page or route.
-        if (state.url !== beforeUrl || expectLoad) await sleep(600);
-        return;
+      const top = await evalInPage('({ url: location.href, ready: document.readyState })');
+      if (top.url !== beforeUrl) changedPage = true;
+      if (top.ready === 'complete') {
+        const { quietMs } = await callInPage(quietFor, {}, frame).catch(() => ({ quietMs: QUIET_MS }));
+        if (quietMs >= QUIET_MS) return;
+        if (Date.now() - start > (changedPage ? BUSY_PAGE_NAV_MS : BUSY_PAGE_MS)) return;
       }
     } catch { /* the old page is gone and the new one isn't ready to answer yet */ }
     await sleep(POLL_MS);

@@ -183,15 +183,44 @@ export function webToolsFor(model) {
 }
 
 /**
- * Action catalog → Anthropic tool definitions.
+ * Strict schemas have a budget per request (all strict tools together): at most 20 tools and
+ * 24 optional parameters, or the API answers 400 "Schema is too complex for compilation".
+ */
+const STRICT_LIMITS = { tools: 20, optional: 24 };
+
+/** Optional (not required) parameters in a schema, counting nested objects. @param {any} schema */
+export function countOptional(schema) {
+  let n = 0;
+  if (schema?.type === 'object' && schema.properties) {
+    const required = new Set(schema.required ?? []);
+    for (const [key, value] of Object.entries(schema.properties)) n += (required.has(key) ? 0 : 1) + countOptional(value);
+  }
+  if (schema?.items) n += countOptional(schema.items);
+  return n;
+}
+
+/**
+ * Action catalog → Anthropic tool definitions. Changes and memory actions get strict schemas
+ * first (a malformed change is the costly kind), then inspections while the budget lasts; the
+ * rest are sent without `strict`. Every action is validated again before it runs either way.
  * @param {string[]} actionNames
  */
 export function toAnthropicTools(actionNames) {
+  const order = [...actionNames.filter((n) => !ACTIONS[n].readOnly), ...actionNames.filter((n) => ACTIONS[n].readOnly)];
+  const strict = new Set();
+  let optional = 0;
+  for (const name of order) {
+    const cost = countOptional(ACTIONS[name].inputSchema);
+    if (strict.size < STRICT_LIMITS.tools && optional + cost <= STRICT_LIMITS.optional) {
+      strict.add(name);
+      optional += cost;
+    }
+  }
   return actionNames.map((name) => ({
     name,
     description: ACTIONS[name].description,
     input_schema: ACTIONS[name].inputSchema,
-    strict: true,
+    ...(strict.has(name) ? { strict: true } : {}),
   }));
 }
 

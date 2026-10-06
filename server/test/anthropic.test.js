@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { AnthropicProvider, toAnthropicMessages, toAnthropicTools } from '../../extension/shared/providers/anthropic.js';
+import { AnthropicProvider, countOptional, toAnthropicMessages, toAnthropicTools } from '../../extension/shared/providers/anthropic.js';
+import { enabledActionNames } from '../../extension/shared/actions.js';
 import { testConfig, collect } from './helpers.js';
 
 test('messages: merge same-role messages, tool_results first, raw content reused', () => {
@@ -34,6 +35,16 @@ test('tools are strict', () => {
   const tools = toAnthropicTools(['inject_css']);
   assert.equal(tools[0].strict, true);
   assert.equal(tools[0].input_schema.additionalProperties, false);
+});
+
+test('strict tools stay within the API budget (20 tools, 24 optional parameters); changes come first', () => {
+  for (const executeJs of [false, true]) {
+    const tools = toAnthropicTools(enabledActionNames({ executeJs }));
+    const strict = tools.filter((t) => t.strict);
+    assert.ok(strict.length <= 20);
+    assert.ok(strict.reduce((n, t) => n + countOptional(t.input_schema), 0) <= 24);
+    for (const name of ['interact', 'navigate', 'inject_css', 'modify_element']) assert.ok(strict.some((t) => t.name === name), name);
+  }
 });
 
 /** Minimal stand-in for client.beta.messages.stream(). */

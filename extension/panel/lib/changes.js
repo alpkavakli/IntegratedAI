@@ -37,6 +37,7 @@ const STEP_PAUSE_MS = 300;      // pause between steps so the page can react
  * @property {string} [css]        inject_css
  * @property {string} [undoCode]   execute_js
  * @property {boolean} [undoable]  interact: false if it clicked or submitted
+ * @property {string} [frame]      interact: the iframe (URL) it ran in
  * @property {boolean} committed   false while only previewing
  */
 
@@ -121,7 +122,7 @@ export class ChangeManager {
     let detail;
     let undoable;
     if (name === 'interact') {
-      ({ detail, undoable } = await this.runSteps(id, input.steps));
+      ({ detail, undoable } = await this.runSteps(id, input.steps, input.frame));
     } else if (name === 'navigate') {
       if (input.url) await evalInPage(`location.href = ${JSON.stringify(input.url)}`);
       else if (input.go === 'reload') chrome.devtools.inspectedWindow.reload({});
@@ -131,7 +132,7 @@ export class ChangeManager {
     } else if (!this.isPreviewing(id)) {
       detail = await this.execute(id, name, input);
     }
-    this.data.changes[id] = { name, css: injectedCss(name, input), undoCode: input.undoCode, undoable, committed: true };
+    this.data.changes[id] = { name, css: injectedCss(name, input), undoCode: input.undoCode, undoable, committed: true, ...(input.frame ? { frame: input.frame } : {}) };
     await this.persist();
     return detail;
   }
@@ -179,21 +180,22 @@ export class ChangeManager {
   /**
    * Run interact steps in order. Each step waits up to STEP_TIMEOUT_MS for its element.
    * @param {string} id
-   * @param {{ action: string, selector?: string, text?: string, value?: string }[]} steps
+   * @param {{ action: string, ref?: string, selector?: string, text?: string, value?: string }[]} steps
+   * @param {string} [frame] the iframe (URL) the steps run in
    * @returns {Promise<{ detail: string, undoable: boolean }>}
    */
-  async runSteps(id, steps) {
+  async runSteps(id, steps, frame) {
     /** @type {string[]} */
     const done = [];
     let undoable = true;
     for (const [index, step] of steps.entries()) {
       // A plain pause (wait without a target).
-      if (step.action === 'wait' && !step.selector && !step.text) await sleep(Math.min(Number(step.value) * 1000, 10_000));
+      if (step.action === 'wait' && !step.selector && !step.text && !step.ref) await sleep(Math.min(Number(step.value) * 1000, 10_000));
       const deadline = Date.now() + (step.action === 'wait' ? 10_000 : STEP_TIMEOUT_MS);
       let result;
       try {
         while (true) {
-          result = await callInPage(interactStep, { actionId: id, step });
+          result = await callInPage(interactStep, { actionId: id, step }, frame);
           if (result?.found || Date.now() > deadline) break;
           await sleep(STEP_POLL_MS);
         }
@@ -201,7 +203,7 @@ export class ChangeManager {
         throw new Error(`Step ${index + 1} failed: ${/** @type {any} */ (err).message}${progress(done)}`);
       }
       if (!result?.found) {
-        const what = [step.selector, step.text && `"${step.text}"`].filter(Boolean).join(' ');
+        const what = [step.ref, step.selector, step.text && `"${step.text}"`].filter(Boolean).join(' ');
         throw new Error(`Step ${index + 1} (${step.action} ${what}): no matching element on the page.${progress(done)}`);
       }
       done.push(result.did);
@@ -223,7 +225,7 @@ export class ChangeManager {
         await callInPage(revertModify, { actionId: id });
         break;
       case 'interact':
-        await callInPage(revertInteract, { actionId: id });
+        await callInPage(revertInteract, { actionId: id }, change.frame);
         break;
       case 'execute_js': {
         const res = await runApprovedScript(/** @type {string} */ (change.undoCode));

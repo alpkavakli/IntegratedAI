@@ -58,6 +58,16 @@ const selectorProp = {
     'CSS selector of the target element. Omit to target the element currently selected in the Elements panel ($0); its selector is given in the page context.',
 };
 
+const refProp = {
+  type: 'string',
+  description: 'Or: the element\'s ref from find_elements or page_outline, e.g. "e12". Always means exactly that element (more reliable than a selector); valid until the page reloads.',
+};
+
+const frameProp = {
+  type: 'string',
+  description: 'URL of an iframe to work in, as listed under "frames" by page_outline. Omit for the page itself.',
+};
+
 /** @type {Record<string, ActionDef>} */
 export const ACTIONS = {
   // ---------------------------------------------------------------- read-only
@@ -71,6 +81,8 @@ export const ACTIONS = {
       type: 'object',
       properties: {
         selector: selectorProp,
+        ref: refProp,
+        frame: frameProp,
         include: {
           type: 'array',
           description: 'Which extra details to return.',
@@ -87,13 +99,52 @@ export const ACTIONS = {
     readOnly: true,
     risk: 'none',
     description:
-      'Search the page for elements by CSS selector and/or visible text, e.g. to locate the nav bar, a footer or all buttons labelled "Sign in". Returns short descriptions with a usable selector for each match. With neither selector nor text, returns the page landmarks (header, nav, main, footer, …). Use this instead of guessing selectors.',
+      'Search the page for elements by CSS selector and/or visible text, e.g. to locate the nav bar, a footer or all buttons labelled "Sign in". Returns, for each match (visible ones first), a ref like "e12" to target it in interact steps, a plain-words name, a selector and its text. With neither selector nor text, returns the page landmarks (header, nav, main, footer, …). Use this instead of guessing selectors. Also searches open shadow roots.',
     inputSchema: {
       type: 'object',
       properties: {
         selector: { type: 'string', description: 'CSS selector to search for.' },
         text: { type: 'string', description: 'Visible text the element contains (case-insensitive).' },
         limit: { type: 'integer', description: 'Max results (default 15).' },
+        frame: frameProp,
+      },
+      additionalProperties: false,
+    },
+  },
+
+  page_outline: {
+    label: 'Look at the page',
+    readOnly: true,
+    risk: 'none',
+    description:
+      'What is on screen right now, the way a person scanning the page sees it: the buttons, links and fields (each with a ref like "e12" to use in interact steps, its state and where links go), the focused element, an open dialog, headings, iframes, and the visible text (short). ' +
+      'Use it to get your bearings on a page; interact and navigate return it automatically after each step. all: true lists the whole page instead of only what is on screen.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        all: { type: 'boolean', description: 'The whole page, not only what is on screen.' },
+        limit: { type: 'integer', description: 'Max elements listed (default 60).' },
+        frame: frameProp,
+      },
+      additionalProperties: false,
+    },
+  },
+
+  read_text: {
+    label: 'Read text',
+    readOnly: true,
+    risk: 'none',
+    description:
+      'Read the text of the page or of one element, as a person sees it: one line per block, "#" before headings, "- " before list items, form fields with their values, hidden parts left out. ' +
+      'Use it to read articles, messages, search results, tables and file contents (also the contents of text areas, like a code viewer\'s). Returns about 12,000 characters at a time; call again with nextOffset for more.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        selector: { type: 'string', description: 'CSS selector of the part to read. Omit (and ref) for the whole page.' },
+        ref: refProp,
+        links: { type: 'boolean', description: 'Add each link\'s address after its text.' },
+        offset: { type: 'integer', description: 'Start at this character (nextOffset from the previous call).' },
+        frame: frameProp,
       },
       additionalProperties: false,
     },
@@ -160,6 +211,7 @@ export const ACTIONS = {
       type: 'object',
       properties: {
         selector: { type: 'string', description: 'CSS selector of the element to capture. Omit to capture the selected element ($0), or the visible page if nothing is selected.' },
+        ref: refProp,
         fullViewport: { type: 'boolean', description: 'Capture everything visible in the tab instead of one element.' },
       },
       additionalProperties: false,
@@ -298,14 +350,16 @@ export const ACTIONS = {
     risk: 'medium',
     pageAction: true,
     description:
-      'Click, type, choose options, tick boxes, scroll and press keys on the page, like the user would: select a radio answer, fill in a form, pick from a dropdown, press a button, submit, scroll a list. ' +
-      'Uses real browser events, so React/Vue/Angular/MUI apps register the change (unlike modify_element); no JavaScript needed. ' +
-      'Steps run in order with a short pause, and each waits up to 5 s for its element (so a dropdown can open first). Target each step by CSS selector (find it with find_elements) or by its visible text. ' +
+      'Click, type, choose options, tick boxes, hover, scroll and press keys on the page, like the user would: select a radio answer, fill in a form, pick from a dropdown, press a button, submit, scroll a list. ' +
+      'Uses real browser events, so React/Vue/Angular/MUI apps and rich text editors register the change (unlike modify_element); no JavaScript needed. ' +
+      'Steps run in order with a short pause, and each waits up to 5 s for its element (so a dropdown can open first). After a step the page is given a moment to finish loading or re-rendering, so no wait steps are needed after clicks. ' +
+      'Target each step by ref (from find_elements or page_outline; most reliable), CSS selector, or visible text. ' +
       'Typed values and checkbox/select changes can be undone; clicks and submits cannot.',
     inputSchema: {
       type: 'object',
       properties: {
         description: { type: 'string', description: 'One short sentence: what these steps do.' },
+        frame: frameProp,
         steps: {
           type: 'array',
           description: 'Up to 25 steps, run in order.',
@@ -314,13 +368,14 @@ export const ACTIONS = {
             properties: {
               action: {
                 type: 'string',
-                enum: ['click', 'type', 'select', 'check', 'uncheck', 'submit', 'scroll', 'press', 'wait'],
-                description: 'click: click the element. type: replace the text of an input/textarea/contenteditable with value. select: choose the <select> option whose value or visible text is value. check/uncheck: set a checkbox or radio. submit: submit the form containing the element. ' +
+                enum: ['click', 'hover', 'type', 'select', 'check', 'uncheck', 'submit', 'scroll', 'press', 'wait'],
+                description: 'click: click the element. hover: point the mouse at it (opens hover menus and tooltips). type: replace the text of an input/textarea/contenteditable with value. select: choose the <select> option whose value or visible text is value. check/uncheck: set a checkbox or radio. submit: submit the form containing the element. ' +
                   'scroll: scroll the element\'s scrollable area (or the page, without a target) by value "down", "up", "top" or "bottom"; without value, scroll the element into view. ' +
                   'press: press the key in value ("Enter", "Escape", "Tab", "ArrowDown", …) on the element (or on whatever has focus). ' +
                   'wait: wait until the element appears (up to 10 s), or without a target for value seconds (max 10).',
               },
-              selector: { type: 'string', description: 'CSS selector of the element.' },
+              ref: { type: 'string', description: 'The element\'s ref from find_elements or page_outline, e.g. "e12".' },
+              selector: { type: 'string', description: 'Or: CSS selector of the element.' },
               text: { type: 'string', description: 'Or: the element\'s visible text / label (e.g. "Register", "A."). Combined with selector, searches inside matches of selector.' },
               value: { type: 'string', description: 'Text to type, the option to select, the scroll direction, the key to press, or seconds to wait.' },
             },
@@ -439,6 +494,13 @@ export function validateAction(name, input, settings) {
   if (errors.length) return errors;
 
   const i = /** @type {any} */ (input);
+  const isRef = (/** @type {unknown} */ ref) => typeof ref === 'string' && /^e\d{1,7}$/.test(ref);
+  if (i.ref !== undefined && !isRef(i.ref)) errors.push('ref must look like "e12" (from find_elements or page_outline)');
+  if (i.frame !== undefined) {
+    let ok = false;
+    try { ok = ['http:', 'https:'].includes(new URL(i.frame).protocol); } catch { /* not a URL */ }
+    if (!ok) errors.push('frame must be the absolute http(s) URL of an iframe');
+  }
   if (name === 'modify_element') {
     const changeKeys = ['setStyles', 'removeStyles', 'setAttributes', 'removeAttributes', 'addClasses', 'removeClasses', 'textContent'];
     if (!changeKeys.some((k) => i[k] !== undefined)) errors.push('modify_element needs at least one change');
@@ -456,14 +518,17 @@ export function validateAction(name, input, settings) {
     if (!i.steps.length || i.steps.length > 25) errors.push('interact needs 1–25 steps');
     i.steps.forEach((/** @type {any} */ s, /** @type {number} */ n) => {
       // scroll, press and wait can work without a target (the page, the focused element, a pause).
-      if (!s.selector && !s.text && !['scroll', 'press', 'wait'].includes(s.action)) errors.push(`step ${n + 1}: give a selector or text`);
+      if (s.ref !== undefined && !isRef(s.ref)) errors.push(`step ${n + 1}: ref must look like "e12"`);
+      if (s.ref !== undefined && (s.selector !== undefined || s.text !== undefined)) errors.push(`step ${n + 1}: give a ref, or a selector and/or text, not both`);
+      const targeted = s.ref || s.selector || s.text;
+      if (!targeted && !['scroll', 'press', 'wait'].includes(s.action)) errors.push(`step ${n + 1}: give a ref, selector or text`);
       if ((s.action === 'type' || s.action === 'select' || s.action === 'press') && typeof s.value !== 'string') errors.push(`step ${n + 1}: ${s.action} needs a value`);
       if (s.action === 'scroll' && s.value !== undefined && !['down', 'up', 'top', 'bottom'].includes(s.value)) {
         errors.push(`step ${n + 1}: scroll value must be down, up, top or bottom`);
       }
-      if (s.action === 'scroll' && s.value === undefined && !s.selector && !s.text) errors.push(`step ${n + 1}: scroll needs a direction or a target`);
+      if (s.action === 'scroll' && s.value === undefined && !targeted) errors.push(`step ${n + 1}: scroll needs a direction or a target`);
       if (s.action === 'press' && typeof s.value === 'string' && !/^[A-Za-z0-9]{1,12}$/.test(s.value)) errors.push(`step ${n + 1}: press needs a key name like Enter or ArrowDown`);
-      if (s.action === 'wait' && !s.selector && !s.text && !(Number(s.value) > 0 && Number(s.value) <= 10)) {
+      if (s.action === 'wait' && !targeted && !(Number(s.value) > 0 && Number(s.value) <= 10)) {
         errors.push(`step ${n + 1}: wait needs a target, or seconds (up to 10) as value`);
       }
     });

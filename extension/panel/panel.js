@@ -715,9 +715,14 @@ export class App {
     this.chat.refreshCard(actionId);
   }
 
-  /** @param {string} selector */
-  highlight(selector) {
-    callInPage(highlight, { selector }).catch(() => {});
+  /**
+   * Outline an element on the page for a moment.
+   * @param {string} [selector]
+   * @param {string} [ref] an element ref from the AI (find_elements, page_outline)
+   * @param {string} [frame] the iframe (URL) it is in
+   */
+  highlight(selector, ref, frame) {
+    callInPage(highlight, { selector, ref }, frame).catch(() => {});
   }
 
   /** @param {string} selector */

@@ -14,7 +14,8 @@
     "package": "node scripts/package-extension.js",
     "vendor:sdk": "node scripts/vendor-sdk.js",
     "site": "node scripts/build-site.js",
-    "ui-check": "node scripts/ui-check.mjs"
+    "ui-check": "node scripts/ui-check.mjs",
+    "page-check": "node scripts/page-check.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",

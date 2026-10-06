@@ -1,6 +1,6 @@
 # Handoff: IntegratedAI (Chrome DevTools AI panel)
 
-_State as of 2026-10-06. For the next chat (or person) continuing this project. Start here; the README has the
+_State as of 2026-10-06 (second session: better agent clicking and reading). For the next chat (or person) continuing this project. Start here; the README has the
 full user-facing documentation._
 
 ## What it is
@@ -15,8 +15,9 @@ two decisions (see "Open decisions").
 
 ## Where things stand
 
-- **Works and is tested:** 112 unit tests pass; `npm run ui-check` (real Chrome, no AI) finds no accessibility or
-  layout problems; `npm run package` builds the store zip (54 files, ~218 KB).
+- **Works and is tested:** 115 unit tests pass; `npm run ui-check` (real Chrome, no AI) finds no accessibility or
+  layout problems; `npm run page-check` (the in-page code on a tricky test page in real Chrome) passes;
+  `npm run package` builds the store zip (54 files, ~227 KB).
 - **Store kit is current:** privacy policy (live, describes the agent modes), listing texts, 5 screenshots and the
   promo tile in the current plain UI.
 - **Tried with a real model:** the Claude Code CLI (owner's login), including agent mode on the demo form,
@@ -53,8 +54,16 @@ How it fits together:
 - `server/src/agent/page-tools.js`: with Claude Code, the page actions are MCP tools in agent modes only.
 - `panel/lib/agent-runner.js`: per step: dry run (find, outline on the page, describe, classify risk) → ask if the
   mode says so → short pause → do it → wait for page loads. Retries 2 s for elements that re-render.
-- `panel/lib/page-interact.js`: the steps inside the page, `humanName()` (plain-words names for the chat), risk
-  detection (`riskOf`), the outline (held while asking), and the "working… Stop" badge (closed shadow root).
+- `panel/lib/page-interact.js`: the steps inside the page, risk detection (`riskOf`), the outline (held while
+  asking), `quietFor` (how long the page has been unchanged), and the "working… Stop" badge (closed shadow root).
+- `panel/lib/page-scripts.js` → `pageHelpers()`: `refOf`/`byRef` (element refs like `e12`, kept in the page's hidden
+  state until reload), `cssPath` (unique selectors: stable attributes first, then a path long enough to tell table
+  rows apart), `queryAll` (pierces open shadow roots), `humanName`, `readable` (text as a person sees it).
+  `pageOutline` and `readText` are the `page_outline` / `read_text` inspections.
+- After each step the runner waits until the page is quiet (load done, no DOM changes for 0.5 s; gives up after 3 s,
+  8 s after a page change) and returns `pageOutline` (40 elements, 1,200 chars of text) instead of just URL/title.
+- Frames: `frame` (an iframe's URL) on find_elements, page_outline, read_text, inspect_element and interact;
+  `callInPage(fn, args, frame)` passes it as `inspectedWindow.eval`'s `frameURL`.
 - **The panel enforces the mode itself** (never runs page actions in Suggest mode) and decides risk on the real
   element, not from what the model says. Style changes, element edits and scripts stay cards in every mode.
 
@@ -68,28 +77,55 @@ How it fits together:
    them. Real input needs the `debugger` permission, which shows users a scary warning and hurts store review. Only
    worth it if real sites (Telegram Web etc.) turn out to ignore our events.
 
+## Done in the second session (2026-10-06)
+
+Prompted by a real run on GitHub (Full auto, Claude Code), where the AI added "wait 3 s" after every click, got the
+same selector for every file row, and couldn't read a file because the code was in a text area:
+- **Refs** (`e12`) from find_elements / page_outline, usable in interact steps (`ref`); unique selectors for rows.
+- **`read_text`** (new inspection): the page or an element as text, incl. text area values, tables, shadow DOM.
+- **`page_outline`** (new inspection) and the same outline returned after every step (the old next-work item 2).
+- **Settling** after each step instead of fixed sleeps; the prompt tells the AI not to add wait steps.
+- **Clicks:** `hover` step; disabled buttons fail clearly; covered elements and new-tab links are reported; when
+  text matches several elements the result says so. **Typing** uses `execCommand("insertText")` (trusted `input`
+  events, what chat composers listen to), falling back to the old native-setter path.
+- **iframes** for agent steps and reading (see above). CSS patches/screenshots stay top-frame only.
+- **Bug found and fixed:** Anthropic strict tool schemas allow 24 optional parameters per request in total; we sent
+  every tool as strict (35 optional even before today), so direct mode with an Anthropic key would most likely
+  have failed on the first message with "Schema is too complex for compilation". `toAnthropicTools` now makes the
+  changes strict first and stops at the budget (tested). Still needs the real-key test to confirm.
+- Privacy policy: mentions page text/outline and frames, and that password values are never read (also enforced).
+
+Not yet tried with a real model: the new tools and refs. A Claude Code run on the demo pages (store-screenshots
+harness) or the owner's GitHub/Telegram test is the next thing to do.
+
 ## Next work, in order
 
 1. **Agent mode on real, logged-in apps** (the owner's wish: "let it browse Telegram"). Try Telegram Web and a shop
    or two with Claude Code in Auto mode; fix what breaks. Likely areas: virtualised lists (the `scroll` step),
    contenteditable composers (`type` sets textContent; Enter is sent as key events), risky-word list in `riskOf`,
    the prompt section. How to test: see "Testing agent mode on a real site" below.
-2. **Better observation after each step.** Today the model gets only what was done plus URL and title, then calls
-   `find_elements` again. A compact page outline (headings, landmarks, focused element, visible buttons/inputs with
-   their `humanName`) in the step result would cut round trips. Build it in `page-scripts.js` and return it from
-   `AgentRunner.run`.
+2. **Tune the outline on real sites:** size per step (tokens add up over 40 steps), which elements are worth listing,
+   and whether the visible text is enough or the AI still calls read_text every time.
 3. **Real-key test of direct mode** (needs the owner's key): Anthropic first, then OpenAI/Gemini/OpenRouter, then a
    real Ollama (`OLLAMA_ORIGINS=chrome-extension://*`). Model id suggestions are in
    `shared/providers/openai-compatible.js` (`PRESETS`, checked 2026-10-05); Test key lists what a key can use.
 4. **Decide and implement** the `execute_js` store-build question above.
-5. **Later / ideas:** iframes (inspection, patches and agent steps are top-frame only); other providers in server
-   mode; persistent JS patches (deliberately left out for safety); patches applied earlier than navigation commit.
+5. **Owner's new feature idea, NOT to be built yet (discussion pending):** make the agent "untraceable and human-like"
+   and "hidden on normal screen shares". Talk it through with the owner first. Open points raised so far:
+   - What it is for decides the design. Human-like pacing so fragile sites keep up is fine; hiding automation from
+     sites' bot detection, or hiding the AI from people watching a shared screen (interviews, exams, meetings), is
+     deception aimed at third parties, and the AI working on this project should not build that part.
+   - A Chrome extension can't hide itself from screen capture at all; only a native app can (OS-level capture
+     exclusion), which is outside this project.
+   - The Web Store reviews for deceptive behaviour, and the on-page outline and Stop badge exist on purpose so the
+     user always sees what the AI does.
+6. **Later / ideas:** iframes for CSS patches and screenshots; other providers in server mode; persistent JS patches (deliberately left out for safety); patches applied earlier than navigation commit.
 
 ## Known issues and limits
 
 - The panel only works while DevTools is open; the network log only covers requests since DevTools opened.
-- Top frame only (no iframes); closed shadow roots, canvas apps, file pickers, drag and drop and captchas are out of
-  reach for agent steps.
+- CSS patches, element edits and screenshots are top-frame only; closed shadow roots, canvas apps, file pickers,
+  drag and drop and captchas are out of reach for agent steps.
 - Saved patches can show the page's original style for a moment on fast pages.
 - Undo info is per page load. The full list is at the end of the README.
 
@@ -97,12 +133,14 @@ How it fits together:
 
 ```bash
 npm install
-npm test                                   # 112 unit tests (node:test)
+npm test                                   # 115 unit tests (node:test)
 npm start                                  # local agent server (Claude Code)
 npm run package                            # store checks + dist/integratedai-<version>.zip
 npm run site                               # docs/ (privacy page) from store/PRIVACY.md
 npm run ui-check [-- <folder>]             # panel + setup page in headless Chrome: screenshots, axe-core, layout,
                                            # an Auto-mode scenario and the page Stop; no AI, no key
+npm run page-check                         # in-page code (refs, outline, read_text, clicks, typing, settling)
+                                           # on a tricky test page in headless Chrome
 node scripts/store-screenshots.mjs [name]  # store screenshots (real Claude Code calls, ~$0.25; needs Chrome)
 npm run vendor:sdk                         # rebuild extension/vendor/anthropic-sdk.mjs after upgrading the SDK
 ```

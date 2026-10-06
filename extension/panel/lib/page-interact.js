@@ -1,7 +1,7 @@
 // @ts-nocheck
 /**
- * The `interact` action, inside the inspected page: click, type, select, check, submit,
- * scroll, press a key, wait.
+ * The `interact` action, inside the inspected page: click, hover, type, select, check,
+ * submit, scroll, press a key, wait.
  *
  * These run via callInPage (see inspected.js), so like page-scripts.js each
  * exported function must be self-contained (no imports, no module variables)
@@ -11,8 +11,10 @@
  * own state and only update it from events. So we:
  *   - click with a full pointer/mouse sequence and element.click() (which also
  *     performs the default action: toggling a radio, following a link, …)
- *   - set input values through the native value setter, then fire input/change
- *     (React ignores `el.value = x` without this)
+ *   - type with the browser's own "insert text" editing command, which fires the same
+ *     beforeinput/input events as typing (rich editors like the ones in chat apps
+ *     only listen to those); if that doesn't take, set the value through the native
+ *     setter and fire input/change (React ignores `el.value = x` without this)
  *
  * The panel runs one step at a time and retries a step for up to 5 s while its
  * element doesn't exist yet (e.g. a menu that opens after the previous click).
@@ -30,31 +32,61 @@
  */
 export function interactStep(h, selected, { actionId, step, dry = false, hold = false }) {
   const norm = (s) => String(s ?? '').replace(/\s+/g, ' ').trim().toLowerCase();
-  const visible = (el) => {
-    const r = el.getBoundingClientRect();
-    const cs = getComputedStyle(el);
-    return r.width > 0 && r.height > 0 && cs.visibility !== 'hidden' && cs.display !== 'none';
-  };
+  const visible = h.visible;
+  const humanName = h.humanName;
   const textOf = (el) => norm(
-    el.innerText || el.value || el.getAttribute('aria-label') || el.getAttribute('title')
+    el.innerText || (el.type === 'password' ? '' : el.value) || el.getAttribute('aria-label') || el.getAttribute('title')
     || el.getAttribute('placeholder') || (el.labels && el.labels[0] && el.labels[0].innerText) || '',
   );
   const fire = (target, type, Ctor = Event, init = {}) =>
     target.dispatchEvent(new Ctor(type, { bubbles: true, cancelable: true, composed: true, ...init }));
 
-  /** A real-looking click: pointer + mouse events, focus, then click() for the default action. */
-  const realClick = (target) => {
+  /** Where a person would point: the middle of the element. */
+  const pointAt = (target) => {
     const r = target.getBoundingClientRect();
-    const pos = { clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, button: 0, view: window };
+    return { clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, view: window };
+  };
+  /** Move the (virtual) mouse onto the element: what hover menus and tooltips listen to. */
+  const hoverOver = (target) => {
+    const pos = pointAt(target);
     const pointer = { ...pos, pointerId: 1, pointerType: 'mouse', isPrimary: true };
     fire(target, 'pointerover', PointerEvent, pointer);
+    fire(target, 'pointerenter', PointerEvent, { ...pointer, bubbles: false });
     fire(target, 'mouseover', MouseEvent, pos);
-    fire(target, 'pointerdown', PointerEvent, pointer);
-    fire(target, 'mousedown', MouseEvent, pos);
+    fire(target, 'mouseenter', MouseEvent, { ...pos, bubbles: false });
+    fire(target, 'pointermove', PointerEvent, pointer);
+    fire(target, 'mousemove', MouseEvent, pos);
+  };
+  /** A real-looking click: pointer + mouse events, focus, then click() for the default action. */
+  const realClick = (target) => {
+    hoverOver(target);
+    const pos = { ...pointAt(target), button: 0, detail: 1 };
+    const pointer = { ...pos, pointerId: 1, pointerType: 'mouse', isPrimary: true };
+    fire(target, 'pointerdown', PointerEvent, { ...pointer, buttons: 1 });
+    fire(target, 'mousedown', MouseEvent, { ...pos, buttons: 1 });
     if (typeof target.focus === 'function') target.focus({ preventScroll: true });
     fire(target, 'pointerup', PointerEvent, pointer);
     fire(target, 'mouseup', MouseEvent, pos);
     target.click();
+  };
+
+  /**
+   * What a real click at the element's middle would hit instead of it (a cookie banner,
+   * an overlay), or null. The click still goes to the element; the AI is told.
+   */
+  const coveredBy = (target) => {
+    const { clientX: x, clientY: y } = pointAt(target);
+    if (x < 0 || y < 0 || x >= innerWidth || y >= innerHeight) return null;
+    let top = document.elementFromPoint(x, y);
+    while (top && top.shadowRoot) {
+      const inner = top.shadowRoot.elementFromPoint(x, y);
+      if (!inner || inner === top) break;
+      top = inner;
+    }
+    if (!top || top === target || target.contains(top) || top.contains(target)) return null;
+    const label = top.closest('label');
+    if (label && (label.control === target || label.contains(target))) return null;
+    return top;
   };
 
   /** Set value/checked through the prototype's setter so framework trackers notice. */
@@ -68,12 +100,44 @@ export function interactStep(h, selected, { actionId, step, dry = false, hold = 
     target[prop] = value;
   };
 
+  /**
+   * Replace a field's text the way typing does: select what's there and insert the new
+   * text with the browser's editing command (real beforeinput/input events, so editors in
+   * chat apps and React fields update their state). Returns false if the field didn't take it.
+   */
+  const insertText = (target, value) => {
+    target.focus({ preventScroll: true });
+    if (target.isContentEditable) {
+      const range = document.createRange();
+      range.selectNodeContents(target);
+      const selection = getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+    } else if (typeof target.select === 'function') {
+      target.select();
+    }
+    try {
+      if (!(value ? document.execCommand('insertText', false, value) : document.execCommand('delete'))) return false;
+    } catch {
+      return false;
+    }
+    const now = target.isContentEditable ? target.innerText : target.value;
+    return norm(now) === norm(value);
+  };
+
+  /** How many elements matched the step's text (more than one: the AI is told it got the first). */
+  let matches = 0;
   function find() {
+    if (step.ref) return h.byRef(step.ref); // throws when the element is gone: looking again won't help
     let scope = [document.body];
     if (step.selector) {
       let list;
-      try { list = [...document.querySelectorAll(step.selector)]; } catch { throw new Error(`Invalid selector: ${step.selector}`); }
-      if (!step.text) return list.find(visible) || list[0] || null;
+      try { list = h.queryAll(step.selector); } catch { throw new Error(`Invalid selector: ${step.selector}`); }
+      if (!step.text) {
+        const shown = list.filter(visible);
+        matches = shown.length || list.length;
+        return shown[0] || list[0] || null;
+      }
       scope = list;
     }
     const want = norm(step.text);
@@ -81,14 +145,16 @@ export function interactStep(h, selected, { actionId, step, dry = false, hold = 
     const candidates = [];
     for (const root of scope) {
       if (root !== document.body) candidates.push(root);
-      candidates.push(...root.querySelectorAll(CANDIDATES));
+      candidates.push(...h.queryAll(CANDIDATES, root));
     }
     const usable = candidates.filter((el) => el !== document.body && el !== document.documentElement && visible(el));
     let pool = usable.filter((el) => textOf(el) === want);
     if (!pool.length) pool = usable.filter((el) => textOf(el).startsWith(want));
     if (!pool.length && want.length > 2) pool = usable.filter((el) => textOf(el).includes(want));
-    // The most specific match: one that doesn't contain another match.
-    return pool.find((el) => !pool.some((other) => other !== el && el.contains(other))) || null;
+    // The most specific matches: ones that don't contain another match.
+    const innermost = pool.filter((el) => !pool.some((other) => other !== el && el.contains(other)));
+    matches = innermost.length;
+    return innermost[0] || null;
   }
 
   /** Outline the target and say what is about to happen (removed after a moment). */
@@ -142,27 +208,6 @@ export function interactStep(h, selected, { actionId, step, dry = false, hold = 
     return '';
   };
 
-  /**
-   * What a person would call an element: its role and visible name, e.g. 'the "Search Wikipedia" field',
-   * 'button "Send"', 'link "Pricing"' (the CSS-like label is for the AI, not for the questions we ask people).
-   */
-  const humanName = (target) => {
-    if (!target || target === document.body || target === document.documentElement) return 'the page';
-    const quote = (s) => `"${s.length > 40 ? `${s.slice(0, 40)}…` : s}"`;
-    const clean = (s) => String(s || '').replace(/\s+/g, ' ').trim();
-    const labelled = clean(target.getAttribute('aria-label') || (target.labels && target.labels[0] && target.labels[0].innerText)
-      || target.getAttribute('placeholder') || target.getAttribute('title') || target.getAttribute('alt'));
-    if (target.matches('input:not([type=button]):not([type=submit]):not([type=checkbox]):not([type=radio]), textarea, [contenteditable=""], [contenteditable="true"], [role=textbox], [role=searchbox]')) {
-      return labelled ? `the ${quote(labelled)} field` : target.matches('[type=search], [role=searchbox]') ? 'the search field' : 'a text field';
-    }
-    if (target.tagName === 'SELECT') return labelled ? `the ${quote(labelled)} menu` : 'a menu';
-    if (target.matches('input[type=checkbox], [role=checkbox]')) return labelled ? `the ${quote(labelled)} checkbox` : 'a checkbox';
-    if (target.matches('input[type=radio], [role=radio]')) return labelled ? `the ${quote(labelled)} option` : 'an option';
-    const name = labelled || clean(target.innerText || target.value);
-    const role = target.closest('a[href]') ? 'link' : target.closest('button, [role=button], input[type=submit], input[type=button]') ? 'button'
-      : target.matches('li, [role=listitem], [role=option], [role=row], [role=menuitem], [role=tab]') ? 'item' : 'element';
-    return name ? `${role} ${quote(name)}` : `${role} ${h.label(target)}`;
-  };
   /** The visible text of the <select> option a step means (by value or text), for describing it. */
   const optionText = (select) => {
     if (!select || select.tagName !== 'SELECT') return '';
@@ -170,10 +215,10 @@ export function interactStep(h, selected, { actionId, step, dry = false, hold = 
     const option = [...select.options].find((o) => norm(o.value) === want || norm(o.text) === want);
     return option ? option.text.trim() : '';
   };
-  const VERBS = { click: 'click', type: 'type into', select: 'choose in', check: 'tick', uncheck: 'untick', submit: 'submit the form of', scroll: 'scroll', press: 'press', wait: 'wait for' };
+  const VERBS = { click: 'click', hover: 'point at', type: 'type into', select: 'choose in', check: 'tick', uncheck: 'untick', submit: 'submit the form of', scroll: 'scroll', press: 'press', wait: 'wait for' };
 
   // Steps that don't need a target: scroll the page, press a key on what has focus, pause.
-  const targetless = !step.selector && !step.text;
+  const targetless = !step.selector && !step.text && !step.ref;
   if (targetless && ['scroll', 'press', 'wait'].includes(step.action)) {
     if (dry) {
       const focused = document.activeElement;
@@ -242,36 +287,54 @@ export function interactStep(h, selected, { actionId, step, dry = false, hold = 
   const state = h.state();
   state.interact = state.interact || {};
   const undo = (state.interact[actionId] = state.interact[actionId] || []);
-  const name = `${h.label(el)}${step.text ? ` "${step.text}"` : ''}`;
+  const name = `${step.ref ? `${step.ref} ` : ''}${h.label(el)}${step.text ? ` "${step.text}"` : ''}`;
+  // Several elements fit the step: say which one was used, so the AI can pick another by ref.
+  const which = matches > 1 ? ` (the first of ${matches} matches; use a ref from find_elements or page_outline for another one)` : '';
   /** The form field an element stands for (itself, its label's control, or a field inside it). Hoisted: the dry run uses it. */
   function field(node) {
-    return node.matches('input, textarea, select, [contenteditable=""], [contenteditable="true"]')
+    return node.matches('input, textarea, select, [contenteditable=""], [contenteditable="true"]') || node.isContentEditable
       ? node
       : node.control || node.querySelector('input, textarea, select, [contenteditable=""], [contenteditable="true"]') || node;
   }
 
   switch (step.action) {
-    case 'click':
+    case 'click': {
+      const control = el.closest('button, input, select, textarea, fieldset');
+      if (control && control.disabled) throw new Error(`${humanName(el)} is disabled (greyed out), so it can't be clicked yet`);
+      const cover = coveredBy(el);
+      const link = el.closest('a[href]');
       realClick(el);
-      return { found: true, did: `clicked ${name}`, undoable: false };
+      const notes = [];
+      if (cover) notes.push(`${humanName(cover)} (${h.label(cover)}) was on top of it, so a person couldn't have clicked it; close that first if nothing happened`);
+      if (el.getAttribute('aria-disabled') === 'true') notes.push('it is marked as disabled, so it may have done nothing');
+      if (link && link.target === '_blank') notes.push(`it opens in a new tab, which the panel can't follow; use navigate with ${link.href} to open it here`);
+      return { found: true, did: `clicked ${name}${which}${notes.length ? `. Note: ${notes.join('; ')}` : ''}`, undoable: false };
+    }
+
+    case 'hover':
+      hoverOver(el);
+      return { found: true, did: `pointed at ${name}${which}`, undoable: true };
 
     case 'type': {
       const target = field(el);
-      if (target.isContentEditable) {
-        undo.push({ el: target, kind: 'text', before: target.textContent });
-        target.focus();
-        target.textContent = step.value;
-        fire(target, 'input', InputEvent, { inputType: 'insertText', data: step.value });
-      } else if ('value' in target) {
-        undo.push({ el: target, kind: 'value', before: target.value });
-        target.focus();
-        setNative(target, 'value', step.value);
-        fire(target, 'input', InputEvent, { inputType: 'insertText', data: step.value });
+      if (!target.isContentEditable && !('value' in target)) throw new Error(`${name} is not a text field`);
+      if (target.disabled || target.readOnly) throw new Error(`${humanName(target)} is ${target.disabled ? 'disabled' : 'read-only'}`);
+      const before = target.isContentEditable ? target.innerHTML : target.value;
+      undo.push({ el: target, kind: target.isContentEditable ? 'html' : 'value', before });
+      if (!insertText(target, step.value)) {
+        // The editing command didn't take (some field types, unusual editors): set it directly.
+        if (target.isContentEditable) {
+          target.textContent = step.value;
+          fire(target, 'input', InputEvent, { inputType: 'insertText', data: step.value });
+        } else {
+          setNative(target, 'value', step.value);
+          fire(target, 'input', InputEvent, { inputType: 'insertText', data: step.value });
+          fire(target, 'change');
+        }
+      } else if (!target.isContentEditable) {
         fire(target, 'change');
-      } else {
-        throw new Error(`${name} is not a text field`);
       }
-      return { found: true, did: `typed "${step.value.slice(0, 60)}" into ${name}`, undoable: true };
+      return { found: true, did: `typed "${step.value.slice(0, 60)}" into ${name}${which}`, undoable: true };
     }
 
     case 'select': {
@@ -280,7 +343,7 @@ export function interactStep(h, selected, { actionId, step, dry = false, hold = 
       const want = norm(step.value);
       const option = [...target.options].find((o) => norm(o.value) === want || norm(o.text) === want)
         || [...target.options].find((o) => norm(o.text).includes(want));
-      if (!option) throw new Error(`No option "${step.value}" in ${name}`);
+      if (!option) throw new Error(`No option "${step.value}" in ${name}; the options are: ${[...target.options].slice(0, 30).map((o) => `"${o.text.trim()}"`).join(', ')}`);
       undo.push({ el: target, kind: 'value', before: target.value });
       setNative(target, 'value', option.value);
       fire(target, 'input');
@@ -304,7 +367,7 @@ export function interactStep(h, selected, { actionId, step, dry = false, hold = 
       }
       // Click the visible part: hidden native inputs (common in UI kits) don't take real clicks.
       realClick(isNative && !visible(target) ? (target.labels && target.labels[0]) || el : (isNative ? target : el));
-      return { found: true, did: `${want ? 'checked' : 'unchecked'} ${name}`, undoable: true };
+      return { found: true, did: `${want ? 'checked' : 'unchecked'} ${name}${which}`, undoable: true };
     }
 
     case 'scroll':
@@ -328,6 +391,26 @@ export function interactStep(h, selected, { actionId, step, dry = false, hold = 
     default:
       throw new Error(`Unknown step action "${step.action}"`);
   }
+}
+
+/**
+ * How long the page has been quiet: no elements added or removed and no text changed
+ * (our own outline and badge don't count). The first call starts watching and reports 0.
+ * After a step the panel waits until the page is quiet for a moment, so the AI sees the
+ * result (a list that loaded, a new route) without adding wait steps.
+ */
+export function quietFor(h) {
+  const state = h.state();
+  if (!state.quiet) {
+    const own = (node) => node.nodeType === 1 && (node.id === 'integratedai-highlight' || node.id === 'integratedai-working');
+    state.quiet = { last: Date.now() };
+    new MutationObserver((records) => {
+      if (records.every((r) => [...r.addedNodes, ...r.removedNodes].every(own) && r.type === 'childList')) return;
+      state.quiet.last = Date.now();
+    }).observe(document.documentElement, { childList: true, subtree: true, characterData: true });
+    return { url: location.href, ready: document.readyState, quietMs: 0 };
+  }
+  return { url: location.href, ready: document.readyState, quietMs: Date.now() - state.quiet.last };
 }
 
 /**
@@ -406,8 +489,8 @@ export function revertInteract(h, selected, { actionId }) {
       setNative(entry.el, 'value', entry.before);
       fire(entry.el, 'input');
       fire(entry.el, 'change');
-    } else if (entry.kind === 'text') {
-      entry.el.textContent = entry.before;
+    } else if (entry.kind === 'html') {
+      entry.el.innerHTML = entry.before;
       fire(entry.el, 'input');
     } else {
       entry.el.click(); // toggle back / re-select the previous radio

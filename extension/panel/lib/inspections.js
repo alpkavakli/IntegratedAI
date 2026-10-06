@@ -6,7 +6,7 @@
 
 import { bg } from './bg.js';
 import { callInPage } from './inspected.js';
-import { findElements, inspectElement, prepareScreenshot, readConsole, restoreScroll } from './page-scripts.js';
+import { findElements, inspectElement, pageOutline, prepareScreenshot, readConsole, readText, restoreScroll } from './page-scripts.js';
 
 // Headers that must never be sent to the AI.
 const SENSITIVE_HEADERS = /^(cookie|set-cookie|authorization|proxy-authorization|x-api-key|api-key|x-auth-token|x-csrf-token|x-xsrf-token|x-amz-security-token)$/i;
@@ -22,9 +22,13 @@ const SENSITIVE_PARAMS = /^(token|access_token|id_token|refresh_token|code|key|a
 export async function runInspection(name, input, ctx) {
   switch (name) {
     case 'inspect_element':
-      return callInPage(inspectElement, { ...input, selector: input.selector || ctx.selectedSelector || undefined });
+      return callInPage(inspectElement, { ...input, selector: input.selector || (input.ref || input.frame ? undefined : ctx.selectedSelector) || undefined }, input.frame);
     case 'find_elements':
-      return callInPage(findElements, input);
+      return callInPage(findElements, input, input.frame);
+    case 'page_outline':
+      return callInPage(pageOutline, input, input.frame);
+    case 'read_text':
+      return callInPage(readText, input, input.frame);
     case 'inspect_console':
       return callInPage(readConsole, input);
     case 'inspect_network':
@@ -65,7 +69,7 @@ export function screenshot(input, ctx) {
  * @param {{ selectedSelector?: string, tabId: number }} ctx
  */
 async function takeScreenshot(input, ctx) {
-  const selector = input.fullViewport ? undefined : input.selector || ctx.selectedSelector || undefined;
+  const selector = input.fullViewport ? undefined : input.selector || (input.ref ? undefined : ctx.selectedSelector) || undefined;
   const target = await callInPage(prepareScreenshot, { ...input, selector });
   let dataUrl;
   try {

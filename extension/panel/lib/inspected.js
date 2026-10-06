@@ -15,15 +15,18 @@
 import { pageHelpers } from './page-scripts.js';
 
 /**
- * Evaluate an expression in the inspected page.
+ * Evaluate an expression in the inspected page, or in one of its frames.
  * @param {string} expression
+ * @param {string} [frame] URL of an iframe (as the frame reports it); omit for the page itself
  * @returns {Promise<any>}
  */
-export function evalInPage(expression) {
+export function evalInPage(expression, frame) {
   return new Promise((resolve, reject) => {
-    chrome.devtools.inspectedWindow.eval(expression, {}, (result, exceptionInfo) => {
+    chrome.devtools.inspectedWindow.eval(expression, frame ? { frameURL: frame } : {}, (result, exceptionInfo) => {
       if (exceptionInfo?.isException) reject(new Error(String(exceptionInfo.value)));
-      else if (exceptionInfo?.isError) reject(new Error(exceptionInfo.description || exceptionInfo.code || 'Evaluation failed'));
+      else if (exceptionInfo?.isError && frame && /frame/i.test(`${exceptionInfo.code} ${exceptionInfo.description}`)) {
+        reject(new Error(`No frame with the URL ${frame} (page_outline lists the frames and their URLs)`));
+      } else if (exceptionInfo?.isError) reject(new Error(exceptionInfo.description || exceptionInfo.code || 'Evaluation failed'));
       else resolve(result);
     });
   });
@@ -40,10 +43,11 @@ export function evalInPage(expression) {
  *
  * @param {Function} fn
  * @param {unknown} [args]
+ * @param {string} [frame] run it in this iframe (URL) instead of the page itself
  */
-export function callInPage(fn, args = {}) {
+export function callInPage(fn, args = {}, frame = undefined) {
   const expression = `(${fn.toString()})((${pageHelpers.toString()})(), typeof $0 === 'undefined' ? undefined : $0, ${JSON.stringify(args)})`;
-  return evalInPage(expression);
+  return evalInPage(expression, frame);
 }
 
 /** How long runApprovedScript waits for a script's result (it keeps running in the page after that). */

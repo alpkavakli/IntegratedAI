@@ -82,7 +82,7 @@ test('interact: steps need a target, type/select need a value', () => {
   assert.match(validateAction('interact', { description: 'd', steps: [] }).join(), /1–25 steps/);
   assert.match(validateAction('interact', { description: 'd', steps: [{ action: 'click' }] }).join(), /selector or text/);
   assert.match(validateAction('interact', { description: 'd', steps: [{ action: 'type', selector: '#x' }] }).join(), /needs a value/);
-  assert.match(validateAction('interact', { description: 'd', steps: [{ action: 'hover', selector: '#x' }] }).join(), /must be one of/);
+  assert.match(validateAction('interact', { description: 'd', steps: [{ action: 'drag', selector: '#x' }] }).join(), /must be one of/);
   assert.match(validateAction('interact', { description: 'd', steps: [{ action: 'click', selector: '#x', onclick: 'y' }] }).join(), /not allowed/);
 });
 
@@ -102,4 +102,27 @@ test('screenshot: read-only, optional selector or the visible page', () => {
   assert.deepEqual(validateAction('screenshot', { selector: 'nav.g_nav' }), []);
   assert.deepEqual(validateAction('screenshot', { fullViewport: true }), []);
   assert.notDeepEqual(validateAction('screenshot', { selector: 'nav', zoom: 2 }), []);
+});
+
+test('interact: refs, hover and frames', () => {
+  assert.deepEqual(validateAction('interact', { description: 'd', steps: [{ action: 'click', ref: 'e12' }, { action: 'hover', ref: 'e3' }] }), []);
+  assert.deepEqual(validateAction('interact', { description: 'd', frame: 'https://pay.example.com/form', steps: [{ action: 'type', ref: 'e1', value: 'x' }] }), []);
+  assert.deepEqual(validateAction('interact', { description: 'd', steps: [{ action: 'wait', ref: 'e4' }] }), [], 'a ref is a target to wait for');
+  assert.match(validateAction('interact', { description: 'd', steps: [{ action: 'click', ref: '#main' }] }).join(), /ref must look like/);
+  assert.match(validateAction('interact', { description: 'd', steps: [{ action: 'click', ref: 'e1', selector: '#a' }] }).join(), /not both/);
+  assert.match(validateAction('interact', { description: 'd', frame: 'javascript:alert(1)', steps: [{ action: 'click', ref: 'e1' }] }).join(), /frame must be/);
+});
+
+test('page_outline and read_text', () => {
+  assert.deepEqual(validateAction('page_outline', {}), []);
+  assert.deepEqual(validateAction('page_outline', { all: true, limit: 100, frame: 'https://example.com/embed' }), []);
+  assert.deepEqual(validateAction('read_text', { ref: 'e7', links: true, offset: 12000 }), []);
+  assert.deepEqual(validateAction('read_text', { selector: 'main' }), []);
+  assert.match(validateAction('read_text', { ref: 'main' }).join(), /ref must look like/);
+  assert.match(validateAction('read_text', { html: true }).join(), /not allowed|unknown|additional/i);
+  assert.equal(isReadOnly('page_outline'), true);
+  assert.equal(isReadOnly('read_text'), true);
+  assert.deepEqual(validateAction('find_elements', { text: 'Send', frame: 'https://example.com/chat' }), []);
+  assert.deepEqual(validateAction('inspect_element', { ref: 'e2', include: ['html'] }), []);
+  assert.deepEqual(validateAction('screenshot', { ref: 'e2' }), []);
 });

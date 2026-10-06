@@ -109,7 +109,7 @@ export class ActionCard extends HTMLElement {
     if (name === 'interact') {
       const VERB = {
         click: 'Click', type: 'Type into', select: 'Choose in', check: 'Check', uncheck: 'Uncheck', submit: 'Submit the form of',
-        scroll: 'Scroll', press: 'Press', wait: 'Wait for',
+        scroll: 'Scroll', press: 'Press', wait: 'Wait for', hover: 'Point at',
       };
       const steps = /** @type {any[]} */ (input.steps ?? []);
       const clicks = steps.some((s) => s.action === 'click' || s.action === 'submit');
@@ -119,10 +119,11 @@ export class ActionCard extends HTMLElement {
           s.text ? `"${s.text}"` : null,
           s.text && s.selector ? ' in ' : null,
           s.selector ? h('code', null, s.selector) : null,
+          s.ref ? `the element the AI found (${s.ref})` : null,
           s.action === 'type' || s.action === 'select' ? ` → "${String(s.value ?? '').slice(0, 120)}"` : null,
           s.action === 'scroll' || s.action === 'press' ? ` ${s.value ?? 'into view'}` : null,
-          s.action === 'wait' && !s.selector && !s.text ? `${s.value} s` : null,
-          s.selector ? [' ', h('button', { class: 'link', type: 'button', onclick: () => this.app.highlight(s.selector) }, 'show')] : null))),
+          s.action === 'wait' && !s.selector && !s.text && !s.ref ? `${s.value} s` : null,
+          s.selector || s.ref ? [' ', h('button', { class: 'link', type: 'button', onclick: () => this.app.highlight(s.selector, s.ref, input.frame) }, 'show')] : null))),
         h('div', { class: 'note' }, clicks
           ? 'Uses real clicks and typing, like you would. Clicks and submits cannot be undone.'
           : 'Uses real typing and selection, like you would. Can be undone.'));
