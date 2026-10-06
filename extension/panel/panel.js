@@ -1057,7 +1057,9 @@ export class App {
       this.showBanner(`Unloaded ${model}: your graphics card is free. Your next message loads it again (a few seconds). `
         + 'To quit Ollama completely, use its own icon (by the clock, or in the menu bar).');
     } catch (err) {
-      this.showBanner(`Couldn't reach Ollama to unload the model (${/** @type {any} */ (err).message}). If it's running, quit it from its icon.`, true);
+      // Nothing answers: Ollama isn't running, so no model is loaded (a TypeError is fetch's "can't connect").
+      if (err instanceof TypeError) this.showBanner("Ollama isn't running, so no model is loaded: your graphics card is already free. Start Ollama again before your next message.");
+      else this.showBanner(`Couldn't unload the model: ${/** @type {any} */ (err).message}`, true);
     }
   }
 
