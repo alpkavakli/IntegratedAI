@@ -177,14 +177,21 @@ harness) or the owner's GitHub/Telegram test is the next thing to do.
 - **Custom** preset: any OpenAI-compatible service (address required, key optional, any model).
 - **Model lists:** Options → Check remembers GET /models per provider (`settings.modelLists`), the panel refreshes
   it at most daily (`refreshModelList`) and updates the live direct config; the model menu = suggestions + listed.
+- **Translate this page** (`translate_page`, card and DevTools): page text is collected in batches, translated by
+  the chosen AI through `translate.batch` (`orchestrator.translate`), and Undo restores the originals.
+- **Save as Markdown** (session row): `shared/conversation-markdown.js`.
+- **Iframes for CSS and screenshots:** `frame` on inject_css/screenshot; saved patches keep it and are re-applied
+  in matching subframes (`cssTarget` in the service worker).
+- **Languages: English and Turkish** (Chrome i18n, `_locales/`, `shared/i18n.js`; README "Languages"). All panel,
+  card, options and store texts; text for the AI stays English. `i18n.test.js` keeps locales and code in step;
+  `UI_LANG=tr npm run ui-check` gives Turkish screenshots (its checks expect English, so it stops partway).
+  The Turkish store description is in store/SUBMISSION.md. Still English: step descriptions in the activity list
+  (`describeStep`), risk reasons ("submits a form"), `describeScope`, provider address hints.
 
 ## Next work, in order
 
-0. **Chinese models (owner's next request):** providers like DeepSeek, Qwen (DashScope / Alibaba Cloud Model Studio),
-   Kimi (Moonshot), GLM (Zhipu) and MiniMax that use the same tools and can navigate. Most offer OpenAI-compatible
-   Chat Completions with tool calls, so they can be presets in `shared/providers/openai-compatible.js` (base URL,
-   models, key page) plus a privacy-policy line for each endpoint. Check each one's tool-calling quality with the
-   real-model harness (the Ollama runs this session show how), and whether compact mode helps.
+0. **Chinese models: presets done (seventh session), not tried with real keys.** Check each one's tool-calling
+   quality with the real-model harness when a key is available, and whether compact mode helps.
 
 
 1. **Agent mode on real, logged-in apps** (the owner's wish: "let it browse Telegram"). Try Telegram Web and a shop
@@ -212,7 +219,7 @@ harness) or the owner's GitHub/Telegram test is the next thing to do.
      exclusion), which is outside this project.
    - The Web Store reviews for deceptive behaviour, and the on-page outline and Stop badge exist on purpose so the
      user always sees what the AI does.
-6. **Later / ideas:** iframes for CSS patches and screenshots; other providers in server mode; persistent JS patches (deliberately left out for safety); patches applied earlier than navigation commit.
+6. **Later / ideas:** more interface languages (copy `_locales/en`); other providers in server mode; persistent JS patches (deliberately left out for safety); patches applied earlier than navigation commit.
 
 ## Known issues and limits
 

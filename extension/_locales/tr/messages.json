@@ -1,6 +1,18 @@
 {
+  "aTerminal": {
+    "message": "bir terminal"
+  },
   "actionTitle": {
     "message": "IntegratedAI: bu sayfada yapay zekâ kartını aç (Alt+Shift+A)"
+  },
+  "add": {
+    "message": "Ekle"
+  },
+  "addNoteExample": {
+    "message": "Not ekle, örn. \"Okumak için tırnaklı yazı tipini tercih ederim\""
+  },
+  "addedByYou": {
+    "message": "senin eklediğin"
   },
   "agentModeTitle": {
     "message": "Yapay zekânın sayfada neler yapabileceği"
@@ -8,11 +20,137 @@
   "aiProvider": {
     "message": "Yapay zekâ sağlayıcısı"
   },
+  "aiWantsTo": {
+    "message": "Yapay zekâ şunu yapmak istiyor: $1"
+  },
+  "alConsole": {
+    "message": "Konsolu oku"
+  },
+  "alCss": {
+    "message": "CSS ekle"
+  },
+  "alFind": {
+    "message": "Öğeleri bul"
+  },
+  "alForget": {
+    "message": "Unut"
+  },
+  "alInspect": {
+    "message": "Öğeyi incele"
+  },
+  "alInteract": {
+    "message": "Sayfada işlem yap"
+  },
+  "alJs": {
+    "message": "JavaScript çalıştır"
+  },
+  "alModify": {
+    "message": "Öğeyi değiştir"
+  },
+  "alNameGroup": {
+    "message": "Sayfa türünü adlandır"
+  },
+  "alNavigate": {
+    "message": "Bir sayfaya git"
+  },
+  "alNetwork": {
+    "message": "Ağ kaydını oku"
+  },
+  "alOutline": {
+    "message": "Sayfaya bak"
+  },
+  "alReadText": {
+    "message": "Metni oku"
+  },
+  "alRemember": {
+    "message": "Hatırla"
+  },
+  "alResources": {
+    "message": "Sayfa kaynaklarını oku"
+  },
+  "alScreenshot": {
+    "message": "Ekran görüntüsü"
+  },
+  "alTranslate": {
+    "message": "Sayfayı çevir"
+  },
+  "allow": {
+    "message": "İzin ver"
+  },
+  "allowAll": {
+    "message": "Bu iş için hepsine izin ver"
+  },
+  "allowed": {
+    "message": "İzin verildi."
+  },
+  "apiKey": {
+    "message": "API anahtarı"
+  },
+  "appliesTo": {
+    "message": "Uygulandığı yer: $1"
+  },
+  "appliesToLabel": {
+    "message": "Geçerli olduğu yer"
+  },
+  "apply": {
+    "message": "Uygula"
+  },
+  "applyAgain": {
+    "message": "Yeniden uygula"
+  },
+  "applyOn": {
+    "message": "Şurada uygula"
+  },
+  "askAi": {
+    "message": "Yapay zekâ şunu yapsın mı: $1?"
+  },
+  "askTask": {
+    "message": "Bu görev şunu yapsın mı: $1?"
+  },
+  "askWhy": {
+    "message": "Neden soruluyor: $1."
+  },
+  "cancel": {
+    "message": "İptal"
+  },
+  "cannotUndo": {
+    "message": "Otomatik geri alınamaz; geri döndürmek için sayfayı yenile."
+  },
+  "capConsole": {
+    "message": "konsol"
+  },
+  "capError": {
+    "message": "hata: $1"
+  },
+  "capMemory": {
+    "message": "site hafızası (not: $1)"
+  },
+  "capNetwork": {
+    "message": "ağ"
+  },
+  "capWith": {
+    "message": "ekli: $1"
+  },
   "cardTip": {
     "message": "Bu hızlı sürüm. Form doldurma, sayfalarda adım adım çalışma, kayıtlı görevler ve daha fazlası için <kbd>F12</kbd>'ye bas ve <strong>AI</strong> sekmesini aç. Göremiyor musun? DevTools sekme çubuğundaki <strong>»</strong> işaretine tıkla."
   },
   "checkAgain": {
     "message": "Tekrar kontrol et"
+  },
+  "checkConnection": {
+    "message": "Bağlantıyı kontrol et"
+  },
+  "checkIt": {
+    "message": "Kontrol et"
+  },
+  "checkItHelp": {
+    "message": "Yapay zekâ sonucun ekran görüntüsünü alır ve hâlâ yanlış görünenler için düzeltme önerir"
+  },
+  "checkKey": {
+    "message": "Anahtarı kontrol et"
+  },
+  "checking": {
+    "message": "Kontrol ediliyor…"
   },
   "chipConsole": {
     "message": "Konsol"
@@ -41,17 +179,56 @@
   "claudeCodeServerTitle": {
     "message": "Claude aboneliğini yerel sunucu üzerinden kullan"
   },
+  "clear": {
+    "message": "Temizle"
+  },
+  "clickAgainDelete": {
+    "message": "Silmek için tekrar tıkla"
+  },
+  "clickAgainDeleteAll": {
+    "message": "Bu tarayıcıda saklanan her şeyi silmek için tekrar tıkla"
+  },
+  "clickToEnlarge": {
+    "message": "Büyütmek için tıkla"
+  },
+  "close": {
+    "message": "Kapat"
+  },
   "commandToggleCard": {
     "message": "Bu sayfadaki yapay zekâ kartını aç veya kapat"
   },
   "composerHint": {
     "message": "Göndermek için Enter · Yeni satır için Shift+Enter"
   },
+  "connectServer": {
+    "message": "Ajan sunucusuna bağlan"
+  },
+  "connectService": {
+    "message": "Hizmetini bağla"
+  },
   "connected": {
     "message": "bağlı"
   },
+  "connectedModel": {
+    "message": "Bağlandı ($1)."
+  },
+  "connectedServer": {
+    "message": "Ajan sunucusuna bağlanıldı."
+  },
+  "continuedInDevtools": {
+    "message": "IntegratedAI · DevTools içinde devam ediyor"
+  },
+  "conversationsOn": {
+    "message": "$1 üzerindeki sohbetler"
+  },
+  "copied": {
+    "message": "Kopyalandı"
+  },
   "copiedChars": {
     "message": "$1 karakter kopyalandı"
+  },
+  "copy": {
+    "message": "Kopyala"
   },
   "copyCommand": {
     "message": "Komutu kopyala"
@@ -74,8 +251,89 @@
   "couldNotOpen": {
     "message": "Sohbet açılamadı: $1"
   },
+  "current": {
+    "message": "şu anki"
+  },
+  "custom": {
+    "message": "Özel"
+  },
+  "customAddressHint": {
+    "message": "Örneğin https://api.groq.com/openai/v1, https://api.mistral.ai/v1 ya da LM Studio için http://localhost:1234/v1."
+  },
+  "dataBackups": {
+    "message": "(\"backups\" klasöründeki otomatik yedekler: $1)"
+  },
+  "dataDirect": {
+    "message": "doğrudan modda ayrıca sohbetler: $1, hafızası olan siteler: $2"
+  },
+  "dataExtension": {
+    "message": "kayıtlı yamalar: $1, kayıtlı görevler: $2 ve ayarların (eklenti $3)"
+  },
+  "dataServer": {
+    "message": "sohbetler: $1, hafızası olan siteler: $2, konum: $3"
+  },
+  "dataServerOff": {
+    "message": "bağlı değil (görmek için sunucuyu npm start ile başlat)"
+  },
+  "daysAgo": {
+    "message": "$1 gün önce"
+  },
+  "delete": {
+    "message": "Sil"
+  },
+  "deleted": {
+    "message": "Silindi."
+  },
+  "deletedServerKept": {
+    "message": "Silindi. Ajan sunucusundaki sohbetlerine ve site hafızana dokunulmadı."
+  },
+  "deny": {
+    "message": "Reddet"
+  },
+  "disabled": {
+    "message": "Kapalı"
+  },
+  "disabledLower": {
+    "message": "kapalı"
+  },
+  "discard": {
+    "message": "Vazgeç"
+  },
   "disconnected": {
     "message": "bağlı değil"
+  },
+  "dockRight": {
+    "message": "Sağ kenara yerleştir"
+  },
+  "edit": {
+    "message": "Düzenle"
+  },
+  "elsewhereOn": {
+    "message": "$1 üzerinde başka yerler"
+  },
+  "emptyCard": {
+    "message": "Sayfada bir öğe seç ya da tüm sayfa hakkında sor."
+  },
+  "emptyDevtools": {
+    "message": "Elements panelinde bir öğe seç ya da tüm sayfa hakkında sor."
+  },
+  "emptyTitle": {
+    "message": "Bu sayfa hakkında sor"
+  },
+  "enabled": {
+    "message": "Açık"
+  },
+  "enabledLower": {
+    "message": "açık"
+  },
+  "enterAddressFirst": {
+    "message": "Önce hizmetinin adresini gir."
+  },
+  "explain": {
+    "message": "Açıkla"
+  },
+  "exported": {
+    "message": "Dışa aktarıldı: yamalar: $1, kayıtlı görevler: $2, sohbetler: $3, hafızası olan siteler: $4 ve ayarların."
   },
   "extDescription": {
     "message": "Chrome DevTools için yapay zekâ paneli: düzeni ve konsol hatalarını açıklar, CSS düzeltmelerini önizler, form doldurur."
@@ -86,8 +344,29 @@
   "f12OrCtrl": {
     "message": "F12 (ya da Ctrl+Shift+I)"
   },
+  "fadeLight": {
+    "message": "Saydamlık: hafif (fare başka yerdeyken)"
+  },
+  "fadeOff": {
+    "message": "Saydamlık: kapalı (fare başka yerdeyken)"
+  },
+  "fadeStrong": {
+    "message": "Saydamlık: güçlü (fare başka yerdeyken)"
+  },
+  "float": {
+    "message": "Serbest bırak"
+  },
+  "forgot": {
+    "message": "Bir not unutuldu ($1)"
+  },
   "fullAutoWarning": {
     "message": "Tam otomatik: yapay zekâ sana sormadan tıklar, yazar, form gönderir ve sayfalar arasında gezer. Başka birine güvenip bırakabileceğin işler için kullan ve izle; ■ onu durdurur."
+  },
+  "go": {
+    "message": "Git"
+  },
+  "goAgain": {
+    "message": "Yeniden git"
   },
   "gotIt": {
     "message": "Anladım"
@@ -98,8 +377,128 @@
   "historyTitle": {
     "message": "Bu sitedeki önceki sohbetler"
   },
+  "hoursAgo": {
+    "message": "$1 sa önce"
+  },
+  "importFailed": {
+    "message": "İçe aktarma başarısız: $1"
+  },
+  "imported": {
+    "message": "İçe aktarıldı. Yamalar: $1 yeni, $2 güncellendi, $3 zaten vardı; kayıtlı görevler: $4, sohbetler: $5, hafıza notları: $6."
+  },
+  "includeLog": {
+    "message": "Bilgi/log mesajlarını da göster"
+  },
+  "interactClicks": {
+    "message": "Senin yapacağın gibi gerçek tıklama ve yazma kullanır. Tıklamalar ve gönderimler geri alınamaz."
+  },
+  "interactTyping": {
+    "message": "Senin yapacağın gibi gerçek yazma ve seçim kullanır. Geri alınabilir."
+  },
+  "intoView": {
+    "message": "görünene kadar"
+  },
+  "jsNoUndo": {
+    "message": "Geri alınamaz. Geri döndürmek için sayfayı yenile."
+  },
+  "jsUndo": {
+    "message": "Geri al: modelin verdiği betik (elinden geleni yapar, tam geri yükleme garanti değil)"
+  },
+  "jsWarning": {
+    "message": "⚠ Bu sayfada, verilerine ve oturumuna erişimi olan herhangi bir JavaScript çalıştırır."
+  },
+  "justNow": {
+    "message": "az önce"
+  },
+  "keyIfNeeded": {
+    "message": "API anahtarı (hizmet gerektiriyorsa)"
+  },
+  "keyModelMissing": {
+    "message": "Anahtarın çalışıyor ama \"$1\", $2 modelinden biri değil. Model kutusundan birini seç."
+  },
+  "keyRejected": {
+    "message": "Bu anahtar kabul edilmedi. Tamamını kopyaladığından emin ol."
+  },
+  "keyWorks": {
+    "message": "Anahtarın çalışıyor ($1)."
+  },
+  "lastRun": {
+    "message": "son çalışma $1"
+  },
+  "learnedByAi": {
+    "message": "yapay zekânın öğrendiği"
+  },
+  "leaveEmptyFor": {
+    "message": "$1 için boş bırak."
+  },
+  "loading": {
+    "message": "Yükleniyor…"
+  },
+  "lookedAt": {
+    "message": "Bakıldı: $1"
+  },
+  "lookedSteps": {
+    "message": "Sayfaya bakıldı · $1 adım"
+  },
+  "lookingThrough": {
+    "message": "$1 içinde bunun yeri aranıyor… (bir dakika sürebilir)"
+  },
+  "mFable": {
+    "message": "Claude Fable 5.1 (en yetenekli, en pahalı)"
+  },
+  "mHaiku": {
+    "message": "Claude Haiku 4.5 (en hızlı, en ucuz)"
+  },
+  "mOpus": {
+    "message": "Claude Opus 5.5 (en iyi, önerilen)"
+  },
+  "mSonnet": {
+    "message": "Claude Sonnet 5.5 (daha hızlı, daha ucuz)"
+  },
+  "manage": {
+    "message": "yönet"
+  },
+  "manageInPatches": {
+    "message": "Yamalar sekmesinden yönet."
+  },
+  "memOff": {
+    "message": "Kapalı (hiçbir şey hatırlanmaz)"
+  },
+  "memOffText": {
+    "message": "Bu sohbet için hiçbir şey okunmaz veya kaydedilmez."
+  },
+  "memPrivate": {
+    "message": "Bu sohbete özel"
+  },
+  "memPrivateText": {
+    "message": "Bu sohbet kendi notlarını tutar. Sitenin ortak hafızasına veya diğer sohbetlere karışmazlar."
+  },
+  "memShared": {
+    "message": "Bu siteyle paylaşılan (buradaki tüm sohbetler)"
+  },
+  "memSharedText": {
+    "message": "Notlar bu sitedeki tüm sohbetlerce paylaşılır."
+  },
+  "memoryForConversation": {
+    "message": "Bu sohbetin hafızası"
+  },
+  "memoryHelp": {
+    "message": "Yapay zekâ her sohbetin başında geçerli sayfaya uyan notları okur ve tekrar kullanılabilir bir şey öğrendiğinde not ekler. Notlar talimat değil, bilgidir; yanlış olanı sil."
+  },
+  "memoryInvalid": {
+    "message": "Yapay zekânın \"$1\" isteği geçersizdi, hiçbir şey kaydedilmedi."
+  },
   "message": {
     "message": "Mesaj"
+  },
+  "messages": {
+    "message": "$1 mesaj"
+  },
+  "minAgo": {
+    "message": "$1 dk önce"
+  },
+  "minimise": {
+    "message": "Küçült"
   },
   "modeAsk": {
     "message": "Her adımda sor"
@@ -128,6 +527,36 @@
   "model": {
     "message": "Model"
   },
+  "modelChosenOnCheck": {
+    "message": "Bağlantıyı kontrol ettiğinde seçilir"
+  },
+  "modelNameCheck": {
+    "message": "Modelin adı (Kontrol et listeler)"
+  },
+  "modelUnavailable": {
+    "message": "Anahtar çalışıyor ama bu model hesabında kullanılamıyor. Başka bir model seç."
+  },
+  "name": {
+    "message": "Ad"
+  },
+  "nameIt": {
+    "message": "Adlandır"
+  },
+  "namedGroup": {
+    "message": "Bu tür sayfalara \"$1\" adı verildi ($2)"
+  },
+  "navBack": {
+    "message": "Geri git"
+  },
+  "navForward": {
+    "message": "İleri git"
+  },
+  "navOpen": {
+    "message": "Aç"
+  },
+  "navReload": {
+    "message": "Yeniden yükle"
+  },
   "newChat": {
     "message": "Yeni"
   },
@@ -137,11 +566,47 @@
   "newChatTitle": {
     "message": "Bu sekme için yeni sohbet"
   },
+  "newNote": {
+    "message": "Yeni not"
+  },
+  "noConsole": {
+    "message": "Bu sayfada yakalanan hata veya uyarı yok."
+  },
   "noElementPicked": {
     "message": "Öğe seçilmedi"
   },
+  "noHistory": {
+    "message": "Bu sayfa için geçmiş yok"
+  },
+  "noLongerActive": {
+    "message": "Bu sayfada artık etkin değil (sayfa yenilendi ya da DevTools izini kaybetti)."
+  },
+  "noPatches": {
+    "message": "Bu sayfaya uygulanan yama yok. Sohbette bir CSS değişikliği uygula, sonra \"Site yaması olarak kaydet…\"e tıkla."
+  },
+  "noShortcut": {
+    "message": "(chrome://extensions/shortcuts adresinden ona bir klavye kısayolu atayabilirsin)"
+  },
+  "noSiteMemory": {
+    "message": "Bu sayfa için site hafızası yok (yalnızca http(s) ve dosya sayfalarında olur)."
+  },
+  "noTasks": {
+    "message": "Bu site için kayıtlı görev yok. Yapay zekâ bir ajan modunda sayfada bir şey yaptığında, aynı adımları daha sonra yapay zekâ olmadan tekrar çalıştırmak için yanıtının altındaki \"Görev olarak kaydet\"e tıkla."
+  },
+  "notConnectedServer": {
+    "message": "Ajan sunucusuna bağlı değil."
+  },
+  "notNamedYet": {
+    "message": "henüz adlandırılmadı"
+  },
+  "notRestored": {
+    "message": "O zamandan beri değiştirdiğin için geri yüklenmedi: $1"
+  },
   "notSetUp": {
     "message": "$1 (kurulmadı)"
+  },
+  "note": {
+    "message": "Not"
   },
   "nothingSelected": {
     "message": "$0 (hiçbir şey seçili değil)"
@@ -149,11 +614,44 @@
   "nothingToSave": {
     "message": "Henüz kaydedilecek bir şey yok: bu sohbet boş."
   },
+  "nothingYet": {
+    "message": "Henüz bir şey yok. Sohbetler otomatik olarak kaydedilir."
+  },
+  "ollamaLinuxEditor": {
+    "message": "Açılan düzenleyicide bu satırları ekle, kaydet, sonra şunu çalıştır: sudo systemctl restart ollama"
+  },
+  "ollamaModelMissing": {
+    "message": "Ollama çalışıyor ama \"$1\", $2 modelinden biri değil. Model kutusundan birini seç."
+  },
+  "ollamaNoModels": {
+    "message": "Ollama çalışıyor ama henüz modeli yok. Bir tane indir, örneğin: ollama pull qwen3"
+  },
+  "ollamaNoTools": {
+    "message": "Ollama çalışıyor ama $1 bu eklentinin ihtiyaç duyduğu araçları kullanamıyor. Başka bir model seç (örneğin qwen3)."
+  },
   "ollamaNotRunning": {
     "message": "Ollama çalışmıyor: $1, sonra mesajını gönder."
   },
   "ollamaNotRunningShort": {
     "message": "Ollama çalışmıyor"
+  },
+  "ollamaRestartLinux": {
+    "message": "Yukarıda systemctl kullandıysan Ollama zaten yeniden başladı. Kullanmadıysan yeniden başlat."
+  },
+  "ollamaRestartMac": {
+    "message": "Ollama'dan çık (menü çubuğundaki simgesi, sonra Quit Ollama) ve yeniden aç."
+  },
+  "ollamaRestartWin": {
+    "message": "Ollama'dan çık (saatin yanındaki simgesine sağ tıkla, sonra Quit) ve Başlat menüsünden yeniden başlat."
+  },
+  "ollamaRunning": {
+    "message": "Ollama çalışıyor ($1 kullanılıyor)."
+  },
+  "ollamaRunningNoVision": {
+    "message": "Ollama çalışıyor ($1 kullanılıyor; ekran görüntülerini göremiyor)."
+  },
+  "ollamaSmallContext": {
+    "message": "Ollama çalışıyor ama $1 modeline yalnızca $2 belirteçlik bağlam veriyor; bu, eklentinin talimatları için çok az. Yukarıdaki 3. adımı (OLLAMA_CONTEXT_LENGTH) yap ve Ollama'yı yeniden başlat."
   },
   "ollamaStartLinux": {
     "message": "başlat (ollama serve)"
@@ -164,14 +662,263 @@
   "ollamaStartWin": {
     "message": "Başlat menüsünden başlat"
   },
+  "oneMessage": {
+    "message": "1 mesaj"
+  },
   "openSettings": {
     "message": "Ayarları aç"
+  },
+  "openSource": {
+    "message": "Kaynağı aç"
+  },
+  "optAddresses": {
+    "message": "Adresler"
+  },
+  "optAddressesHint": {
+    "message": "Bunları yalnızca Ollama veya ajan sunucusu başka bir yerde çalışıyorsa değiştir."
+  },
+  "optAdvanced": {
+    "message": "Gelişmiş ayarlar"
+  },
+  "optAgentServer": {
+    "message": "Ajan sunucusu"
+  },
+  "optAllowServer": {
+    "message": "Sunucu düğmesine izin ver"
+  },
+  "optAndYourOk": {
+    "message": ", bir de iznin:"
+  },
+  "optApiAddress": {
+    "message": "API adresi"
+  },
+  "optAskInspect": {
+    "message": "Sayfa ayrıntılarına bakmadan önce bana sor. Kapalıyken kendi başına bakar; yalnızca okuyabilir, asla değiştiremez."
+  },
+  "optContact": {
+    "message": "Soruların, fikirlerin, istediğin bir özellik mi var? Yapımcıya yaz:"
+  },
+  "optCtxConsole": {
+    "message": "Sayfanın konsolundaki son hatalar ve uyarılar"
+  },
+  "optCtxNetwork": {
+    "message": "Son ve başarısız ağ istekleri (parolalar, çerezler ve belirteçler çıkarılır)"
+  },
+  "optCtxSelected": {
+    "message": "Seçtiğin öğe (görünümü, boyutu ve HTML'inin bir kısmı)"
+  },
+  "optCustomWhere": {
+    "message": "Araç çağrılarıyla OpenAI Chat Completions API sunan herhangi bir hizmeti kullan. Adresini (genellikle <code>/v1</code> ile biter), gerekiyorsa API anahtarını ve modelin adını gir, sonra <strong>Bağlantıyı kontrol et</strong>'e tıkla."
+  },
+  "optDataHint": {
+    "message": "Her şey bilgisayarında kalır ve eklenti güncellendiğinde korunur."
+  },
+  "optDeleteData": {
+    "message": "Eklenti verilerini sil"
+  },
+  "optDevSetup": {
+    "message": "Geliştirici kurulumu"
+  },
+  "optDonate": {
+    "message": "Bağış yapmak ister misin? Parayla daha fazla yapay zekâ kredisi alacağız, tabii ki."
+  },
+  "optDonateLink": {
+    "message": "Bağış yap"
+  },
+  "optDontShow": {
+    "message": "Bunu bir daha gösterme"
+  },
+  "optDontShowDonate": {
+    "message": "Bağış notunu bir daha gösterme"
+  },
+  "optEasiest": {
+    "message": "En kolayı: bir API anahtarı. Gemini'nin ücretsiz katmanı var."
+  },
+  "optExecuteJs": {
+    "message": "<strong>JavaScript önermesine izin ver.</strong> Her betiği görürsün ve yalnızca sen onayladıktan sonra çalışır. Betikler oturumunla sayfada her şeyi yapabilir ve geri alınamayabilir. Gerekmedikçe kapalı bırak."
+  },
+  "optExport": {
+    "message": "Dışa aktar"
+  },
+  "optExportHint": {
+    "message": "Dışa aktarma; yamalarını, ayarlarını, sohbetlerini ve hafızayı bir dosyaya kaydeder, örneğin eklentinin başka bir kopyasına taşımak için. İçe aktarma buradakilere ekler ve daha yeni bir şeyin üzerine asla yazmaz. API anahtarları ve eşleştirme belirteci asla dışa aktarılmaz."
+  },
+  "optForDevelopers": {
+    "message": "Geliştiriciler için."
+  },
+  "optFreeLocal": {
+    "message": "Ücretsiz ve gizli, kendi bilgisayarında. Birkaç kurulum adımı gerekir."
+  },
+  "optFullAutoHint": {
+    "message": "Tam otomatik (hiç sormaz) yalnızca sohbet başına açılabilir. Stil değişiklikleri ve betikler her zaman tıklamanı bekler."
+  },
+  "optImport": {
+    "message": "İçe aktar…"
+  },
+  "optInBrowser": {
+    "message": "Bu tarayıcıda"
+  },
+  "optInBrowserNote": {
+    "message": "Eklentiyi kaldırırsan silinir, o yüzden önce dışa aktar."
+  },
+  "optIntro": {
+    "message": "Bulunduğun sayfa için ve Chrome DevTools içinde bir yapay zekâ asistanı. Üç adım, yaklaşık iki dakika."
+  },
+  "optKeyStays": {
+    "message": "Anahtarın bu tarayıcıda kalır ve yalnızca <span id=\"key-host\"></span> adresine gönderilir. Kullanım oradaki hesabına faturalanır."
+  },
+  "optKeyWhere": {
+    "message": "<a id=\"key-link\" target=\"_blank\" rel=\"noopener\"></a> adresinde bir anahtar oluştur, kopyala ve buraya yapıştır. Hemen kontrol edilir."
+  },
+  "optLicense": {
+    "message": "Özgür ve açık kaynak (GNU AGPL)."
+  },
+  "optLocalAi": {
+    "message": "Yerel yapay zekâ"
+  },
+  "optMayDo": {
+    "message": "Yapay zekânın yapabilecekleri"
+  },
+  "optMayDoHint": {
+    "message": "Sayfada, yeni sohbetlerde (her sohbet için mesaj kutusunun yanından değiştirebilirsin):"
+  },
+  "optModeAsk": {
+    "message": "<strong>Her adımda sor.</strong> Sayfada kendi başına çalışır ve her tıklama, yazma ya da sayfa değişikliğinden önce sorar."
+  },
+  "optModeAuto": {
+    "message": "<strong>Otomatik.</strong> Sayfada kendi başına çalışır ve yalnızca riskli adımlardan önce sorar: gönderme, yollama, ödeme, silme, parola alanları ya da başka bir siteye gitme."
+  },
+  "optModeSuggest": {
+    "message": "<strong>Öner.</strong> Tıklamalar ve değişiklikler önerir; sen tıklayana kadar hiçbir şey olmaz."
+  },
+  "optMoreModels": {
+    "message": "API anahtarıyla daha fazla model, Çin merkezli yapay zekâ şirketlerinden."
+  },
+  "optMoreProviders": {
+    "message": "Diğer yapay zekâ sağlayıcıları"
+  },
+  "optOllama1": {
+    "message": "Ollama'yı <a href=\"https://ollama.com/download\" target=\"_blank\" rel=\"noopener\">ollama.com</a> adresinden kur."
+  },
+  "optOllama2": {
+    "message": "Araç kullanabilen bir model indir. Bir terminalde (<span id=\"ollama-terminal\">PowerShell</span>) şunu çalıştır:"
+  },
+  "optOllama3": {
+    "message": "Bu eklentinin Ollama'yı kullanmasına izin ver ve modellere talimatları için yer aç (Ollama'nın varsayılanı çok küçük):"
+  },
+  "optOllama5": {
+    "message": "<strong>Bağlantıyı kontrol et</strong>'e tıkla. Eksik bir adım varsa hangisi olduğunu söyler."
+  },
+  "optOllamaCompact": {
+    "message": "<strong>Ollama için kısa istemler.</strong> Talimatlar ve araçlar için 6.600 yerine yaklaşık 2.800 belirteç kullanır. Yalnızca modelinin bağlam penceresi 8K belirteç veya daha azsa aç; daha fazlasında tam istem daha iyi çalışır."
+  },
+  "optOnServer": {
+    "message": "Ajan sunucusunda"
+  },
+  "optOnServerNote": {
+    "message": "Sunucu, bir güncelleme biçimini değiştirmeden önce bu klasörü yedekler."
+  },
+  "optPin": {
+    "message": "<strong>Simgeyi sabitle</strong>, hep orada olsun: araç çubuğundaki yapboz parçasına, sonra IntegratedAI'nin yanındaki raptiyeye tıkla."
+  },
+  "optReloadHint": {
+    "message": "Zaten açık olan sayfaların yenilenmesi gerekir. Sen onaylamadan bir sayfada hiçbir şey değişmez."
+  },
+  "optSees": {
+    "message": "Yapay zekânın her mesajla gördükleri"
+  },
+  "optSeesHint": {
+    "message": "Bunlar panelde açık başlar. Orada her mesaj için değiştirebilirsin."
+  },
+  "optServer1": {
+    "message": "<a href=\"https://nodejs.org\" target=\"_blank\" rel=\"noopener\">Node.js</a> ve Claude Code'u kur, sonra ajan sunucusunu başlat (<a href=\"https://github.com/alpkavakli/IntegratedAI#setup\" target=\"_blank\" rel=\"noopener\">kurulum rehberi</a>)."
+  },
+  "optServer2": {
+    "message": "Yazdırdığı eşleştirme belirtecini yapıştır:"
+  },
+  "optServerButton": {
+    "message": "Her seferinde <code>npm start</code> çalıştırmana gerek yok: paneldeki <strong>Sunucu</strong> düğmesi sunucuyu başlatır ve durdurur. IntegratedAI klasöründe bir kerelik kurulum gerekir:"
+  },
+  "optSourceCode": {
+    "message": "Kaynak kodu"
+  },
+  "optStep1": {
+    "message": "Yapay zekânı seç"
+  },
+  "optStep3": {
+    "message": "Kullanmaya başla"
+  },
+  "optStepsFor": {
+    "message": "Adımlar:"
+  },
+  "optTryIt": {
+    "message": "Şimdi dene"
+  },
+  "optTryItHint": {
+    "message": "Kartla birlikte bir Vikipedi makalesi açar."
+  },
+  "optUseCard": {
+    "message": "<strong>Her sayfada hızlı sorular.</strong> Araç çubuğundaki IntegratedAI simgesine tıkla<span id=\"card-shortcut-text\"> ya da <kbd id=\"card-shortcut\">Alt+Shift+A</kbd> tuşlarına bas</span>. Sayfada küçük bir kart açılır: sayfa hakkında sor, bir şeyleri okut ya da açıklat, görünümünü düzelt. Kartı istediğin yere sürükle ya da panel olarak kenara yasla."
+  },
+  "optUseDevtools": {
+    "message": "<strong>Her şey, DevTools içinde.</strong> <kbd>F12</kbd>'ye bas (ya da sağ tıklayıp <strong>İncele</strong>'yi seç) ve <strong>AI</strong> sekmesini aç (görmüyorsan <strong>»</strong> işaretinin arkasında). Orada formları da doldurabilir, sayfalarda adım adım ilerleyebilir, öğeleri düzenleyebilir, tekrar çalıştırmak için görev kaydedebilir ve ağ kaydını okuyabilir."
+  },
+  "optWebTools": {
+    "message": "Web'de ara ve belgeleri oku (yalnızca Claude). Dosyalarını, çerezlerini veya parolalarını asla görmez."
+  },
+  "optYourComputer": {
+    "message": "Bilgisayarın"
+  },
+  "optYourData": {
+    "message": "Verilerin"
   },
   "orPickOther": {
     "message": "Ya da sağlayıcı menüsünden \"$1\" seç."
   },
+  "otherKindsCount": {
+    "message": "Diğer sayfa türleri ($1)"
+  },
+  "otherSitesCount": {
+    "message": "Diğer siteler ($1)"
+  },
+  "pageButton": {
+    "message": "sayfa düğmesi \"$1\""
+  },
+  "pageType": {
+    "message": "Sayfa türü:"
+  },
+  "pageTypeExample": {
+    "message": "örn. Bölüm okuyucu"
+  },
+  "pageTypeName": {
+    "message": "Sayfa türü adı"
+  },
+  "pageTypePattern": {
+    "message": "Sayfa türü URL kalıbı"
+  },
+  "pageTypesCount": {
+    "message": "Sayfa türleri ($1)"
+  },
+  "pairingToken": {
+    "message": "Eşleştirme belirteci"
+  },
   "panelFailed": {
     "message": "Yapay zekâ paneli başlatılamadı: $1"
+  },
+  "pasteKeyFirst": {
+    "message": "Önce API anahtarını yapıştır."
+  },
+  "pasteKeyTitle": {
+    "message": "API anahtarını yapıştır"
+  },
+  "pasteTokenFirst": {
+    "message": "Önce eşleştirme belirtecini yapıştır."
+  },
+  "patchEnabled": {
+    "message": "\"$1\" yaması açık"
+  },
+  "patternHelp": {
+    "message": "\"*\" = bir yol parçası (herhangi bir kimlik veya kısa ad), sondaki \"**\" = altındaki her şey."
   },
   "pickElement": {
     "message": "Öğe seç"
@@ -179,17 +926,134 @@
   "pickElementTitle": {
     "message": "Hakkında soru sormak için sayfada bir öğeye tıkla (Esc iptal eder)"
   },
+  "pinned": {
+    "message": "IntegratedAI simgesi araç çubuğuna sabitlendi."
+  },
+  "preview": {
+    "message": "Önizle"
+  },
   "promptPlaceholder": {
     "message": "Bu sayfa ya da seçili öğe hakkında sor"
   },
   "providerNotSetUp": {
     "message": "$1 kurulmamış: $2"
   },
+  "pvAnthropic": {
+    "message": "Anthropic · API anahtarı · en iyi sonuçlar"
+  },
+  "pvCustom": {
+    "message": "OpenAI uyumlu herhangi bir hizmet ya da kendi sunucun: Groq, Mistral, LM Studio, vLLM…"
+  },
+  "pvDeepseek": {
+    "message": "DeepSeek · API anahtarı · düşük fiyatlar"
+  },
+  "pvGemini": {
+    "message": "Google · API anahtarı · ücretsiz katman"
+  },
+  "pvGlm": {
+    "message": "Z.ai (Zhipu) · API anahtarı"
+  },
+  "pvKimi": {
+    "message": "Moonshot AI · API anahtarı"
+  },
+  "pvMinimax": {
+    "message": "MiniMax · API anahtarı"
+  },
+  "pvOllama": {
+    "message": "ücretsiz modeller · hiçbir şey bilgisayarından çıkmaz"
+  },
+  "pvOpenai": {
+    "message": "OpenAI · API anahtarı"
+  },
+  "pvOpenrouter": {
+    "message": "birçok model, tek anahtar · bazıları ücretsiz"
+  },
+  "pvQwen": {
+    "message": "Alibaba Cloud Model Studio · API anahtarı"
+  },
+  "pvServer": {
+    "message": "Claude aboneliğin · bu projenin GitHub'dan indirilmesi gerekir"
+  },
+  "readyStep3": {
+    "message": "Hazırsın: 3. adıma bak."
+  },
+  "refFound": {
+    "message": "yapay zekânın bulduğu öğe ($1)"
+  },
+  "reject": {
+    "message": "Reddet"
+  },
+  "rememberedGroup": {
+    "message": "Hatırlandı (bu tür sayfalar): $1"
+  },
+  "rememberedSite": {
+    "message": "Hatırlandı (tüm site): $1"
+  },
+  "rename": {
+    "message": "Yeniden adlandır"
+  },
+  "reviewedCode": {
+    "message": "Bu kodu inceledim"
+  },
+  "run": {
+    "message": "Çalıştır"
+  },
+  "runAgain": {
+    "message": "Yeniden çalıştır"
+  },
+  "runHere": {
+    "message": "Bu adımları bu sayfada çalıştır"
+  },
+  "runOpens": {
+    "message": "Önce $1 adresini açar (bu siteden ayrılmadan önce sorar)"
+  },
+  "runScript": {
+    "message": "Betiği çalıştır"
+  },
+  "runSteps": {
+    "message": "Adımları çalıştır"
+  },
+  "save": {
+    "message": "Kaydet"
+  },
   "saveMarkdownLabel": {
     "message": "Bu sohbeti Markdown olarak kaydet"
   },
   "saveMarkdownTitle": {
     "message": "Bu sohbeti Markdown dosyası olarak kaydet"
+  },
+  "saveOneStep": {
+    "message": "Bu adımı görev olarak kaydet"
+  },
+  "savePatch": {
+    "message": "Site yaması olarak kaydet…"
+  },
+  "savePatchButton": {
+    "message": "Yamayı kaydet"
+  },
+  "savePatchToggle": {
+    "message": "Site yaması + aç/kapa olarak kaydet…"
+  },
+  "saveSteps": {
+    "message": "Bu $1 adımı görev olarak kaydet"
+  },
+  "scopeGroup": {
+    "message": "Bunun gibi sayfalar: $1 ($2)"
+  },
+  "scopePage": {
+    "message": "Bu sayfa ($1)"
+  },
+  "scopePattern": {
+    "message": "Özel URL kalıbı…"
+  },
+  "scopeSite": {
+    "message": "Tüm site ($1)"
+  },
+  "screenshotOf": {
+    "message": "$1 ekran görüntüsü"
+  },
+  "selectLink": {
+    "message": "seç"
   },
   "send": {
     "message": "Gönder"
@@ -202,6 +1066,9 @@
   },
   "serverAllowFirst": {
     "message": "Önce IntegratedAI'nin yardımcı programıyla konuşmasına izin ver (Sunucu'ya tekrar tıkla)."
+  },
+  "serverNoAnswer": {
+    "message": "Ajan sunucusu yanıt vermedi."
   },
   "serverNotRunning": {
     "message": "Yerel sunucu çalışmıyor."
@@ -227,11 +1094,74 @@
   "serverStopping": {
     "message": "Yerel sunucu durduruluyor…"
   },
+  "serverUnreachable": {
+    "message": "Ajan sunucusuna ulaşılamıyor. Çalışıyor mu (npm start)?"
+  },
   "setUpInOptions": {
     "message": "Ayarlardan kur"
   },
+  "setUpOllama": {
+    "message": "Ollama'yı kur"
+  },
   "settings": {
     "message": "Ayarlar"
+  },
+  "settingsRestored": {
+    "message": "Ayarlar geri yüklendi."
+  },
+  "setupIntro": {
+    "message": "Bu panel incelediğin sayfayı açıklar ve düzeltir. Şunlardan birine ihtiyacı var:"
+  },
+  "setupKey": {
+    "message": "Bir API anahtarı"
+  },
+  "setupKeyText": {
+    "message": "Anthropic (Claude), OpenAI, Google Gemini, DeepSeek ve diğerlerinden. Kullanım oradaki hesabına faturalanır."
+  },
+  "setupOllamaText": {
+    "message": "kendi bilgisayarında çalışan ücretsiz modeller, anahtar gerekmez."
+  },
+  "setupServer": {
+    "message": "Yerel ajan sunucusu"
+  },
+  "setupServerText": {
+    "message": "(geliştiriciler için): Claude aboneliğini Claude Code üzerinden kullan."
+  },
+  "setupTitle": {
+    "message": "Başlamak için bir yapay zekâ bağla"
+  },
+  "showLink": {
+    "message": "göster"
+  },
+  "sitePrivate": {
+    "message": "$1 (özel)"
+  },
+  "sourceUndone": {
+    "message": "Kaynak düzenlemeleri geri alındı."
+  },
+  "stApplied": {
+    "message": "Uygulandı"
+  },
+  "stFailed": {
+    "message": "Başarısız"
+  },
+  "stInvalid": {
+    "message": "Geçersiz"
+  },
+  "stPreviewing": {
+    "message": "Önizleniyor"
+  },
+  "stProposed": {
+    "message": "Onayını bekliyor"
+  },
+  "stRejected": {
+    "message": "Reddedildi"
+  },
+  "stSaved": {
+    "message": "Site yaması olarak kaydedildi"
+  },
+  "stUndone": {
+    "message": "Geri alındı"
   },
   "startServer": {
     "message": "Sunucuyu başlat"
@@ -239,11 +1169,41 @@
   "startServerTitle": {
     "message": "Yerel sunucuyu başlat"
   },
+  "steps": {
+    "message": "Adımlar"
+  },
   "stop": {
     "message": "Durdur"
   },
+  "stopPreview": {
+    "message": "Önizlemeyi durdur"
+  },
   "stopServerTitle": {
     "message": "Yerel sunucuyu durdur"
+  },
+  "sugBetter": {
+    "message": "Bunu daha güzel göster"
+  },
+  "sugConsole": {
+    "message": "Konsol hatalarını açıkla"
+  },
+  "sugDark": {
+    "message": "Bunu koyu yap"
+  },
+  "sugEasier": {
+    "message": "Bunu daha kolay okunur yap"
+  },
+  "sugExplainPicked": {
+    "message": "Seçtiğimi açıkla"
+  },
+  "sugOverflow": {
+    "message": "Bu neden taşıyor?"
+  },
+  "sugSummarize": {
+    "message": "Bu sayfayı özetle"
+  },
+  "sugTranslate": {
+    "message": "Bu sayfayı çevir"
   },
   "switchConnection": {
     "message": "Bağlantıyı değiştir"
@@ -263,6 +1223,24 @@
   "tabTasks": {
     "message": "Görevler"
   },
+  "target": {
+    "message": "Hedef:"
+  },
+  "targetPicked": {
+    "message": "(seçtiğin öğe)"
+  },
+  "targetSelected": {
+    "message": "(Elements panelinde seçili öğe)"
+  },
+  "taskMeta": {
+    "message": "$1 adım · $2 üzerinde başlar"
+  },
+  "taskMetaOne": {
+    "message": "1 adım · $1 üzerinde başlar"
+  },
+  "taskName": {
+    "message": "Görev adı"
+  },
   "taskRan": {
     "message": "Kayıtlı görev çalıştı: \"$1\" ($2 adım)"
   },
@@ -272,8 +1250,38 @@
   "taskRunning": {
     "message": "Kayıtlı görev çalışıyor: \"$1\""
   },
+  "taskSaved": {
+    "message": "\"$1\" olarak kaydedildi. Görevler sekmesinden çalıştır."
+  },
   "taskStopped": {
     "message": "Kayıtlı görev durdu: \"$1\": $2"
+  },
+  "thinking": {
+    "message": "Düşünüyor…"
+  },
+  "thinkingFor": {
+    "message": "Düşünüyor… $1 sn"
+  },
+  "thisKindCount": {
+    "message": "Bu tür sayfalar ($1)"
+  },
+  "thisKindLower": {
+    "message": "bu tür sayfalar"
+  },
+  "thisKindOfPage": {
+    "message": "Bu tür sayfalar"
+  },
+  "thisPageCount": {
+    "message": "Bu sayfa ($1)"
+  },
+  "thisPagePath": {
+    "message": "Bu sayfa: $1"
+  },
+  "thisPageType": {
+    "message": "bu sayfa türü"
+  },
+  "thisSiteCount": {
+    "message": "Bu site ($1)"
   },
   "toDevtools": {
     "message": "DevTools'ta devam et"
@@ -284,6 +1292,39 @@
   "toDevtoolsTitle": {
     "message": "Form doldurma, sayfada adım adım çalışma, öğe düzenleme, betikler ve ağ kaydı DevTools panelinde"
   },
+  "toSource": {
+    "message": "Kaynağa uygula…"
+  },
+  "toSourceHead": {
+    "message": "Kaynağa uygula: $1"
+  },
+  "toSourceHelp": {
+    "message": "Claude Code $1 içinde arar ve düzenlemeler önerir. \"Dosyalara yaz\"a tıklayana kadar hiçbir şey yazılmaz."
+  },
+  "toggleButton": {
+    "message": "Aç/kapa düğmesi \"$1\""
+  },
+  "toggleFloating": {
+    "message": "(köşede yüzen)"
+  },
+  "toggleIn": {
+    "message": "içinde:"
+  },
+  "toggleNote": {
+    "message": "Bunu site yaması olarak kaydedince sayfada görünür ve açık/kapalı durumunu hatırlar."
+  },
+  "translate": {
+    "message": "Çevir"
+  },
+  "translateAgain": {
+    "message": "Yeniden çevir"
+  },
+  "translateInto": {
+    "message": "Sayfanın görünen metnini şu dile çevir: $1."
+  },
+  "translateNote": {
+    "message": "Yapay zekânı kullanır (birkaç düzine metin parçası başına bir istek). Yalnızca metin değişir; Geri al eski hâline getirir."
+  },
   "translated": {
     "message": "Çevrildi."
   },
@@ -292,6 +1333,12 @@
   },
   "turnOnFullAuto": {
     "message": "Tam otomatiği aç"
+  },
+  "undo": {
+    "message": "Geri al"
+  },
+  "undoSource": {
+    "message": "Kaynak düzenlemelerini geri al"
   },
   "unload": {
     "message": "Boşalt"
@@ -310,5 +1357,62 @@
   },
   "unloaded": {
     "message": "$1 bellekten çıkarıldı: ekran kartın boş. Sonraki mesajın onu yeniden yükler (birkaç saniye). Ollama'yı tamamen kapatmak için kendi simgesini kullan (saatin yanında ya da menü çubuğunda)."
+  },
+  "untitledTask": {
+    "message": "Adsız görev"
+  },
+  "update": {
+    "message": "Güncelle"
+  },
+  "vCheck": {
+    "message": "İşaretle"
+  },
+  "vClick": {
+    "message": "Tıkla"
+  },
+  "vHover": {
+    "message": "Üzerine gel"
+  },
+  "vPress": {
+    "message": "Bas"
+  },
+  "vScroll": {
+    "message": "Kaydır"
+  },
+  "vSelect": {
+    "message": "Şurada seç"
+  },
+  "vSubmit": {
+    "message": "Formunu gönder"
+  },
+  "vType": {
+    "message": "Şuraya yaz"
+  },
+  "vUncheck": {
+    "message": "İşareti kaldır"
+  },
+  "vWait": {
+    "message": "Bekle"
+  },
+  "wholeSiteCount": {
+    "message": "Tüm site ($1)"
+  },
+  "wholeSiteLower": {
+    "message": "tüm site"
+  },
+  "writeFile": {
+    "message": "Dosyaya yaz"
+  },
+  "writeFiles": {
+    "message": "Dosyalara yaz"
+  },
+  "writtenTo": {
+    "message": "✓ Yazıldı: $1"
+  },
+  "yesterday": {
+    "message": "dün"
+  },
+  "yourProject": {
+    "message": "projen"
   }
 }

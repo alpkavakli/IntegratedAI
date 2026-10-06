@@ -6,6 +6,7 @@
  */
 
 import { h, setChildren } from '../lib/dom.js';
+import { t } from '../../shared/i18n.js';
 
 export class HistoryView extends HTMLElement {
   /** @param {import('../panel.js').App} app */
@@ -20,7 +21,7 @@ export class HistoryView extends HTMLElement {
       return;
     }
     this.hidden = false;
-    setChildren(this, h('div', { class: 'meta' }, 'Loading…'));
+    setChildren(this, h('div', { class: 'meta' }, t('loading', 'Loading…')));
     try {
       const { site, items } = await this.app.listConversations();
       this.render(site, items);
@@ -49,18 +50,18 @@ export class HistoryView extends HTMLElement {
     },
     h('span', { class: 'title' }, item.title),
     h('span', { class: 'meta' },
-      `${relativeTime(item.updatedAt)} · ${item.messageCount} message${item.messageCount === 1 ? '' : 's'} · ${shortPath(item.lastUrl)}`,
-      item.id === currentId ? ' · current' : ''));
+      `${relativeTime(item.updatedAt)} · ${item.messageCount === 1 ? t('oneMessage', '1 message') : t('messages', '$1 messages', item.messageCount)} · ${shortPath(item.lastUrl)}`,
+      item.id === currentId ? ` · ${t('current', 'current')}` : ''));
 
     setChildren(this,
       h('div', { class: 'row' },
-        h('strong', null, site ? `Conversations on ${site}` : 'No history for this page'),
+        h('strong', null, site ? t('conversationsOn', 'Conversations on $1', site) : t('noHistory', 'No history for this page')),
         h('span', { class: 'spacer' }),
-        h('button', { type: 'button', onclick: () => { this.hidden = true; } }, 'Close')),
-      !items.length ? h('div', { class: 'meta' }, 'Nothing yet. Conversations are saved automatically.') : null,
-      same.length ? h('div', { class: 'list-heading' }, 'This kind of page') : null,
+        h('button', { type: 'button', onclick: () => { this.hidden = true; } }, t('close', 'Close'))),
+      !items.length ? h('div', { class: 'meta' }, t('nothingYet', 'Nothing yet. Conversations are saved automatically.')) : null,
+      same.length ? h('div', { class: 'list-heading' }, t('thisKindOfPage', 'This kind of page')) : null,
       same.map(row),
-      other.length ? h('div', { class: 'list-heading' }, `Elsewhere on ${site}`) : null,
+      other.length ? h('div', { class: 'list-heading' }, t('elsewhereOn', 'Elsewhere on $1', site)) : null,
       other.map(row),
     );
   }
@@ -69,11 +70,11 @@ export class HistoryView extends HTMLElement {
 /** "5 min ago", "yesterday", "12 Mar". @param {number} ts */
 export function relativeTime(ts) {
   const seconds = (Date.now() - ts) / 1000;
-  if (seconds < 60) return 'just now';
-  if (seconds < 3600) return `${Math.round(seconds / 60)} min ago`;
-  if (seconds < 86400) return `${Math.round(seconds / 3600)} h ago`;
-  if (seconds < 2 * 86400) return 'yesterday';
-  if (seconds < 7 * 86400) return `${Math.round(seconds / 86400)} days ago`;
+  if (seconds < 60) return t('justNow', 'just now');
+  if (seconds < 3600) return t('minAgo', '$1 min ago', Math.round(seconds / 60));
+  if (seconds < 86400) return t('hoursAgo', '$1 h ago', Math.round(seconds / 3600));
+  if (seconds < 2 * 86400) return t('yesterday', 'yesterday');
+  if (seconds < 7 * 86400) return t('daysAgo', '$1 days ago', Math.round(seconds / 86400));
   return new Date(ts).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 }
 

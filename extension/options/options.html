@@ -88,47 +88,47 @@
       <img src="../icons/icon128.png" alt="">
       <div>
         <h1>IntegratedAI</h1>
-        <p>An AI assistant for the page you're on, and inside Chrome DevTools. Three steps, about two minutes.</p>
+        <p data-i18n="optIntro">An AI assistant for the page you're on, and inside Chrome DevTools. Three steps, about two minutes.</p>
       </div>
     </header>
 
     <section class="step" id="step-1">
-      <h2><span class="num"><span>1</span></span> Choose your AI</h2>
-      <div class="choice-group">Easiest: an API key. Gemini's has a free tier.</div>
-      <div class="providers" role="radiogroup" aria-label="AI provider">
+      <h2><span class="num"><span>1</span></span> <span data-i18n="optStep1">Choose your AI</span></h2>
+      <div data-i18n="optEasiest" class="choice-group">Easiest: an API key. Gemini's has a free tier.</div>
+      <div data-i18n-aria-label="aiProvider" class="providers" role="radiogroup" aria-label="AI provider">
         <label class="provider-card"><input type="radio" name="provider" value="anthropic">
-          <strong>Claude</strong><span>by Anthropic · API key · best results</span></label>
+          <strong>Claude</strong><span data-i18n="pvAnthropic">by Anthropic · API key · best results</span></label>
         <label class="provider-card"><input type="radio" name="provider" value="gemini">
-          <strong>Gemini</strong><span>by Google · API key · free tier</span></label>
+          <strong>Gemini</strong><span data-i18n="pvGemini">by Google · API key · free tier</span></label>
         <label class="provider-card"><input type="radio" name="provider" value="openai">
-          <strong>GPT</strong><span>by OpenAI · API key</span></label>
+          <strong>GPT</strong><span data-i18n="pvOpenai">by OpenAI · API key</span></label>
         <label class="provider-card"><input type="radio" name="provider" value="openrouter">
-          <strong>OpenRouter</strong><span>many models, one key · some free</span></label>
+          <strong>OpenRouter</strong><span data-i18n="pvOpenrouter">many models, one key · some free</span></label>
       </div>
-      <div class="choice-group">More models with an API key, from China-based AI companies.</div>
-      <div class="providers" role="radiogroup" aria-label="More AI providers">
+      <div data-i18n="optMoreModels" class="choice-group">More models with an API key, from China-based AI companies.</div>
+      <div data-i18n-aria-label="optMoreProviders" class="providers" role="radiogroup" aria-label="More AI providers">
         <label class="provider-card"><input type="radio" name="provider" value="deepseek">
-          <strong>DeepSeek</strong><span>DeepSeek · API key · low prices</span></label>
+          <strong>DeepSeek</strong><span data-i18n="pvDeepseek">DeepSeek · API key · low prices</span></label>
         <label class="provider-card"><input type="radio" name="provider" value="qwen">
-          <strong>Qwen</strong><span>Alibaba Cloud Model Studio · API key</span></label>
+          <strong>Qwen</strong><span data-i18n="pvQwen">Alibaba Cloud Model Studio · API key</span></label>
         <label class="provider-card"><input type="radio" name="provider" value="kimi">
-          <strong>Kimi</strong><span>Moonshot AI · API key</span></label>
+          <strong>Kimi</strong><span data-i18n="pvKimi">Moonshot AI · API key</span></label>
         <label class="provider-card"><input type="radio" name="provider" value="glm">
-          <strong>GLM</strong><span>Z.ai (Zhipu) · API key</span></label>
+          <strong>GLM</strong><span data-i18n="pvGlm">Z.ai (Zhipu) · API key</span></label>
         <label class="provider-card"><input type="radio" name="provider" value="minimax">
-          <strong>MiniMax</strong><span>MiniMax · API key</span></label>
+          <strong>MiniMax</strong><span data-i18n="pvMinimax">MiniMax · API key</span></label>
       </div>
-      <div class="choice-group">Free and private, on your computer. Needs a few setup steps.</div>
-      <div class="providers" role="radiogroup" aria-label="Local AI">
+      <div data-i18n="optFreeLocal" class="choice-group">Free and private, on your computer. Needs a few setup steps.</div>
+      <div data-i18n-aria-label="optLocalAi" class="providers" role="radiogroup" aria-label="Local AI">
         <label class="provider-card"><input type="radio" name="provider" value="ollama">
-          <strong>Ollama</strong><span>free models · nothing leaves your computer</span></label>
+          <strong>Ollama</strong><span data-i18n="pvOllama">free models · nothing leaves your computer</span></label>
       </div>
-      <div class="choice-group">For developers.</div>
-      <div class="providers" role="radiogroup" aria-label="Developer setup">
+      <div data-i18n="optForDevelopers" class="choice-group">For developers.</div>
+      <div data-i18n-aria-label="optDevSetup" class="providers" role="radiogroup" aria-label="Developer setup">
         <label class="provider-card"><input type="radio" name="provider" value="server">
-          <strong>Claude Code</strong><span>your Claude subscription · needs this project from GitHub</span></label>
+          <strong>Claude Code</strong><span data-i18n="pvServer">your Claude subscription · needs this project from GitHub</span></label>
         <label class="provider-card"><input type="radio" name="provider" value="custom">
-          <strong>Custom</strong><span>any OpenAI-compatible service or your own server: Groq, Mistral, LM Studio, vLLM…</span></label>
+          <strong data-i18n="custom">Custom</strong><span data-i18n="pvCustom">any OpenAI-compatible service or your own server: Groq, Mistral, LM Studio, vLLM…</span></label>
       </div>
     </section>
 
@@ -136,51 +136,51 @@
       <h2><span class="num"><span>2</span></span> <span id="step2-title">Paste your API key</span></h2>
 
       <div id="key-setup">
-        <p id="key-where">Create a key at <a id="key-link" target="_blank" rel="noopener"></a>, copy it, and paste it here.
+        <p data-i18n-html="optKeyWhere" id="key-where">Create a key at <a id="key-link" target="_blank" rel="noopener"></a>, copy it, and paste it here.
           It is checked right away.</p>
-        <p id="custom-where" hidden>Use any service that offers the OpenAI Chat Completions API with tool calls. Enter its
+        <p data-i18n-html="optCustomWhere" id="custom-where" hidden>Use any service that offers the OpenAI Chat Completions API with tool calls. Enter its
           address (it usually ends in <code>/v1</code>), its API key if it needs one, and the model's name, then click
           <strong>Check connection</strong>.</p>
         <div class="key-row">
-          <input type="password" id="apiKey" spellcheck="false" autocomplete="off" placeholder="Paste your API key" aria-label="API key">
+          <input type="password" id="apiKey" spellcheck="false" autocomplete="off" placeholder="Paste your API key" aria-label="API key" data-i18n-aria-label="apiKey">
         </div>
-        <div class="hint">Your key stays in this browser and is only sent to <span id="key-host"></span>. Usage is billed to your account there.</div>
-        <label class="small-field" id="address-field" hidden>API address
+        <div data-i18n-html="optKeyStays" class="hint">Your key stays in this browser and is only sent to <span id="key-host"></span>. Usage is billed to your account there.</div>
+        <label class="small-field" id="address-field" hidden><span data-i18n="optApiAddress">API address</span>
           <input type="text" id="providerUrl" spellcheck="false" autocomplete="off"></label>
         <div class="hint" id="address-hint" hidden></div>
       </div>
 
       <div id="ollama-setup" hidden>
-        <div class="os-pick" id="ollama-os" role="group" aria-label="Your computer">
-          <span>Steps for</span>
+        <div data-i18n-aria-label="optYourComputer" class="os-pick" id="ollama-os" role="group" aria-label="Your computer">
+          <span data-i18n="optStepsFor">Steps for</span>
           <button type="button" data-os="windows" aria-pressed="false">Windows</button>
           <button type="button" data-os="mac" aria-pressed="false">macOS</button>
           <button type="button" data-os="linux" aria-pressed="false">Linux</button>
         </div>
         <ol>
-          <li>Install Ollama from <a href="https://ollama.com/download" target="_blank" rel="noopener">ollama.com</a>.</li>
-          <li>Download a model that can use tools. In a terminal (<span id="ollama-terminal">PowerShell</span>), run:
-            <div class="command"><code>ollama pull qwen3</code><button type="button" class="copy">Copy</button></div></li>
-          <li>Let this extension use Ollama, and give models room for its instructions (Ollama's default is too small):
+          <li data-i18n-html="optOllama1">Install Ollama from <a href="https://ollama.com/download" target="_blank" rel="noopener">ollama.com</a>.</li>
+          <li><span data-i18n-html="optOllama2">Download a model that can use tools. In a terminal (<span id="ollama-terminal">PowerShell</span>), run:</span>
+            <div class="command"><code>ollama pull qwen3</code><button type="button" class="copy" data-i18n="copy">Copy</button></div></li>
+          <li><span data-i18n="optOllama3">Let this extension use Ollama, and give models room for its instructions (Ollama's default is too small):</span>
             <div id="ollama-commands"></div></li>
           <li id="ollama-restart">Quit Ollama (right-click its icon by the clock, then Quit) and start it again.</li>
-          <li>Click <strong>Check connection</strong>. It tells you which step is missing, if any.</li>
+          <li data-i18n-html="optOllama5">Click <strong>Check connection</strong>. It tells you which step is missing, if any.</li>
         </ol>
       </div>
 
       <div id="server-setup" hidden>
         <ol>
-          <li>Install <a href="https://nodejs.org" target="_blank" rel="noopener">Node.js</a> and Claude Code, then start the
+          <li data-i18n-html="optServer1">Install <a href="https://nodejs.org" target="_blank" rel="noopener">Node.js</a> and Claude Code, then start the
             agent server (<a href="https://github.com/alpkavakli/IntegratedAI#setup" target="_blank" rel="noopener">setup guide</a>).</li>
-          <li>Paste the pairing token it prints:</li>
+          <li data-i18n="optServer2">Paste the pairing token it prints:</li>
         </ol>
         <div class="key-row">
-          <input type="password" id="token" spellcheck="false" autocomplete="off" placeholder="Pairing token" aria-label="Pairing token">
+          <input type="password" id="token" spellcheck="false" autocomplete="off" placeholder="Pairing token" aria-label="Pairing token" data-i18n-placeholder="pairingToken" data-i18n-aria-label="pairingToken">
         </div>
-        <div class="hint">No need to run <code>npm start</code> each time: the panel's <strong>Server</strong> button starts
-          and stops the server. It needs a one-time setup in the IntegratedAI folder:
-          <code id="services-command">npm run services:install -- --id …</code>, and your OK:
-          <button type="button" id="services-allow" class="link">allow the Server button</button>
+        <div class="hint"><span data-i18n-html="optServerButton">No need to run <code>npm start</code> each time: the panel's <strong>Server</strong> button starts
+          and stops the server. It needs a one-time setup in the IntegratedAI folder:</span>
+          <code id="services-command">npm run services:install -- --id …</code><span data-i18n="optAndYourOk">, and your OK:</span>
+          <button data-i18n="optAllowServer" type="button" id="services-allow" class="link">allow the Server button</button>
           <span id="services-status" role="status"></span></div>
       </div>
 
@@ -189,12 +189,12 @@
       </div>
       <div id="test-key-result" class="status" role="status"></div>
 
-      <label class="small-field" id="model-field">Model
+      <label class="small-field" id="model-field"><span data-i18n="model">Model</span>
         <select id="directModel">
-          <option value="claude-opus-5-5">Claude Opus 5.5 (best, recommended)</option>
-          <option value="claude-sonnet-5-5">Claude Sonnet 5.5 (faster, cheaper)</option>
-          <option value="claude-haiku-4-5">Claude Haiku 4.5 (fastest, cheapest)</option>
-          <option value="claude-fable-5-1">Claude Fable 5.1 (most capable, most expensive)</option>
+          <option data-i18n="mOpus" value="claude-opus-5-5">Claude Opus 5.5 (best, recommended)</option>
+          <option data-i18n="mSonnet" value="claude-sonnet-5-5">Claude Sonnet 5.5 (faster, cheaper)</option>
+          <option data-i18n="mHaiku" value="claude-haiku-4-5">Claude Haiku 4.5 (fastest, cheapest)</option>
+          <option data-i18n="mFable" value="claude-fable-5-1">Claude Fable 5.1 (most capable, most expensive)</option>
         </select>
         <input type="text" id="compatModel" list="compatModels" spellcheck="false" autocomplete="off" hidden>
         <datalist id="compatModels"></datalist>
@@ -202,94 +202,94 @@
     </section>
 
     <section class="step" id="step-3">
-      <h2><span class="num"><span>3</span></span> Start using it</h2>
+      <h2><span class="num"><span>3</span></span> <span data-i18n="optStep3">Start using it</span></h2>
       <div class="uses">
         <div class="use">
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="11" rx="1"/><rect x="8" y="7" width="5" height="5" rx=".5"/></svg>
-          <div><strong>Quick questions, on any page.</strong> Click the IntegratedAI icon in the toolbar<span id="card-shortcut-text">, or press
+          <div><span data-i18n-html="optUseCard"><strong>Quick questions, on any page.</strong> Click the IntegratedAI icon in the toolbar<span id="card-shortcut-text">, or press
             <kbd id="card-shortcut">Alt+Shift+A</kbd></span>. A small card opens on the page: ask about it, have it read or
-            explain things, fix how it looks. Drag it anywhere, or against the side as a panel.
-            <div class="row-buttons"><button type="button" id="try-card" class="primary">Try it now</button>
-              <span class="hint">Opens a Wikipedia article with the card.</span></div></div>
+            explain things, fix how it looks. Drag it anywhere, or against the side as a panel.</span>
+            <div class="row-buttons"><button data-i18n="optTryIt" type="button" id="try-card" class="primary">Try it now</button>
+              <span data-i18n="optTryItHint" class="hint">Opens a Wikipedia article with the card.</span></div></div>
         </div>
         <div class="use">
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="11" rx="1"/><path d="M1.5 9h13"/><path d="M4 11.2h3"/></svg>
-          <div><strong>Everything, in DevTools.</strong> Press <kbd>F12</kbd> (or right-click and choose
+          <div data-i18n-html="optUseDevtools"><strong>Everything, in DevTools.</strong> Press <kbd>F12</kbd> (or right-click and choose
             <strong>Inspect</strong>) and open the <strong>AI</strong> tab (behind <strong>»</strong> if you don't see it).
             There it can also fill in forms and work through pages step by step, edit elements, save tasks to run again,
             and read the network log.</div>
         </div>
         <div class="use" id="pin-use">
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 2.5 13.5 6l-2.5 1-2 2 .5 3L6 8.5 2.5 12"/><path d="M6 8.5 9 5.5"/></svg>
-          <div id="pin-text"><strong>Pin the icon</strong> so it's always there: click the puzzle piece in the toolbar,
+          <div data-i18n-html="optPin" id="pin-text"><strong>Pin the icon</strong> so it's always there: click the puzzle piece in the toolbar,
             then the pin next to IntegratedAI.</div>
         </div>
       </div>
-      <p class="hint">Pages that were already open need a reload. Nothing changes on a page until you approve it.</p>
+      <p data-i18n="optReloadHint" class="hint">Pages that were already open need a reload. Nothing changes on a page until you approve it.</p>
     </section>
 
     <details class="advanced">
-      <summary>Advanced settings</summary>
+      <summary data-i18n="optAdvanced">Advanced settings</summary>
 
-      <h3>What the AI sees with each message</h3>
-      <div class="hint">These start switched on in the panel. You can switch them per message there.</div>
-      <label class="check"><input type="checkbox" id="ctx-selected"> <span>The element you selected (its look, size and a bit of its HTML)</span></label>
-      <label class="check"><input type="checkbox" id="ctx-console"> <span>Recent errors and warnings from the page's console</span></label>
-      <label class="check"><input type="checkbox" id="ctx-network"> <span>Recent and failed network requests (passwords, cookies and tokens are removed)</span></label>
+      <h3 data-i18n="optSees">What the AI sees with each message</h3>
+      <div data-i18n="optSeesHint" class="hint">These start switched on in the panel. You can switch them per message there.</div>
+      <label class="check"><input type="checkbox" id="ctx-selected"> <span data-i18n="optCtxSelected">The element you selected (its look, size and a bit of its HTML)</span></label>
+      <label class="check"><input type="checkbox" id="ctx-console"> <span data-i18n="optCtxConsole">Recent errors and warnings from the page's console</span></label>
+      <label class="check"><input type="checkbox" id="ctx-network"> <span data-i18n="optCtxNetwork">Recent and failed network requests (passwords, cookies and tokens are removed)</span></label>
 
-      <h3>What the AI may do</h3>
-      <div class="hint">On the page, in new conversations (you can change it per conversation, next to the message box):</div>
+      <h3 data-i18n="optMayDo">What the AI may do</h3>
+      <div data-i18n="optMayDoHint" class="hint">On the page, in new conversations (you can change it per conversation, next to the message box):</div>
       <label class="check"><input type="radio" name="defaultAgentMode" value="suggest">
-        <span><strong>Suggest.</strong> It proposes clicks and changes; nothing happens until you click.</span></label>
+        <span data-i18n-html="optModeSuggest"><strong>Suggest.</strong> It proposes clicks and changes; nothing happens until you click.</span></label>
       <label class="check"><input type="radio" name="defaultAgentMode" value="ask">
-        <span><strong>Ask each step.</strong> It works on the page by itself and asks before every click, typing or page change.</span></label>
+        <span data-i18n-html="optModeAsk"><strong>Ask each step.</strong> It works on the page by itself and asks before every click, typing or page change.</span></label>
       <label class="check"><input type="radio" name="defaultAgentMode" value="auto">
-        <span><strong>Auto.</strong> It works on the page by itself and only asks before risky steps: submitting, sending,
+        <span data-i18n-html="optModeAuto"><strong>Auto.</strong> It works on the page by itself and only asks before risky steps: submitting, sending,
           paying, deleting, password fields, or going to another site.</span></label>
-      <div class="hint">Full auto (never asks) can only be switched on per conversation. Style changes and scripts always wait for your click.</div>
+      <div data-i18n="optFullAutoHint" class="hint">Full auto (never asks) can only be switched on per conversation. Style changes and scripts always wait for your click.</div>
       <label class="check">
         <input type="checkbox" id="webTools">
-        <span>Search the web and read documentation (Claude only). It never sees your files, cookies or passwords.</span>
+        <span data-i18n="optWebTools">Search the web and read documentation (Claude only). It never sees your files, cookies or passwords.</span>
       </label>
       <label class="check">
         <input type="checkbox" id="askBeforeInspections">
-        <span>Ask me before it looks at page details. When off, it looks on its own; it can only read, never change.</span>
+        <span data-i18n="optAskInspect">Ask me before it looks at page details. When off, it looks on its own; it can only read, never change.</span>
       </label>
       <div class="danger-box">
         <label class="check">
           <input type="checkbox" id="executeJs">
-          <span><strong>Let it suggest JavaScript.</strong> You see every script and it only runs after you confirm.
+          <span data-i18n-html="optExecuteJs"><strong>Let it suggest JavaScript.</strong> You see every script and it only runs after you confirm.
             Scripts can do anything on the page with your login, and may not be undoable. Leave this off unless you need it.</span>
         </label>
       </div>
 
-      <h3>Addresses</h3>
+      <h3 data-i18n="optAddresses">Addresses</h3>
       <label class="small-field">Ollama
         <input type="text" id="compatUrl" spellcheck="false" autocomplete="off" placeholder="http://localhost:11434/v1"></label>
-      <label class="small-field">Agent server
+      <label class="small-field"><span data-i18n="optAgentServer">Agent server</span>
         <input type="text" id="serverUrl" spellcheck="false"></label>
-      <div class="hint">Change these only if Ollama or the agent server runs somewhere else.</div>
+      <div data-i18n="optAddressesHint" class="hint">Change these only if Ollama or the agent server runs somewhere else.</div>
       <label class="check">
         <input type="checkbox" id="ollamaCompact">
-        <span><strong>Short prompts for Ollama.</strong> Uses about 2,800 tokens for instructions and tools instead of 6,600.
+        <span data-i18n-html="optOllamaCompact"><strong>Short prompts for Ollama.</strong> Uses about 2,800 tokens for instructions and tools instead of 6,600.
           Turn it on only if your model has a context window of 8K tokens or less; with more, the full prompt works better.</span>
       </label>
 
-      <h3>Your data</h3>
-      <div class="hint">Everything stays on your computer and is kept when the extension updates.</div>
+      <h3 data-i18n="optYourData">Your data</h3>
+      <div data-i18n="optDataHint" class="hint">Everything stays on your computer and is kept when the extension updates.</div>
       <ul class="data-list">
-        <li><strong>In this browser</strong>: <span id="data-extension">…</span>.
-          Removed if you uninstall the extension, so export it first.</li>
-        <li id="data-server-item"><strong>On the agent server</strong>: <span id="data-server">connect to the server to see this</span>.
-          The server backs this folder up before an update changes its format.</li>
+        <li><strong data-i18n="optInBrowser">In this browser</strong>: <span id="data-extension">…</span>.
+          <span data-i18n="optInBrowserNote">Removed if you uninstall the extension, so export it first.</span></li>
+        <li id="data-server-item"><strong data-i18n="optOnServer">On the agent server</strong>: <span id="data-server">…</span>.
+          <span data-i18n="optOnServerNote">The server backs this folder up before an update changes its format.</span></li>
       </ul>
       <div class="row-buttons">
-        <button type="button" id="export">Export</button>
-        <label class="button-like">Import… <input type="file" id="import" accept="application/json,.json" hidden></label>
-        <button type="button" id="clear" class="danger">Delete extension data</button>
+        <button data-i18n="optExport" type="button" id="export">Export</button>
+        <label class="button-like"><span data-i18n="optImport">Import…</span> <input type="file" id="import" accept="application/json,.json" hidden></label>
+        <button data-i18n="optDeleteData" type="button" id="clear" class="danger">Delete extension data</button>
         <span id="data-result"></span>
       </div>
-      <div class="hint">
+      <div class="hint" data-i18n="optExportHint">
         Export saves your patches, settings, conversations and memory to a file, for example to move them to another
         copy of the extension. Importing adds to what's here and never overwrites something newer. API keys and the
         pairing token are never exported.
@@ -297,13 +297,13 @@
     </details>
 
     <p class="donate" id="donate" hidden>
-      Wanna donate? We'll use the money to buy more AI credits, duh.
-      <a id="donate-link" target="_blank" rel="noopener">Donate</a>
-      <button type="button" id="donate-close" class="close" title="Don't show this again" aria-label="Don't show the donation note again">×</button>
+      <span data-i18n="optDonate">Wanna donate? We'll use the money to buy more AI credits, duh.</span>
+      <a data-i18n="optDonateLink" id="donate-link" target="_blank" rel="noopener">Donate</a>
+      <button type="button" id="donate-close" class="close" title="Don't show this again" aria-label="Don't show the donation note again" data-i18n-title="optDontShow" data-i18n-aria-label="optDontShowDonate">×</button>
     </p>
-    <p class="license-note">Questions, ideas, a feature you'd like? Write to the creator:
+    <p class="license-note"><span data-i18n="optContact">Questions, ideas, a feature you'd like? Write to the creator:</span>
       <a href="mailto:alpkavakli@gmail.com?subject=IntegratedAI">alpkavakli@gmail.com</a></p>
-    <p class="license-note">Free and open source (GNU AGPL). <a href="https://github.com/alpkavakli/IntegratedAI" target="_blank" rel="noopener">Source code</a></p>
+    <p class="license-note"><span data-i18n="optLicense">Free and open source (GNU AGPL).</span> <a href="https://github.com/alpkavakli/IntegratedAI" target="_blank" rel="noopener" data-i18n="optSourceCode">Source code</a></p>
     </main>
 
     <script src="options.js" type="module"></script>

@@ -547,6 +547,17 @@ Approval, validation, page inspection and storage are handled for every provider
 Providers with function calling pass `ACTIONS[name].inputSchema` directly as tool parameters; providers without
 tool calling can reuse `envelopeSchema()` like the CLI provider does.
 
+## Languages
+
+The interface is in English and Turkish, following Chrome's language (try it with `chrome --lang=tr`). The texts
+are in `extension/_locales/<lang>/messages.json`; the code calls `t('key', 'English text', …values)` from
+[i18n.js](extension/shared/i18n.js) and the HTML marks elements with `data-i18n="key"` (also `-html`, `-title`,
+`-placeholder`, `-aria-label`). Text for the AI stays English; the AI answers in whatever language you write in.
+
+To add a language, copy `_locales/en` to `_locales/<code>` and translate the `message` values, keeping
+`$1`…`$9` and any markup and `id`s in `-html` messages. `npm test` checks that every language has every key
+with the same values, and `npm run package` checks the store's length limits for the name and summary.
+
 ## License, and supporting it
 
 Copyright (C) 2026 Alp Kavaklı

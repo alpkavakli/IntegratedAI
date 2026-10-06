@@ -7,6 +7,8 @@
 import { ACTIONS, isPageAction, isReadOnly, isServerSide, runsLive, validateAction } from '../../shared/actions.js';
 import { h, setChildren } from '../lib/dom.js';
 import { IN_CARD } from '../lib/surface.js';
+import { t } from '../../shared/i18n.js';
+import { actionLabel } from '../lib/action-labels.js';
 import { renderMarkdown } from '../lib/markdown.js';
 import { ActionCard } from './action-card.js';
 
@@ -14,8 +16,8 @@ import { ActionCard } from './action-card.js';
 
 /** Starting points on a new conversation: for developers in DevTools, for reading and quick fixes in the card. */
 const SUGGESTIONS = IN_CARD
-  ? ['Summarize this page', 'Translate this page', 'Explain what I picked', 'Make this easier to read']
-  : ['Why is this overflowing?', 'Make this look better', 'Make this dark', 'Explain the console errors'];
+  ? [t('sugSummarize', 'Summarize this page'), t('sugTranslate', 'Translate this page'), t('sugExplainPicked', 'Explain what I picked'), t('sugEasier', 'Make this easier to read')]
+  : [t('sugOverflow', 'Why is this overflowing?'), t('sugBetter', 'Make this look better'), t('sugDark', 'Make this dark'), t('sugConsole', 'Explain the console errors')];
 
 export class ChatView extends HTMLElement {
   /** @param {import('../panel.js').App} app */
@@ -31,8 +33,8 @@ export class ChatView extends HTMLElement {
     this.thinkingTimer = undefined;
     /** Open "Allow?" questions, answered "deny" when the turn ends. @type {Set<(answer: 'deny') => void>} */
     this.pendingAsks = new Set();
-    /** Who "Allow … to click …?" asks for: the AI, or a saved task being run. */
-    this.askSubject = 'the AI';
+    /** Who "Allow … to click …?" asks for: the AI ('ai'), or a saved task being run ('task'). */
+    this.askSubject = 'ai';
     return this;
   }
 
@@ -52,8 +54,8 @@ export class ChatView extends HTMLElement {
 
   renderEmpty() {
     this.append(h('div', { class: 'empty' },
-      h('div', { class: 'empty-title' }, 'Ask about this page'),
-      h('div', null, IN_CARD ? 'Pick an element on the page, or ask about the whole page.' : 'Select an element in the Elements panel, or ask about the whole page.'),
+      h('div', { class: 'empty-title' }, t('emptyTitle', 'Ask about this page')),
+      h('div', null, IN_CARD ? t('emptyCard', 'Pick an element on the page, or ask about the whole page.') : t('emptyDevtools', 'Select an element in the Elements panel, or ask about the whole page.')),
       h('div', { class: 'suggestions' },
         SUGGESTIONS.map((text) => h('button', { type: 'button', onclick: () => this.app?.sendFromUi(text) }, text))),
       h('div', { class: 'welcome' })));
@@ -68,13 +70,13 @@ export class ChatView extends HTMLElement {
     this.cards.clear();
     this.streamingEl = null;
     this.replaceChildren(h('div', { class: 'setup' },
-      h('h2', null, 'Connect an AI to get started'),
-      h('p', null, 'This panel explains and fixes the page you are inspecting. It needs one of these:'),
+      h('h2', null, t('setupTitle', 'Connect an AI to get started')),
+      h('p', null, t('setupIntro', 'This panel explains and fixes the page you are inspecting. It needs one of these:')),
       h('ul', null,
-        h('li', null, h('strong', null, 'An API key'), ' from Anthropic (Claude), OpenAI, Google Gemini or OpenRouter. Usage is billed to your account there.'),
-        h('li', null, h('strong', null, 'Ollama'), ': free models that run on your own computer, no key.'),
-        h('li', null, h('strong', null, 'The local agent server'), ' (for developers): use your Claude subscription through Claude Code.')),
-      h('button', { type: 'button', class: 'primary', onclick: openSettings }, 'Open settings')));
+        h('li', null, h('strong', null, t('setupKey', 'An API key')), ' ', t('setupKeyText', 'from Anthropic (Claude), OpenAI, Google Gemini, DeepSeek and others. Usage is billed to your account there.')),
+        h('li', null, h('strong', null, 'Ollama'), ': ', t('setupOllamaText', 'free models that run on your own computer, no key.')),
+        h('li', null, h('strong', null, t('setupServer', 'The local agent server')), ' ', t('setupServerText', '(for developers): use your Claude subscription through Claude Code.'))),
+      h('button', { type: 'button', class: 'primary', onclick: openSettings }, t('openSettings', 'Open settings'))));
   }
 
   /**
@@ -137,7 +139,7 @@ export class ChatView extends HTMLElement {
       const details = i.include?.join(', ') || i.urlContains || i.readContentOf || i.selector || i.ref || (i.text ? `"${i.text}"` : '') || i.query
         || (i.all ? 'whole page' : '')
         || (i.fullViewport ? 'visible page' : '');
-      return h('div', { class: 'inspection', 'data-action': call.id }, `${ACTIONS[call.name]?.label ?? call.name}${details ? ` (${details})` : ''}`);
+      return h('div', { class: 'inspection', 'data-action': call.id }, `${actionLabel(call.name)}${details ? ` (${details})` : ''}`);
     }
     const card = /** @type {ActionCard} */ (document.createElement('ai-action-card'));
     card.bind(/** @type {any} */ (this.app), call.id, call.name, call.input);
@@ -188,7 +190,7 @@ export class ChatView extends HTMLElement {
    * @param {(name: string) => Promise<void>} save
    */
   offerSaveTask(count, suggestedName, save) {
-    const name = /** @type {HTMLInputElement} */ (h('input', { type: 'text', value: suggestedName, 'aria-label': 'Task name', maxlength: '80' }));
+    const name = /** @type {HTMLInputElement} */ (h('input', { type: 'text', value: suggestedName, 'aria-label': t('taskName', 'Task name'), maxlength: '80' }));
     const status = h('span', { class: 'detail' });
     const form = h('div', { class: 'row', hidden: true }, name,
       h('button', {
@@ -196,18 +198,18 @@ export class ChatView extends HTMLElement {
         onclick: async () => {
           try {
             await save(name.value);
-            setChildren(box, h('span', { class: 'detail' }, `Saved as "${name.value.trim() || 'Untitled task'}". Run it from the Tasks tab.`));
+            setChildren(box, h('span', { class: 'detail' }, t('taskSaved', 'Saved as "$1". Run it from the Tasks tab.', name.value.trim() || t('untitledTask', 'Untitled task'))));
           } catch (err) {
             status.textContent = ` ${/** @type {any} */ (err).message}`;
           }
         },
-      }, 'Save'),
+      }, t('save', 'Save')),
       status);
     const box = h('div', { class: 'save-task' },
       h('button', {
         type: 'button', class: 'link',
         onclick: (/** @type {any} */ e) => { e.target.hidden = true; form.hidden = false; name.focus(); name.select(); },
-      }, `Save these ${count} step${count === 1 ? '' : 's'} as a task`),
+      }, count === 1 ? t('saveOneStep', 'Save this step as a task') : t('saveSteps', 'Save these $1 steps as a task', count)),
       form);
     const stick = this.isNearBottom();
     this.insert(box);
@@ -229,12 +231,12 @@ export class ChatView extends HTMLElement {
         resolve(answer);
       };
       const box = h('div', { class: `ask-step${risky ? ' risky' : ''}` },
-        h('div', { class: 'ask-what' }, `Allow ${this.askSubject ?? 'the AI'} to ${what}?`),
-        risky ? h('div', { class: 'ask-why' }, `This ${risky}.`) : null,
+        h('div', { class: 'ask-what' }, this.askSubject === 'task' ? t('askTask', 'Allow this task to $1?', what) : t('askAi', 'Allow the AI to $1?', what)),
+        risky ? h('div', { class: 'ask-why' }, t('askWhy', 'This $1.', risky)) : null,
         h('div', { class: 'buttons' },
-          h('button', { type: 'button', class: 'primary', onclick: () => done('allow') }, 'Allow'),
-          offerAll && !risky ? h('button', { type: 'button', onclick: () => done('all') }, 'Allow all for this task') : null,
-          h('button', { type: 'button', onclick: () => done('deny') }, 'Deny')));
+          h('button', { type: 'button', class: 'primary', onclick: () => done('allow') }, t('allow', 'Allow')),
+          offerAll && !risky ? h('button', { type: 'button', onclick: () => done('all') }, t('allowAll', 'Allow all for this task')) : null,
+          h('button', { type: 'button', onclick: () => done('deny') }, t('deny', 'Deny'))));
       this.pendingAsks.add(done);
       this.insert(box);
       this.scrollToBottom();
@@ -254,27 +256,27 @@ export class ChatView extends HTMLElement {
   renderMemoryLine({ name, input }) {
     // An invalid request was refused by the agent (the model is told); don't show it as done.
     if (validateAction(name, input).length) {
-      return h('div', { class: 'memory-line failed' }, `The AI's ${ACTIONS[name]?.label.toLowerCase() ?? name} request was invalid, so nothing was saved.`);
+      return h('div', { class: 'memory-line failed' }, t('memoryInvalid', "The AI's $1 request was invalid, so nothing was saved.", ACTIONS[name]?.label.toLowerCase() ?? name));
     }
     const text = name === 'remember'
-      ? `Remembered (${input.scope === 'site' ? 'whole site' : 'this kind of page'}): ${input.note}`
+      ? (input.scope === 'site' ? t('rememberedSite', 'Remembered (whole site): $1', input.note) : t('rememberedGroup', 'Remembered (this kind of page): $1', input.note))
       : name === 'forget'
-        ? `Forgot a note (${input.id})`
-        : `Named this kind of page "${input.name}" (${input.pattern})`;
+        ? t('forgot', 'Forgot a note ($1)', input.id)
+        : t('namedGroup', 'Named this kind of page "$1" ($2)', input.name, input.pattern);
     return h('div', { class: 'memory-line' }, text, ' ',
-      h('button', { type: 'button', class: 'link', onclick: () => this.app?.showTab('memory') }, 'manage'));
+      h('button', { type: 'button', class: 'link', onclick: () => this.app?.showTab('memory') }, t('manage', 'manage')));
   }
 
   /** "with $0 div.card > h2 · console" under a user message. */
   contextCaption(context, memory) {
     const parts = [];
-    if (memory?.notes?.length) parts.push(`site memory (${memory.notes.length} note${memory.notes.length === 1 ? '' : 's'})`);
-    if (!context) return parts.length ? h('div', { class: 'caption' }, `with ${parts.join(' · ')}`) : null;
+    if (memory?.notes?.length) parts.push(t('capMemory', 'site memory (notes: $1)', memory.notes.length));
+    if (!context) return parts.length ? h('div', { class: 'caption' }, t('capWith', 'with $1', parts.join(' · '))) : null;
     if (context.selected?.selector) parts.push(IN_CARD ? context.selected.selector : `$0 ${context.selected.selector}`); // "$0" means nothing outside DevTools
-    if (context.console) parts.push('console');
-    if (context.network) parts.push('network');
-    if (context.consoleError) parts.push(`error: ${String(context.consoleError.message).slice(0, 80)}`);
-    return parts.length ? h('div', { class: 'caption' }, `with ${parts.join(' · ')}`) : null;
+    if (context.console) parts.push(t('capConsole', 'console'));
+    if (context.network) parts.push(t('capNetwork', 'network'));
+    if (context.consoleError) parts.push(t('capError', 'error: $1', String(context.consoleError.message).slice(0, 80)));
+    return parts.length ? h('div', { class: 'caption' }, t('capWith', 'with $1', parts.join(' · '))) : null;
   }
 
   /** @param {string} text streamed reply text */
@@ -303,10 +305,10 @@ export class ChatView extends HTMLElement {
   addScreenshot(label, src) {
     const stick = this.isNearBottom();
     const img = h('img', {
-      src, alt: `Screenshot of ${label}`, title: 'Click to enlarge',
+      src, alt: t('screenshotOf', 'Screenshot of $1', label), title: t('clickToEnlarge', 'Click to enlarge'),
       onclick: (/** @type {Event} */ e) => /** @type {HTMLElement} */ (e.currentTarget).classList.toggle('large'),
     });
-    this.insert(h('div', { class: 'screenshot' }, h('div', { class: 'caption' }, `Looked at ${label}`), img));
+    this.insert(h('div', { class: 'screenshot' }, h('div', { class: 'caption' }, t('lookedAt', 'Looked at $1', label)), img));
     if (stick) this.scrollToBottom();
   }
 
@@ -319,9 +321,9 @@ export class ChatView extends HTMLElement {
     return new Promise((resolve) => {
       const done = (/** @type {boolean} */ ok) => { row.remove(); resolve(ok); };
       const row = h('div', { class: 'ask-row' },
-        h('span', null, `AI wants to: ${description}`),
-        h('button', { type: 'button', class: 'primary', onclick: () => done(true) }, 'Allow'),
-        h('button', { type: 'button', onclick: () => done(false) }, 'Deny'));
+        h('span', null, t('aiWantsTo', 'AI wants to: $1', description)),
+        h('button', { type: 'button', class: 'primary', onclick: () => done(true) }, t('allow', 'Allow')),
+        h('button', { type: 'button', onclick: () => done(false) }, t('deny', 'Deny')));
       this.insert(row);
       this.scrollToBottom();
     });
@@ -334,10 +336,10 @@ export class ChatView extends HTMLElement {
     this.thinkingEl = null;
     if (!busy) return;
     const started = Date.now();
-    this.thinkingEl = h('div', { class: 'thinking' }, 'Thinking…');
+    this.thinkingEl = h('div', { class: 'thinking' }, t('thinking', 'Thinking…'));
     this.append(this.thinkingEl);
     this.thinkingTimer = setInterval(() => {
-      if (this.thinkingEl) this.thinkingEl.textContent = `Thinking… ${Math.round((Date.now() - started) / 1000)}s`;
+      if (this.thinkingEl) this.thinkingEl.textContent = t('thinkingFor', 'Thinking… $1s', Math.round((Date.now() - started) / 1000));
     }, 1000);
     this.scrollToBottom();
   }
@@ -377,7 +379,7 @@ function foldInspections(el) {
   let run = [];
   const flush = () => {
     if (run.length >= 2) {
-      const steps = h('details', { class: 'steps' }, h('summary', null, `Looked at the page · ${run.length} steps`));
+      const steps = h('details', { class: 'steps' }, h('summary', null, t('lookedSteps', 'Looked at the page · $1 steps', run.length)));
       run[0].before(steps);
       steps.append(...run);
     }

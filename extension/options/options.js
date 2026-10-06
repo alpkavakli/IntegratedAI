@@ -5,12 +5,14 @@
 import { PROTOCOL_VERSION } from '../shared/protocol.js';
 import { loadSettings, saveSettings } from '../panel/lib/settings.js';
 import { PRESETS, baseUrlFor, presetFetch } from '../shared/providers/openai-compatible.js';
+import { localize, t } from '../shared/i18n.js';
 
 const $ = (/** @type {string} */ id) => /** @type {HTMLInputElement} */ (document.getElementById(id));
 /** @param {string} id @param {boolean} hidden */
 const hide = (id, hidden) => { /** @type {HTMLElement} */ ($(id)).hidden = hidden; };
 
 if (matchMedia('(prefers-color-scheme: dark)').matches) document.documentElement.classList.add('dark');
+localize(document); // first: the code below fills elements inside translated text (key-link, card-shortcut…)
 
 const settings = await loadSettings();
 $('serverUrl').value = settings.serverUrl;
@@ -39,7 +41,7 @@ function showOllamaSteps() {
   for (const button of document.querySelectorAll('#ollama-os button')) {
     button.setAttribute('aria-pressed', String(/** @type {HTMLElement} */ (button).dataset.os === system));
   }
-  $('ollama-terminal').textContent = { windows: 'PowerShell', mac: 'Terminal', linux: 'a terminal' }[system];
+  $('ollama-terminal').textContent = { windows: 'PowerShell', mac: 'Terminal', linux: t('aTerminal', 'a terminal') }[system];
   $('ollama-commands').replaceChildren(...OLLAMA_COMMANDS[system].map((text, i) => {
   const row = document.createElement('div');
   row.className = 'command';
@@ -48,12 +50,12 @@ function showOllamaSteps() {
   const copy = document.createElement('button');
   copy.type = 'button';
   copy.className = 'copy';
-  copy.textContent = 'Copy';
+  copy.textContent = t('copy', 'Copy');
   if (system === 'linux' && i === 1) {
     // systemctl edit opens an editor: these lines go into it.
     const note = document.createElement('div');
     note.className = 'hint';
-    note.textContent = 'In the editor that opens, add these lines, save, then run: sudo systemctl restart ollama';
+    note.textContent = t('ollamaLinuxEditor', 'In the editor that opens, add these lines, save, then run: sudo systemctl restart ollama');
     row.append(code, copy);
     const wrap = document.createElement('div');
     wrap.append(note, row);
@@ -63,9 +65,9 @@ function showOllamaSteps() {
   return row;
   }));
   $('ollama-restart').textContent = {
-    windows: 'Quit Ollama (right-click its icon by the clock, then Quit) and start it again from the Start menu.',
-    mac: 'Quit Ollama (its icon in the menu bar, then Quit Ollama) and open it again.',
-    linux: 'If you used systemctl above, Ollama has restarted already. Otherwise, restart it.',
+    windows: t('ollamaRestartWin', 'Quit Ollama (right-click its icon by the clock, then Quit) and start it again from the Start menu.'),
+    mac: t('ollamaRestartMac', 'Quit Ollama (its icon in the menu bar, then Quit Ollama) and open it again.'),
+    linux: t('ollamaRestartLinux', 'If you used systemctl above, Ollama has restarted already. Otherwise, restart it.'),
   }[system];
 }
 showOllamaSteps();
@@ -80,8 +82,8 @@ document.addEventListener('click', async (e) => {
   const button = /** @type {HTMLElement} */ (e.target);
   if (!button.matches?.('.command .copy')) return;
   await navigator.clipboard.writeText(button.parentElement?.querySelector('code')?.textContent ?? '');
-  button.textContent = 'Copied';
-  setTimeout(() => { button.textContent = 'Copy'; }, 1500);
+  button.textContent = t('copied', 'Copied');
+  setTimeout(() => { button.textContent = t('copy', 'Copy'); }, 1500);
 });
 
 // ── Step 3: how to start, with this computer's shortcut, whether the icon is pinned, and a try-out.
@@ -89,11 +91,11 @@ document.addEventListener('click', async (e) => {
 chrome.commands.getAll().then((commands) => {
   const shortcut = commands.find((c) => c.name === '_execute_action')?.shortcut;
   if (shortcut) $('card-shortcut').textContent = shortcut;
-  else $('card-shortcut-text').textContent = ' (you can give it a keyboard shortcut at chrome://extensions/shortcuts)';
+  else $('card-shortcut-text').textContent = ` ${t('noShortcut', '(you can give it a keyboard shortcut at chrome://extensions/shortcuts)')}`;
 }).catch(() => {});
 chrome.action.getUserSettings?.().then((user) => {
   if (!user.isOnToolbar) return;
-  $('pin-text').textContent = 'The IntegratedAI icon is pinned to your toolbar.';
+  $('pin-text').textContent = t('pinned', 'The IntegratedAI icon is pinned to your toolbar.');
   $('pin-use').classList.add('done');
 }).catch(() => {});
 $('try-card').addEventListener('click', () => chrome.runtime.sendMessage({ cmd: 'card.tryIt' }));
@@ -132,12 +134,12 @@ function showChoice() {
   hide('key-setup', !keyBased);
   hide('ollama-setup', choice !== 'ollama');
   hide('server-setup', choice !== 'server');
-  $('step2-title').textContent = choice === 'ollama' ? 'Set up Ollama' : choice === 'server' ? 'Connect the agent server'
-    : custom ? 'Connect your service' : 'Paste your API key';
-  $('test-key').textContent = keyBased && !custom ? 'Check key' : 'Check connection';
+  $('step2-title').textContent = choice === 'ollama' ? t('setUpOllama', 'Set up Ollama') : choice === 'server' ? t('connectServer', 'Connect the agent server')
+    : custom ? t('connectService', 'Connect your service') : t('pasteKeyTitle', 'Paste your API key');
+  $('test-key').textContent = keyBased && !custom ? t('checkKey', 'Check key') : t('checkConnection', 'Check connection');
   hide('key-where', custom);
   hide('custom-where', !custom);
-  $('apiKey').placeholder = custom ? 'API key (if the service needs one)' : 'Paste your API key';
+  $('apiKey').placeholder = custom ? t('keyIfNeeded', 'API key (if the service needs one)') : t('pasteKeyTitle', 'Paste your API key');
   setStatus('');
   markDone(false);
 
@@ -158,8 +160,8 @@ function showChoice() {
     $('providerUrl').value = settings.providerUrls?.[choice] ?? '';
     $('providerUrl').placeholder = custom ? 'https://api.example.com/v1' : preset.baseUrl;
     $('address-hint').textContent = custom
-      ? 'For example https://api.groq.com/openai/v1, https://api.mistral.ai/v1, or http://localhost:1234/v1 for LM Studio.'
-      : `Leave empty for ${preset.baseUrl}. ${preset.addressHint}.`;
+      ? t('customAddressHint', 'For example https://api.groq.com/openai/v1, https://api.mistral.ai/v1, or http://localhost:1234/v1 for LM Studio.')
+      : `${t('leaveEmptyFor', 'Leave empty for $1.', preset.baseUrl)} ${preset.addressHint}.`;
   }
 
   // Model: a list of Claude models, or any model id for the others (suggestions from the preset or the key).
@@ -169,7 +171,7 @@ function showChoice() {
   if (preset) {
     $('compatModels').replaceChildren(...preset.models.map((m) => new Option(m, m)));
     $('compatModel').value = settings.providerModels[choice] || (preset.local ? '' : preset.models[0]);
-    $('compatModel').placeholder = preset.local ? 'Chosen when you check the connection' : custom ? "The model's name (Check lists them)" : '';
+    $('compatModel').placeholder = preset.local ? t('modelChosenOnCheck', 'Chosen when you check the connection') : custom ? t('modelNameCheck', "The model's name (Check lists them)") : '';
   }
 
   // Already set up? Check it now, so the page shows it's ready.
@@ -268,20 +270,20 @@ let checking = 0;
 /** Check the chosen AI and show the result in plain words. */
 async function check() {
   const run = ++checking;
-  setStatus('Checking…');
+  setStatus(t('checking', 'Checking…'));
   markDone(false);
   const result = await (choice === 'server' ? checkServer() : checkProvider(choice)).catch((err) => {
     const e = /** @type {any} */ (err);
     // The Anthropic SDK's errors carry a status; httpError() messages already say what to do.
     return {
       ok: false,
-      text: e?.status === 401 ? 'This key was not accepted. Check that you copied all of it.'
-        : e?.status === 404 ? 'The key works, but this model is not available to your account. Pick another model.'
+      text: e?.status === 401 ? t('keyRejected', 'This key was not accepted. Check that you copied all of it.')
+        : e?.status === 404 ? t('modelUnavailable', 'The key works, but this model is not available to your account. Pick another model.')
           : String(e?.message ?? e),
     };
   });
   if (run !== checking) return; // a newer check started meanwhile
-  setStatus(result.ok ? `✓ ${result.text} You're ready: see step 3.` : result.text, result.ok ? 'ok' : 'bad');
+  setStatus(result.ok ? `✓ ${result.text} ${t('readyStep3', "You're ready: see step 3.")}` : result.text, result.ok ? 'ok' : 'bad');
   markDone(result.ok);
 }
 
@@ -294,15 +296,15 @@ async function check() {
  */
 async function checkProvider(provider) {
   if (provider === 'anthropic') {
-    if (!settings.anthropicApiKey) return { ok: false, text: 'Paste your API key first.' };
+    if (!settings.anthropicApiKey) return { ok: false, text: t('pasteKeyFirst', 'Paste your API key first.') };
     const { default: Anthropic } = await import('../vendor/anthropic-sdk.mjs');
     const client = new Anthropic({ apiKey: settings.anthropicApiKey, dangerouslyAllowBrowser: true, maxRetries: 0 });
     const model = await client.models.retrieve($('directModel').value);
-    return { ok: true, text: `Your key works (${model.display_name}).` };
+    return { ok: true, text: t('keyWorks', 'Your key works ($1).', model.display_name) };
   }
   const preset = PRESETS[provider];
-  if (preset.custom && !settings.providerUrls?.custom) return { ok: false, text: "Enter your service's address first." };
-  if (!preset.local && !preset.custom && !savedKey(provider)) return { ok: false, text: 'Paste your API key first.' };
+  if (preset.custom && !settings.providerUrls?.custom) return { ok: false, text: t('enterAddressFirst', "Enter your service's address first.") };
+  if (!preset.local && !preset.custom && !savedKey(provider)) return { ok: false, text: t('pasteKeyFirst', 'Paste your API key first.') };
   const auth = { ...(preset.local || !savedKey(provider) ? {} : { authorization: `Bearer ${savedKey(provider)}` }), ...preset.headers };
   if (preset.keyCheckUrl) await presetFetch(provider, fetch, preset.keyCheckUrl, { headers: auth });
   const base = baseUrlFor(provider, { baseUrl: preset.local ? $('compatUrl').value : settings.providerUrls?.[provider] });
@@ -314,7 +316,7 @@ async function checkProvider(provider) {
       method: 'POST', headers: { ...auth, 'content-type': 'application/json' },
       body: JSON.stringify({ model: chosen, messages: [{ role: 'user', content: 'Hi' }], max_tokens: 16 }),
     });
-    return { ok: true, text: `Your key works (${chosen}).` };
+    return { ok: true, text: t('keyWorks', 'Your key works ($1).', chosen) };
   }
   const res = await presetFetch(provider, fetch, `${base}/models`, { headers: auth });
   const ids = ((await res.json()).data ?? []).map((/** @type {any} */ m) => String(m.id).replace(/^models\//, '')).sort();
@@ -327,7 +329,7 @@ async function checkProvider(provider) {
     await saveCompatModel(ids[0]);
   }
   if (preset.local) {
-    if (!ids.length) return { ok: false, text: 'Ollama is running but has no models yet. Download one, for example: ollama pull qwen3' };
+    if (!ids.length) return { ok: false, text: t('ollamaNoModels', 'Ollama is running but has no models yet. Download one, for example: ollama pull qwen3') };
     if (!$('compatModel').value.trim()) {
       // Prefer a suggested model (known to use tools) if it's downloaded, e.g. "qwen3:latest".
       const pick = ids.find((m) => preset.models.some((s) => m === s || m.startsWith(`${s}:`))) ?? ids[0];
@@ -339,10 +341,11 @@ async function checkProvider(provider) {
   // Ollama names models "name:tag"; "qwen3" means "qwen3:latest".
   const found = ids.includes(chosen) || (preset.local && ids.includes(`${chosen}:latest`));
   if (!found) {
-    return { ok: false, text: `${preset.local ? 'Ollama is running' : 'Your key works'}, but "${chosen}" isn't one of your ${ids.length} models. Pick one in the Model box.` };
+    return { ok: false, text: preset.local ? t('ollamaModelMissing', 'Ollama is running, but "$1" isn\'t one of your $2 models. Pick one in the Model box.', chosen, ids.length)
+      : t('keyModelMissing', 'Your key works, but "$1" isn\'t one of your $2 models. Pick one in the Model box.', chosen, ids.length) };
   }
-  if (preset.custom) return { ok: true, text: `Connected (${chosen}).` };
-  if (provider !== 'ollama') return { ok: true, text: `Your key works (${chosen}).` };
+  if (preset.custom) return { ok: true, text: t('connectedModel', 'Connected ($1).', chosen) };
+  if (provider !== 'ollama') return { ok: true, text: t('keyWorks', 'Your key works ($1).', chosen) };
 
   // Chrome sends the extension's Origin only with POST requests (like the chat requests), so listing
   // models can work while Ollama still refuses the chat. Ask about the model with a POST: that hits the
@@ -353,16 +356,16 @@ async function checkProvider(provider) {
   })).json();
   const caps = Array.isArray(info.capabilities) ? info.capabilities : null; // older Ollama versions don't say
   if (caps && !caps.includes('tools')) {
-    return { ok: false, text: `Ollama is running, but ${chosen} can't use tools, which this extension needs. Pick another model (for example qwen3).` };
+    return { ok: false, text: t('ollamaNoTools', "Ollama is running, but $1 can't use tools, which this extension needs. Pick another model (for example qwen3).", chosen) };
   }
   // The context window: Ollama only reports it for a model that has run (api/ps). Too small, and Ollama
   // silently cuts off the extension's instructions, so the model doesn't know what to do.
   const loaded = await presetFetch(provider, fetch, `${root}/api/ps`).then((r) => r.json()).catch(() => null) // (older versions: no api/ps)
     .then((ps) => ps?.models?.find((/** @type {any} */ m) => m.name === chosen || m.name === `${chosen}:latest`));
   if (loaded?.context_length && loaded.context_length < 8192) {
-    return { ok: false, text: `Ollama is running, but it gives ${chosen} only ${loaded.context_length} tokens of context, too few for this extension's instructions. Do step 3 above (OLLAMA_CONTEXT_LENGTH) and restart Ollama.` };
+    return { ok: false, text: t('ollamaSmallContext', "Ollama is running, but it gives $1 only $2 tokens of context, too few for this extension's instructions. Do step 3 above (OLLAMA_CONTEXT_LENGTH) and restart Ollama.", chosen, loaded.context_length) };
   }
-  return { ok: true, text: `Ollama is running (using ${chosen}${caps && !caps.includes('vision') ? "; it can't see screenshots" : ''}).` };
+  return { ok: true, text: caps && !caps.includes('vision') ? t('ollamaRunningNoVision', "Ollama is running (using $1; it can't see screenshots).", chosen) : t('ollamaRunning', 'Ollama is running (using $1).', chosen) };
 }
 
 /**
@@ -371,7 +374,7 @@ async function checkProvider(provider) {
  */
 function checkServer() {
   return new Promise((resolve) => {
-    if (!$('token').value.trim()) { resolve({ ok: false, text: 'Paste the pairing token first.' }); return; }
+    if (!$('token').value.trim()) { resolve({ ok: false, text: t('pasteTokenFirst', 'Paste the pairing token first.') }); return; }
     let ws;
     try {
       ws = new WebSocket($('serverUrl').value.trim());
@@ -379,17 +382,17 @@ function checkServer() {
       resolve({ ok: false, text: String(err) });
       return;
     }
-    const timer = setTimeout(() => { ws.close(); resolve({ ok: false, text: 'The agent server did not answer.' }); }, 5000);
+    const timer = setTimeout(() => { ws.close(); resolve({ ok: false, text: t('serverNoAnswer', 'The agent server did not answer.') }); }, 5000);
     ws.onopen = () => ws.send(JSON.stringify({ type: 'hello', token: $('token').value.trim(), protocol: PROTOCOL_VERSION }));
     ws.onmessage = (e) => {
       const msg = JSON.parse(e.data);
       clearTimeout(timer);
       ws.close();
-      resolve(msg.type === 'welcome' ? { ok: true, text: 'Connected to the agent server.' } : { ok: false, text: msg.message });
+      resolve(msg.type === 'welcome' ? { ok: true, text: t('connectedServer', 'Connected to the agent server.') } : { ok: false, text: msg.message });
     };
     ws.onerror = () => {
       clearTimeout(timer);
-      resolve({ ok: false, text: "Can't reach the agent server. Is it running (npm start)?" });
+      resolve({ ok: false, text: t('serverUnreachable', "Can't reach the agent server. Is it running (npm start)?") });
     };
   });
 }
@@ -412,7 +415,7 @@ $('services-command').textContent = `npm run services:install -- --id ${chrome.r
 const showServicesPermission = async () => {
   const granted = await chrome.permissions.contains({ permissions: ['nativeMessaging'] });
   $('services-allow').hidden = granted;
-  $('services-status').textContent = granted ? 'Allowed.' : '';
+  $('services-status').textContent = granted ? t('allowed', 'Allowed.') : '';
 };
 $('services-allow').addEventListener('click', async () => {
   await chrome.permissions.request({ permissions: ['nativeMessaging'] }).catch(() => false);
@@ -465,9 +468,9 @@ function serverDataInfo() {
 
 async function showDataSummary() {
   const summary = await worker('data.summary');
-  $('data-extension').textContent = `${summary.patches} saved patch${summary.patches === 1 ? '' : 'es'}, ${count(summary.tasks ?? 0, 'saved task')} and your settings (extension ${summary.extensionVersion})`;
+  $('data-extension').textContent = t('dataExtension', 'saved patches: $1, saved tasks: $2, and your settings (extension $3)', summary.patches, summary.tasks ?? 0, summary.extensionVersion);
   if ((await loadSettings()).mode === 'direct') {
-    $('data-extension').textContent += `; in direct mode also ${summary.conversations} conversation${summary.conversations === 1 ? '' : 's'} and site memory for ${summary.memorySites} site${summary.memorySites === 1 ? '' : 's'}`;
+    $('data-extension').textContent += `; ${t('dataDirect', 'in direct mode also conversations: $1, sites with memory: $2', summary.conversations, summary.memorySites)}`;
     // The server isn't used in direct mode, so its line is left out.
     /** @type {HTMLElement} */ ($('data-server-item')).hidden = true;
     return;
@@ -475,16 +478,13 @@ async function showDataSummary() {
   /** @type {HTMLElement} */ ($('data-server-item')).hidden = false;
   try {
     const info = /** @type {any} */ (await serverDataInfo());
-    $('data-server').textContent =
-      `${info.conversations} conversation${info.conversations === 1 ? '' : 's'} and site memory for ${info.memorySites} site${info.memorySites === 1 ? '' : 's'}, ` +
-      `in ${info.dataDir}${info.backups ? ` (${info.backups} automatic backup${info.backups === 1 ? '' : 's'} in its "backups" folder)` : ''}`;
+    $('data-server').textContent = t('dataServer', 'conversations: $1, sites with memory: $2, in $3', info.conversations, info.memorySites, info.dataDir)
+      + (info.backups ? ` ${t('dataBackups', '(automatic backups in its "backups" folder: $1)', info.backups)}` : '');
   } catch {
-    $('data-server').textContent = 'not connected (start the server with npm start to see this)';
+    $('data-server').textContent = t('dataServerOff', 'not connected (start the server with npm start to see this)');
   }
 }
 
-/** "1 patch", "3 patches" @param {number} n @param {string} one @param {string} [many] */
-const count = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 /** @param {string} text @param {boolean} [ok] */
 function dataResult(text, ok = true) {
@@ -501,8 +501,8 @@ $('export').addEventListener('click', async () => {
     a.download = `integratedai-export-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 10_000);
-    dataResult(`Exported ${count(data.patches.length, 'patch', 'patches')}, ${count(data.tasks.length, 'saved task')}, ${count(data.conversations.length, 'conversation')}, `
-      + `site memory for ${count(data.memory.length, 'site')}, and your settings.`);
+    dataResult(t('exported', 'Exported patches: $1, saved tasks: $2, conversations: $3, sites with memory: $4, and your settings.',
+      data.patches.length, data.tasks.length, data.conversations.length, data.memory.length));
   } catch (err) {
     dataResult(String(/** @type {any} */ (err).message ?? err), false);
   }
@@ -514,12 +514,12 @@ $('import').addEventListener('change', async () => {
   if (!file) return;
   try {
     const result = await worker('data.import', { data: JSON.parse(await file.text()) });
-    dataResult(`Imported: ${result.added} new patch${result.added === 1 ? '' : 'es'}, ${result.updated} updated, ${result.skipped} already here`
-      + `; ${count(result.tasks ?? 0, 'saved task')}, ${count(result.conversations, 'conversation')} and ${count(result.notes, 'memory note')}`
-      + (result.settings.length ? '; settings restored.' : '.'));
+    dataResult(t('imported', 'Imported. Patches: $1 new, $2 updated, $3 already here; saved tasks: $4, conversations: $5, memory notes: $6.',
+      result.added, result.updated, result.skipped, result.tasks ?? 0, result.conversations, result.notes)
+      + (result.settings.length ? ` ${t('settingsRestored', 'Settings restored.')}` : ''));
     setTimeout(() => location.reload(), 1500); // show the imported settings
   } catch (err) {
-    dataResult(`Import failed: ${String(/** @type {any} */ (err).message ?? err)}`, false);
+    dataResult(t('importFailed', 'Import failed: $1', String(/** @type {any} */ (err).message ?? err)), false);
   }
 });
 
@@ -528,15 +528,15 @@ $('clear').addEventListener('click', async () => {
   const button = $('clear');
   if (!button.dataset.armed) {
     button.dataset.armed = '1';
-    button.textContent = 'Click again to delete everything stored in this browser';
-    setTimeout(() => { delete button.dataset.armed; button.textContent = 'Delete extension data'; }, 4000);
+    button.textContent = t('clickAgainDeleteAll', 'Click again to delete everything stored in this browser');
+    setTimeout(() => { delete button.dataset.armed; button.textContent = t('optDeleteData', 'Delete extension data'); }, 4000);
     return;
   }
   try {
     await worker('data.clear');
     dataResult(settings.mode === 'server'
-      ? 'Deleted. Your conversations and site memory on the agent server were not touched.'
-      : 'Deleted.');
+      ? t('deletedServerKept', 'Deleted. Your conversations and site memory on the agent server were not touched.')
+      : t('deleted', 'Deleted.'));
     setTimeout(() => location.reload(), 1500);
   } catch (err) {
     dataResult(String(/** @type {any} */ (err).message ?? err), false);

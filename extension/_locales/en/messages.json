@@ -1,6 +1,18 @@
 {
+  "aTerminal": {
+    "message": "a terminal"
+  },
   "actionTitle": {
     "message": "IntegratedAI: open the AI card on this page (Alt+Shift+A)"
+  },
+  "add": {
+    "message": "Add"
+  },
+  "addNoteExample": {
+    "message": "Add a note, e.g. \"I prefer a serif font for reading\""
+  },
+  "addedByYou": {
+    "message": "added by you"
   },
   "agentModeTitle": {
     "message": "What the AI may do on the page"
@@ -8,11 +20,137 @@
   "aiProvider": {
     "message": "AI provider"
   },
+  "aiWantsTo": {
+    "message": "AI wants to: $1"
+  },
+  "alConsole": {
+    "message": "Read console"
+  },
+  "alCss": {
+    "message": "Inject CSS"
+  },
+  "alFind": {
+    "message": "Find elements"
+  },
+  "alForget": {
+    "message": "Forget"
+  },
+  "alInspect": {
+    "message": "Inspect element"
+  },
+  "alInteract": {
+    "message": "Interact with the page"
+  },
+  "alJs": {
+    "message": "Execute JavaScript"
+  },
+  "alModify": {
+    "message": "Modify element"
+  },
+  "alNameGroup": {
+    "message": "Name page type"
+  },
+  "alNavigate": {
+    "message": "Go to a page"
+  },
+  "alNetwork": {
+    "message": "Read network log"
+  },
+  "alOutline": {
+    "message": "Look at the page"
+  },
+  "alReadText": {
+    "message": "Read text"
+  },
+  "alRemember": {
+    "message": "Remember"
+  },
+  "alResources": {
+    "message": "Read page resources"
+  },
+  "alScreenshot": {
+    "message": "Screenshot"
+  },
+  "alTranslate": {
+    "message": "Translate the page"
+  },
+  "allow": {
+    "message": "Allow"
+  },
+  "allowAll": {
+    "message": "Allow all for this task"
+  },
+  "allowed": {
+    "message": "Allowed."
+  },
+  "apiKey": {
+    "message": "API key"
+  },
+  "appliesTo": {
+    "message": "Applies to $1"
+  },
+  "appliesToLabel": {
+    "message": "Applies to"
+  },
+  "apply": {
+    "message": "Apply"
+  },
+  "applyAgain": {
+    "message": "Apply again"
+  },
+  "applyOn": {
+    "message": "Apply on"
+  },
+  "askAi": {
+    "message": "Allow the AI to $1?"
+  },
+  "askTask": {
+    "message": "Allow this task to $1?"
+  },
+  "askWhy": {
+    "message": "This $1."
+  },
+  "cancel": {
+    "message": "Cancel"
+  },
+  "cannotUndo": {
+    "message": "Cannot be undone automatically; reload the page to revert."
+  },
+  "capConsole": {
+    "message": "console"
+  },
+  "capError": {
+    "message": "error: $1"
+  },
+  "capMemory": {
+    "message": "site memory (notes: $1)"
+  },
+  "capNetwork": {
+    "message": "network"
+  },
+  "capWith": {
+    "message": "with $1"
+  },
   "cardTip": {
     "message": "This is the quick version. For filling in forms, working through pages, saved tasks and more, press <kbd>F12</kbd> and open the <strong>AI</strong> tab. Don't see it? Click <strong>»</strong> in the DevTools tab bar."
   },
   "checkAgain": {
     "message": "Check again"
+  },
+  "checkConnection": {
+    "message": "Check connection"
+  },
+  "checkIt": {
+    "message": "Check it"
+  },
+  "checkItHelp": {
+    "message": "The AI takes a screenshot of the result and proposes fixes for anything that still looks wrong"
+  },
+  "checkKey": {
+    "message": "Check key"
+  },
+  "checking": {
+    "message": "Checking…"
   },
   "chipConsole": {
     "message": "Console"
@@ -41,17 +179,56 @@
   "claudeCodeServerTitle": {
     "message": "Use your Claude subscription through the local server"
   },
+  "clear": {
+    "message": "Clear"
+  },
+  "clickAgainDelete": {
+    "message": "Click again to delete"
+  },
+  "clickAgainDeleteAll": {
+    "message": "Click again to delete everything stored in this browser"
+  },
+  "clickToEnlarge": {
+    "message": "Click to enlarge"
+  },
+  "close": {
+    "message": "Close"
+  },
   "commandToggleCard": {
     "message": "Open or close the AI card on this page"
   },
   "composerHint": {
     "message": "Enter to send · Shift+Enter for a new line"
   },
+  "connectServer": {
+    "message": "Connect the agent server"
+  },
+  "connectService": {
+    "message": "Connect your service"
+  },
   "connected": {
     "message": "connected"
   },
+  "connectedModel": {
+    "message": "Connected ($1)."
+  },
+  "connectedServer": {
+    "message": "Connected to the agent server."
+  },
+  "continuedInDevtools": {
+    "message": "IntegratedAI · continued in DevTools"
+  },
+  "conversationsOn": {
+    "message": "Conversations on $1"
+  },
+  "copied": {
+    "message": "Copied"
+  },
   "copiedChars": {
     "message": "Copied $1 characters"
+  },
+  "copy": {
+    "message": "Copy"
   },
   "copyCommand": {
     "message": "Copy command"
@@ -74,8 +251,89 @@
   "couldNotOpen": {
     "message": "Could not open the conversation: $1"
   },
+  "current": {
+    "message": "current"
+  },
+  "custom": {
+    "message": "Custom"
+  },
+  "customAddressHint": {
+    "message": "For example https://api.groq.com/openai/v1, https://api.mistral.ai/v1, or http://localhost:1234/v1 for LM Studio."
+  },
+  "dataBackups": {
+    "message": "(automatic backups in its \"backups\" folder: $1)"
+  },
+  "dataDirect": {
+    "message": "in direct mode also conversations: $1, sites with memory: $2"
+  },
+  "dataExtension": {
+    "message": "saved patches: $1, saved tasks: $2, and your settings (extension $3)"
+  },
+  "dataServer": {
+    "message": "conversations: $1, sites with memory: $2, in $3"
+  },
+  "dataServerOff": {
+    "message": "not connected (start the server with npm start to see this)"
+  },
+  "daysAgo": {
+    "message": "$1 days ago"
+  },
+  "delete": {
+    "message": "Delete"
+  },
+  "deleted": {
+    "message": "Deleted."
+  },
+  "deletedServerKept": {
+    "message": "Deleted. Your conversations and site memory on the agent server were not touched."
+  },
+  "deny": {
+    "message": "Deny"
+  },
+  "disabled": {
+    "message": "Disabled"
+  },
+  "disabledLower": {
+    "message": "disabled"
+  },
+  "discard": {
+    "message": "Discard"
+  },
   "disconnected": {
     "message": "disconnected"
+  },
+  "dockRight": {
+    "message": "Dock to the right side"
+  },
+  "edit": {
+    "message": "Edit"
+  },
+  "elsewhereOn": {
+    "message": "Elsewhere on $1"
+  },
+  "emptyCard": {
+    "message": "Pick an element on the page, or ask about the whole page."
+  },
+  "emptyDevtools": {
+    "message": "Select an element in the Elements panel, or ask about the whole page."
+  },
+  "emptyTitle": {
+    "message": "Ask about this page"
+  },
+  "enabled": {
+    "message": "Enabled"
+  },
+  "enabledLower": {
+    "message": "enabled"
+  },
+  "enterAddressFirst": {
+    "message": "Enter your service's address first."
+  },
+  "explain": {
+    "message": "Explain"
+  },
+  "exported": {
+    "message": "Exported patches: $1, saved tasks: $2, conversations: $3, sites with memory: $4, and your settings."
   },
   "extDescription": {
     "message": "AI panel in Chrome DevTools: explains layout and console errors, previews CSS fixes, fills forms, saves per-site patches."
@@ -86,8 +344,29 @@
   "f12OrCtrl": {
     "message": "F12 (or Ctrl+Shift+I)"
   },
+  "fadeLight": {
+    "message": "See-through: light (when the mouse is elsewhere)"
+  },
+  "fadeOff": {
+    "message": "See-through: off (when the mouse is elsewhere)"
+  },
+  "fadeStrong": {
+    "message": "See-through: strong (when the mouse is elsewhere)"
+  },
+  "float": {
+    "message": "Float"
+  },
+  "forgot": {
+    "message": "Forgot a note ($1)"
+  },
   "fullAutoWarning": {
     "message": "Full auto: the AI clicks, types, submits forms and moves between pages without asking you. Use it for tasks you would trust someone else with, and watch it; ■ stops it."
+  },
+  "go": {
+    "message": "Go"
+  },
+  "goAgain": {
+    "message": "Go again"
   },
   "gotIt": {
     "message": "Got it"
@@ -98,8 +377,128 @@
   "historyTitle": {
     "message": "Earlier conversations on this site"
   },
+  "hoursAgo": {
+    "message": "$1 h ago"
+  },
+  "importFailed": {
+    "message": "Import failed: $1"
+  },
+  "imported": {
+    "message": "Imported. Patches: $1 new, $2 updated, $3 already here; saved tasks: $4, conversations: $5, memory notes: $6."
+  },
+  "includeLog": {
+    "message": "Include info/log"
+  },
+  "interactClicks": {
+    "message": "Uses real clicks and typing, like you would. Clicks and submits cannot be undone."
+  },
+  "interactTyping": {
+    "message": "Uses real typing and selection, like you would. Can be undone."
+  },
+  "intoView": {
+    "message": "into view"
+  },
+  "jsNoUndo": {
+    "message": "Not undoable. To revert, reload the page."
+  },
+  "jsUndo": {
+    "message": "Undo: model-provided script (best effort, not guaranteed to fully restore)"
+  },
+  "jsWarning": {
+    "message": "⚠ Runs arbitrary JavaScript in this page, with access to its data and logged-in session."
+  },
+  "justNow": {
+    "message": "just now"
+  },
+  "keyIfNeeded": {
+    "message": "API key (if the service needs one)"
+  },
+  "keyModelMissing": {
+    "message": "Your key works, but \"$1\" isn't one of your $2 models. Pick one in the Model box."
+  },
+  "keyRejected": {
+    "message": "This key was not accepted. Check that you copied all of it."
+  },
+  "keyWorks": {
+    "message": "Your key works ($1)."
+  },
+  "lastRun": {
+    "message": "last run $1"
+  },
+  "learnedByAi": {
+    "message": "learned by the AI"
+  },
+  "leaveEmptyFor": {
+    "message": "Leave empty for $1."
+  },
+  "loading": {
+    "message": "Loading…"
+  },
+  "lookedAt": {
+    "message": "Looked at $1"
+  },
+  "lookedSteps": {
+    "message": "Looked at the page · $1 steps"
+  },
+  "lookingThrough": {
+    "message": "Looking through $1 for where this belongs… (this can take a minute)"
+  },
+  "mFable": {
+    "message": "Claude Fable 5.1 (most capable, most expensive)"
+  },
+  "mHaiku": {
+    "message": "Claude Haiku 4.5 (fastest, cheapest)"
+  },
+  "mOpus": {
+    "message": "Claude Opus 5.5 (best, recommended)"
+  },
+  "mSonnet": {
+    "message": "Claude Sonnet 5.5 (faster, cheaper)"
+  },
+  "manage": {
+    "message": "manage"
+  },
+  "manageInPatches": {
+    "message": "Manage it in the Patches tab."
+  },
+  "memOff": {
+    "message": "Off (nothing is remembered)"
+  },
+  "memOffText": {
+    "message": "Nothing is read or saved for this conversation."
+  },
+  "memPrivate": {
+    "message": "Private to this conversation"
+  },
+  "memPrivateText": {
+    "message": "This conversation keeps its own notes. They don't mix with the site's shared memory or other conversations."
+  },
+  "memShared": {
+    "message": "Shared with this site (every conversation here)"
+  },
+  "memSharedText": {
+    "message": "Notes are shared by all conversations on this site."
+  },
+  "memoryForConversation": {
+    "message": "Memory for this conversation"
+  },
+  "memoryHelp": {
+    "message": "The AI reads the notes that apply to the current page at the start of each conversation, and adds notes when it learns something reusable. Notes are facts, not instructions; delete anything wrong."
+  },
+  "memoryInvalid": {
+    "message": "The AI's $1 request was invalid, so nothing was saved."
+  },
   "message": {
     "message": "Message"
+  },
+  "messages": {
+    "message": "$1 messages"
+  },
+  "minAgo": {
+    "message": "$1 min ago"
+  },
+  "minimise": {
+    "message": "Minimise"
   },
   "modeAsk": {
     "message": "Ask each step"
@@ -128,6 +527,36 @@
   "model": {
     "message": "Model"
   },
+  "modelChosenOnCheck": {
+    "message": "Chosen when you check the connection"
+  },
+  "modelNameCheck": {
+    "message": "The model's name (Check lists them)"
+  },
+  "modelUnavailable": {
+    "message": "The key works, but this model is not available to your account. Pick another model."
+  },
+  "name": {
+    "message": "Name"
+  },
+  "nameIt": {
+    "message": "Name it"
+  },
+  "namedGroup": {
+    "message": "Named this kind of page \"$1\" ($2)"
+  },
+  "navBack": {
+    "message": "Go back"
+  },
+  "navForward": {
+    "message": "Go forward"
+  },
+  "navOpen": {
+    "message": "Open"
+  },
+  "navReload": {
+    "message": "Reload"
+  },
   "newChat": {
     "message": "New"
   },
@@ -137,11 +566,47 @@
   "newChatTitle": {
     "message": "New conversation for this tab"
   },
+  "newNote": {
+    "message": "New note"
+  },
+  "noConsole": {
+    "message": "No errors or warnings captured on this page."
+  },
   "noElementPicked": {
     "message": "No element picked"
   },
+  "noHistory": {
+    "message": "No history for this page"
+  },
+  "noLongerActive": {
+    "message": "No longer active on this page (it was reloaded or DevTools lost track of it)."
+  },
+  "noPatches": {
+    "message": "No patches apply to this page. Apply a CSS change in the chat, then click \"Save as site patch…\"."
+  },
+  "noShortcut": {
+    "message": "(you can give it a keyboard shortcut at chrome://extensions/shortcuts)"
+  },
+  "noSiteMemory": {
+    "message": "No site memory for this page (only http(s) and file pages have one)."
+  },
+  "noTasks": {
+    "message": "No saved tasks for this site. When the AI has done something on the page in an agent mode, click \"Save as task\" under its answer to run the same steps again later, without the AI."
+  },
+  "notConnectedServer": {
+    "message": "Not connected to the agent server."
+  },
+  "notNamedYet": {
+    "message": "not named yet"
+  },
+  "notRestored": {
+    "message": "Not restored because you changed them since: $1"
+  },
   "notSetUp": {
     "message": "$1 (not set up)"
+  },
+  "note": {
+    "message": "Note"
   },
   "nothingSelected": {
     "message": "$0 (nothing selected)"
@@ -149,11 +614,44 @@
   "nothingToSave": {
     "message": "Nothing to save yet: this conversation is empty."
   },
+  "nothingYet": {
+    "message": "Nothing yet. Conversations are saved automatically."
+  },
+  "ollamaLinuxEditor": {
+    "message": "In the editor that opens, add these lines, save, then run: sudo systemctl restart ollama"
+  },
+  "ollamaModelMissing": {
+    "message": "Ollama is running, but \"$1\" isn't one of your $2 models. Pick one in the Model box."
+  },
+  "ollamaNoModels": {
+    "message": "Ollama is running but has no models yet. Download one, for example: ollama pull qwen3"
+  },
+  "ollamaNoTools": {
+    "message": "Ollama is running, but $1 can't use tools, which this extension needs. Pick another model (for example qwen3)."
+  },
   "ollamaNotRunning": {
     "message": "Ollama isn't running: $1, then send your message."
   },
   "ollamaNotRunningShort": {
     "message": "Ollama isn't running"
+  },
+  "ollamaRestartLinux": {
+    "message": "If you used systemctl above, Ollama has restarted already. Otherwise, restart it."
+  },
+  "ollamaRestartMac": {
+    "message": "Quit Ollama (its icon in the menu bar, then Quit Ollama) and open it again."
+  },
+  "ollamaRestartWin": {
+    "message": "Quit Ollama (right-click its icon by the clock, then Quit) and start it again from the Start menu."
+  },
+  "ollamaRunning": {
+    "message": "Ollama is running (using $1)."
+  },
+  "ollamaRunningNoVision": {
+    "message": "Ollama is running (using $1; it can't see screenshots)."
+  },
+  "ollamaSmallContext": {
+    "message": "Ollama is running, but it gives $1 only $2 tokens of context, too few for this extension's instructions. Do step 3 above (OLLAMA_CONTEXT_LENGTH) and restart Ollama."
   },
   "ollamaStartLinux": {
     "message": "start it (ollama serve)"
@@ -164,14 +662,263 @@
   "ollamaStartWin": {
     "message": "start it from the Start menu"
   },
+  "oneMessage": {
+    "message": "1 message"
+  },
   "openSettings": {
     "message": "Open settings"
+  },
+  "openSource": {
+    "message": "Open source"
+  },
+  "optAddresses": {
+    "message": "Addresses"
+  },
+  "optAddressesHint": {
+    "message": "Change these only if Ollama or the agent server runs somewhere else."
+  },
+  "optAdvanced": {
+    "message": "Advanced settings"
+  },
+  "optAgentServer": {
+    "message": "Agent server"
+  },
+  "optAllowServer": {
+    "message": "allow the Server button"
+  },
+  "optAndYourOk": {
+    "message": ", and your OK:"
+  },
+  "optApiAddress": {
+    "message": "API address"
+  },
+  "optAskInspect": {
+    "message": "Ask me before it looks at page details. When off, it looks on its own; it can only read, never change."
+  },
+  "optContact": {
+    "message": "Questions, ideas, a feature you'd like? Write to the creator:"
+  },
+  "optCtxConsole": {
+    "message": "Recent errors and warnings from the page's console"
+  },
+  "optCtxNetwork": {
+    "message": "Recent and failed network requests (passwords, cookies and tokens are removed)"
+  },
+  "optCtxSelected": {
+    "message": "The element you selected (its look, size and a bit of its HTML)"
+  },
+  "optCustomWhere": {
+    "message": "Use any service that offers the OpenAI Chat Completions API with tool calls. Enter its address (it usually ends in <code>/v1</code>), its API key if it needs one, and the model's name, then click <strong>Check connection</strong>."
+  },
+  "optDataHint": {
+    "message": "Everything stays on your computer and is kept when the extension updates."
+  },
+  "optDeleteData": {
+    "message": "Delete extension data"
+  },
+  "optDevSetup": {
+    "message": "Developer setup"
+  },
+  "optDonate": {
+    "message": "Wanna donate? We'll use the money to buy more AI credits, duh."
+  },
+  "optDonateLink": {
+    "message": "Donate"
+  },
+  "optDontShow": {
+    "message": "Don't show this again"
+  },
+  "optDontShowDonate": {
+    "message": "Don't show the donation note again"
+  },
+  "optEasiest": {
+    "message": "Easiest: an API key. Gemini's has a free tier."
+  },
+  "optExecuteJs": {
+    "message": "<strong>Let it suggest JavaScript.</strong> You see every script and it only runs after you confirm. Scripts can do anything on the page with your login, and may not be undoable. Leave this off unless you need it."
+  },
+  "optExport": {
+    "message": "Export"
+  },
+  "optExportHint": {
+    "message": "Export saves your patches, settings, conversations and memory to a file, for example to move them to another copy of the extension. Importing adds to what's here and never overwrites something newer. API keys and the pairing token are never exported."
+  },
+  "optForDevelopers": {
+    "message": "For developers."
+  },
+  "optFreeLocal": {
+    "message": "Free and private, on your computer. Needs a few setup steps."
+  },
+  "optFullAutoHint": {
+    "message": "Full auto (never asks) can only be switched on per conversation. Style changes and scripts always wait for your click."
+  },
+  "optImport": {
+    "message": "Import…"
+  },
+  "optInBrowser": {
+    "message": "In this browser"
+  },
+  "optInBrowserNote": {
+    "message": "Removed if you uninstall the extension, so export it first."
+  },
+  "optIntro": {
+    "message": "An AI assistant for the page you're on, and inside Chrome DevTools. Three steps, about two minutes."
+  },
+  "optKeyStays": {
+    "message": "Your key stays in this browser and is only sent to <span id=\"key-host\"></span>. Usage is billed to your account there."
+  },
+  "optKeyWhere": {
+    "message": "Create a key at <a id=\"key-link\" target=\"_blank\" rel=\"noopener\"></a>, copy it, and paste it here. It is checked right away."
+  },
+  "optLicense": {
+    "message": "Free and open source (GNU AGPL)."
+  },
+  "optLocalAi": {
+    "message": "Local AI"
+  },
+  "optMayDo": {
+    "message": "What the AI may do"
+  },
+  "optMayDoHint": {
+    "message": "On the page, in new conversations (you can change it per conversation, next to the message box):"
+  },
+  "optModeAsk": {
+    "message": "<strong>Ask each step.</strong> It works on the page by itself and asks before every click, typing or page change."
+  },
+  "optModeAuto": {
+    "message": "<strong>Auto.</strong> It works on the page by itself and only asks before risky steps: submitting, sending, paying, deleting, password fields, or going to another site."
+  },
+  "optModeSuggest": {
+    "message": "<strong>Suggest.</strong> It proposes clicks and changes; nothing happens until you click."
+  },
+  "optMoreModels": {
+    "message": "More models with an API key, from China-based AI companies."
+  },
+  "optMoreProviders": {
+    "message": "More AI providers"
+  },
+  "optOllama1": {
+    "message": "Install Ollama from <a href=\"https://ollama.com/download\" target=\"_blank\" rel=\"noopener\">ollama.com</a>."
+  },
+  "optOllama2": {
+    "message": "Download a model that can use tools. In a terminal (<span id=\"ollama-terminal\">PowerShell</span>), run:"
+  },
+  "optOllama3": {
+    "message": "Let this extension use Ollama, and give models room for its instructions (Ollama's default is too small):"
+  },
+  "optOllama5": {
+    "message": "Click <strong>Check connection</strong>. It tells you which step is missing, if any."
+  },
+  "optOllamaCompact": {
+    "message": "<strong>Short prompts for Ollama.</strong> Uses about 2,800 tokens for instructions and tools instead of 6,600. Turn it on only if your model has a context window of 8K tokens or less; with more, the full prompt works better."
+  },
+  "optOnServer": {
+    "message": "On the agent server"
+  },
+  "optOnServerNote": {
+    "message": "The server backs this folder up before an update changes its format."
+  },
+  "optPin": {
+    "message": "<strong>Pin the icon</strong> so it's always there: click the puzzle piece in the toolbar, then the pin next to IntegratedAI."
+  },
+  "optReloadHint": {
+    "message": "Pages that were already open need a reload. Nothing changes on a page until you approve it."
+  },
+  "optSees": {
+    "message": "What the AI sees with each message"
+  },
+  "optSeesHint": {
+    "message": "These start switched on in the panel. You can switch them per message there."
+  },
+  "optServer1": {
+    "message": "Install <a href=\"https://nodejs.org\" target=\"_blank\" rel=\"noopener\">Node.js</a> and Claude Code, then start the agent server (<a href=\"https://github.com/alpkavakli/IntegratedAI#setup\" target=\"_blank\" rel=\"noopener\">setup guide</a>)."
+  },
+  "optServer2": {
+    "message": "Paste the pairing token it prints:"
+  },
+  "optServerButton": {
+    "message": "No need to run <code>npm start</code> each time: the panel's <strong>Server</strong> button starts and stops the server. It needs a one-time setup in the IntegratedAI folder:"
+  },
+  "optSourceCode": {
+    "message": "Source code"
+  },
+  "optStep1": {
+    "message": "Choose your AI"
+  },
+  "optStep3": {
+    "message": "Start using it"
+  },
+  "optStepsFor": {
+    "message": "Steps for"
+  },
+  "optTryIt": {
+    "message": "Try it now"
+  },
+  "optTryItHint": {
+    "message": "Opens a Wikipedia article with the card."
+  },
+  "optUseCard": {
+    "message": "<strong>Quick questions, on any page.</strong> Click the IntegratedAI icon in the toolbar<span id=\"card-shortcut-text\">, or press <kbd id=\"card-shortcut\">Alt+Shift+A</kbd></span>. A small card opens on the page: ask about it, have it read or explain things, fix how it looks. Drag it anywhere, or against the side as a panel."
+  },
+  "optUseDevtools": {
+    "message": "<strong>Everything, in DevTools.</strong> Press <kbd>F12</kbd> (or right-click and choose <strong>Inspect</strong>) and open the <strong>AI</strong> tab (behind <strong>»</strong> if you don't see it). There it can also fill in forms and work through pages step by step, edit elements, save tasks to run again, and read the network log."
+  },
+  "optWebTools": {
+    "message": "Search the web and read documentation (Claude only). It never sees your files, cookies or passwords."
+  },
+  "optYourComputer": {
+    "message": "Your computer"
+  },
+  "optYourData": {
+    "message": "Your data"
   },
   "orPickOther": {
     "message": "Or pick \"$1\" in the provider menu."
   },
+  "otherKindsCount": {
+    "message": "Other kinds of pages ($1)"
+  },
+  "otherSitesCount": {
+    "message": "Other sites ($1)"
+  },
+  "pageButton": {
+    "message": "page button \"$1\""
+  },
+  "pageType": {
+    "message": "Page type:"
+  },
+  "pageTypeExample": {
+    "message": "e.g. Chapter reader"
+  },
+  "pageTypeName": {
+    "message": "Page type name"
+  },
+  "pageTypePattern": {
+    "message": "Page type URL pattern"
+  },
+  "pageTypesCount": {
+    "message": "Page types ($1)"
+  },
+  "pairingToken": {
+    "message": "Pairing token"
+  },
   "panelFailed": {
     "message": "The AI panel failed to start: $1"
+  },
+  "pasteKeyFirst": {
+    "message": "Paste your API key first."
+  },
+  "pasteKeyTitle": {
+    "message": "Paste your API key"
+  },
+  "pasteTokenFirst": {
+    "message": "Paste the pairing token first."
+  },
+  "patchEnabled": {
+    "message": "Patch \"$1\" enabled"
+  },
+  "patternHelp": {
+    "message": "\"*\" = one path part (any ID or slug), a final \"**\" = anything below."
   },
   "pickElement": {
     "message": "Pick element"
@@ -179,17 +926,134 @@
   "pickElementTitle": {
     "message": "Click an element on the page to ask about it (Esc cancels)"
   },
+  "pinned": {
+    "message": "The IntegratedAI icon is pinned to your toolbar."
+  },
+  "preview": {
+    "message": "Preview"
+  },
   "promptPlaceholder": {
     "message": "Ask about this page or the selected element"
   },
   "providerNotSetUp": {
     "message": "$1 isn't set up: $2"
   },
+  "pvAnthropic": {
+    "message": "by Anthropic · API key · best results"
+  },
+  "pvCustom": {
+    "message": "any OpenAI-compatible service or your own server: Groq, Mistral, LM Studio, vLLM…"
+  },
+  "pvDeepseek": {
+    "message": "DeepSeek · API key · low prices"
+  },
+  "pvGemini": {
+    "message": "by Google · API key · free tier"
+  },
+  "pvGlm": {
+    "message": "Z.ai (Zhipu) · API key"
+  },
+  "pvKimi": {
+    "message": "Moonshot AI · API key"
+  },
+  "pvMinimax": {
+    "message": "MiniMax · API key"
+  },
+  "pvOllama": {
+    "message": "free models · nothing leaves your computer"
+  },
+  "pvOpenai": {
+    "message": "by OpenAI · API key"
+  },
+  "pvOpenrouter": {
+    "message": "many models, one key · some free"
+  },
+  "pvQwen": {
+    "message": "Alibaba Cloud Model Studio · API key"
+  },
+  "pvServer": {
+    "message": "your Claude subscription · needs this project from GitHub"
+  },
+  "readyStep3": {
+    "message": "You're ready: see step 3."
+  },
+  "refFound": {
+    "message": "the element the AI found ($1)"
+  },
+  "reject": {
+    "message": "Reject"
+  },
+  "rememberedGroup": {
+    "message": "Remembered (this kind of page): $1"
+  },
+  "rememberedSite": {
+    "message": "Remembered (whole site): $1"
+  },
+  "rename": {
+    "message": "Rename"
+  },
+  "reviewedCode": {
+    "message": "I reviewed this code"
+  },
+  "run": {
+    "message": "Run"
+  },
+  "runAgain": {
+    "message": "Run again"
+  },
+  "runHere": {
+    "message": "Run these steps on this page"
+  },
+  "runOpens": {
+    "message": "Opens $1 first (asks before leaving this site)"
+  },
+  "runScript": {
+    "message": "Run script"
+  },
+  "runSteps": {
+    "message": "Run steps"
+  },
+  "save": {
+    "message": "Save"
+  },
   "saveMarkdownLabel": {
     "message": "Save this conversation as Markdown"
   },
   "saveMarkdownTitle": {
     "message": "Save this conversation as a Markdown file"
+  },
+  "saveOneStep": {
+    "message": "Save this step as a task"
+  },
+  "savePatch": {
+    "message": "Save as site patch…"
+  },
+  "savePatchButton": {
+    "message": "Save patch"
+  },
+  "savePatchToggle": {
+    "message": "Save as site patch + toggle…"
+  },
+  "saveSteps": {
+    "message": "Save these $1 steps as a task"
+  },
+  "scopeGroup": {
+    "message": "Pages like this: $1 ($2)"
+  },
+  "scopePage": {
+    "message": "This page ($1)"
+  },
+  "scopePattern": {
+    "message": "Custom URL pattern…"
+  },
+  "scopeSite": {
+    "message": "Whole site ($1)"
+  },
+  "screenshotOf": {
+    "message": "Screenshot of $1"
+  },
+  "selectLink": {
+    "message": "select"
   },
   "send": {
     "message": "Send"
@@ -202,6 +1066,9 @@
   },
   "serverAllowFirst": {
     "message": "Allow IntegratedAI to talk to its helper program first (click Server again)."
+  },
+  "serverNoAnswer": {
+    "message": "The agent server did not answer."
   },
   "serverNotRunning": {
     "message": "The local server isn't running."
@@ -227,11 +1094,74 @@
   "serverStopping": {
     "message": "Stopping the local server…"
   },
+  "serverUnreachable": {
+    "message": "Can't reach the agent server. Is it running (npm start)?"
+  },
   "setUpInOptions": {
     "message": "Set it up in Options"
   },
+  "setUpOllama": {
+    "message": "Set up Ollama"
+  },
   "settings": {
     "message": "Settings"
+  },
+  "settingsRestored": {
+    "message": "Settings restored."
+  },
+  "setupIntro": {
+    "message": "This panel explains and fixes the page you are inspecting. It needs one of these:"
+  },
+  "setupKey": {
+    "message": "An API key"
+  },
+  "setupKeyText": {
+    "message": "from Anthropic (Claude), OpenAI, Google Gemini, DeepSeek and others. Usage is billed to your account there."
+  },
+  "setupOllamaText": {
+    "message": "free models that run on your own computer, no key."
+  },
+  "setupServer": {
+    "message": "The local agent server"
+  },
+  "setupServerText": {
+    "message": "(for developers): use your Claude subscription through Claude Code."
+  },
+  "setupTitle": {
+    "message": "Connect an AI to get started"
+  },
+  "showLink": {
+    "message": "show"
+  },
+  "sitePrivate": {
+    "message": "$1 (private)"
+  },
+  "sourceUndone": {
+    "message": "Source edits undone."
+  },
+  "stApplied": {
+    "message": "Applied"
+  },
+  "stFailed": {
+    "message": "Failed"
+  },
+  "stInvalid": {
+    "message": "Invalid"
+  },
+  "stPreviewing": {
+    "message": "Previewing"
+  },
+  "stProposed": {
+    "message": "Awaiting your approval"
+  },
+  "stRejected": {
+    "message": "Rejected"
+  },
+  "stSaved": {
+    "message": "Saved as site patch"
+  },
+  "stUndone": {
+    "message": "Undone"
   },
   "startServer": {
     "message": "Start server"
@@ -239,11 +1169,41 @@
   "startServerTitle": {
     "message": "Start the local server"
   },
+  "steps": {
+    "message": "Steps"
+  },
   "stop": {
     "message": "Stop"
   },
+  "stopPreview": {
+    "message": "Stop preview"
+  },
   "stopServerTitle": {
     "message": "Stop the local server"
+  },
+  "sugBetter": {
+    "message": "Make this look better"
+  },
+  "sugConsole": {
+    "message": "Explain the console errors"
+  },
+  "sugDark": {
+    "message": "Make this dark"
+  },
+  "sugEasier": {
+    "message": "Make this easier to read"
+  },
+  "sugExplainPicked": {
+    "message": "Explain what I picked"
+  },
+  "sugOverflow": {
+    "message": "Why is this overflowing?"
+  },
+  "sugSummarize": {
+    "message": "Summarize this page"
+  },
+  "sugTranslate": {
+    "message": "Translate this page"
   },
   "switchConnection": {
     "message": "Switch connection"
@@ -263,6 +1223,24 @@
   "tabTasks": {
     "message": "Tasks"
   },
+  "target": {
+    "message": "Target:"
+  },
+  "targetPicked": {
+    "message": "(the element you picked)"
+  },
+  "targetSelected": {
+    "message": "(element selected in Elements panel)"
+  },
+  "taskMeta": {
+    "message": "$1 steps · starts on $2"
+  },
+  "taskMetaOne": {
+    "message": "1 step · starts on $1"
+  },
+  "taskName": {
+    "message": "Task name"
+  },
   "taskRan": {
     "message": "Ran the saved task \"$1\" ($2 steps)"
   },
@@ -272,8 +1250,38 @@
   "taskRunning": {
     "message": "Running the saved task \"$1\""
   },
+  "taskSaved": {
+    "message": "Saved as \"$1\". Run it from the Tasks tab."
+  },
   "taskStopped": {
     "message": "The saved task \"$1\" stopped: $2"
+  },
+  "thinking": {
+    "message": "Thinking…"
+  },
+  "thinkingFor": {
+    "message": "Thinking… $1s"
+  },
+  "thisKindCount": {
+    "message": "This kind of page ($1)"
+  },
+  "thisKindLower": {
+    "message": "this kind of page"
+  },
+  "thisKindOfPage": {
+    "message": "This kind of page"
+  },
+  "thisPageCount": {
+    "message": "This page ($1)"
+  },
+  "thisPagePath": {
+    "message": "This page: $1"
+  },
+  "thisPageType": {
+    "message": "this page type"
+  },
+  "thisSiteCount": {
+    "message": "This site ($1)"
   },
   "toDevtools": {
     "message": "Continue in DevTools"
@@ -284,6 +1292,39 @@
   "toDevtoolsTitle": {
     "message": "Form filling, page steps, element edits, scripts and the network log are in the DevTools panel"
   },
+  "toSource": {
+    "message": "Apply to source…"
+  },
+  "toSourceHead": {
+    "message": "Apply to source: $1"
+  },
+  "toSourceHelp": {
+    "message": "Claude Code looks through $1 and proposes edits. Nothing is written until you click \"Write to files\"."
+  },
+  "toggleButton": {
+    "message": "Toggle button \"$1\""
+  },
+  "toggleFloating": {
+    "message": "(floating in the corner)"
+  },
+  "toggleIn": {
+    "message": "in"
+  },
+  "toggleNote": {
+    "message": "It appears on the page after you save this as a site patch, and remembers on/off."
+  },
+  "translate": {
+    "message": "Translate"
+  },
+  "translateAgain": {
+    "message": "Translate again"
+  },
+  "translateInto": {
+    "message": "Translate the visible text of the page into $1."
+  },
+  "translateNote": {
+    "message": "Uses your AI (a request for every few dozen pieces of text). Only the text changes; Undo restores it."
+  },
   "translated": {
     "message": "Translated."
   },
@@ -292,6 +1333,12 @@
   },
   "turnOnFullAuto": {
     "message": "Turn on Full auto"
+  },
+  "undo": {
+    "message": "Undo"
+  },
+  "undoSource": {
+    "message": "Undo source edits"
   },
   "unload": {
     "message": "Unload"
@@ -310,5 +1357,62 @@
   },
   "unloaded": {
     "message": "Unloaded $1: your graphics card is free. Your next message loads it again (a few seconds). To quit Ollama completely, use its own icon (by the clock, or in the menu bar)."
+  },
+  "untitledTask": {
+    "message": "Untitled task"
+  },
+  "update": {
+    "message": "Update"
+  },
+  "vCheck": {
+    "message": "Check"
+  },
+  "vClick": {
+    "message": "Click"
+  },
+  "vHover": {
+    "message": "Point at"
+  },
+  "vPress": {
+    "message": "Press"
+  },
+  "vScroll": {
+    "message": "Scroll"
+  },
+  "vSelect": {
+    "message": "Choose in"
+  },
+  "vSubmit": {
+    "message": "Submit the form of"
+  },
+  "vType": {
+    "message": "Type into"
+  },
+  "vUncheck": {
+    "message": "Uncheck"
+  },
+  "vWait": {
+    "message": "Wait for"
+  },
+  "wholeSiteCount": {
+    "message": "Whole site ($1)"
+  },
+  "wholeSiteLower": {
+    "message": "whole site"
+  },
+  "writeFile": {
+    "message": "Write to file"
+  },
+  "writeFiles": {
+    "message": "Write to files"
+  },
+  "writtenTo": {
+    "message": "✓ Written to $1"
+  },
+  "yesterday": {
+    "message": "yesterday"
+  },
+  "yourProject": {
+    "message": "your project"
   }
 }

@@ -5,6 +5,7 @@
  *
  *   npm run ui-check              screenshots go to a temporary folder (printed at the end)
  *   npm run ui-check -- <folder>  or to that folder
+ *   UI_LANG=tr npm run ui-check   with Chrome in another language (screenshots only: the checks expect English)
  *
  * No API key and no real AI: the extension runs in direct mode against a scripted stand-in
  * for Ollama on this machine, which answers with text, a memory note and a CSS proposal.
@@ -124,7 +125,7 @@ const ollama = http.createServer((req, res) => {
 }).listen(PORTS.ollama);
 
 const chrome = spawn(CHROME, ['--headless=new', `--remote-debugging-port=${PORTS.cdp}`, '--enable-unsafe-extension-debugging',
-  '--hide-scrollbars', `--user-data-dir=${join(WORK, 'chrome')}`, 'about:blank'], { stdio: 'ignore' });
+  '--hide-scrollbars', `--user-data-dir=${join(WORK, 'chrome')}`, ...(process.env.UI_LANG ? [`--lang=${process.env.UI_LANG}`] : []), 'about:blank'], { stdio: 'ignore' });
 const axe = await (await fetch(AXE_URL)).text();
 await sleep(3000);
 

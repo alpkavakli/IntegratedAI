@@ -9,6 +9,7 @@ import { callInPage } from '../lib/inspected.js';
 import { clearConsole } from '../lib/page-scripts.js';
 import { IN_CARD } from '../lib/surface.js';
 import { h, setChildren } from '../lib/dom.js';
+import { t } from '../../shared/i18n.js';
 import { readConsole } from '../lib/page-scripts.js';
 
 const POLL_VISIBLE_MS = 2000;
@@ -61,16 +62,16 @@ export class ConsoleView extends HTMLElement {
       h('div', { class: 'toolbar-row' },
         h('label', null,
           h('input', { type: 'checkbox', checked: this.showAll, onchange: (/** @type {any} */ e) => { this.showAll = e.target.checked; this.refresh(true); } }),
-          ' Include info/log'),
+          ' ', t('includeLog', 'Include info/log')),
         h('button', {
           type: 'button',
           onclick: async () => {
             await callInPage(clearConsole);
             this.refresh(true);
           },
-        }, 'Clear')),
+        }, t('clear', 'Clear'))),
       note ? h('div', { class: 'meta' }, note) : null,
-      !note && !this.entries.length ? h('div', { class: 'meta' }, 'No errors or warnings captured on this page.') : null,
+      !note && !this.entries.length ? h('div', { class: 'meta' }, t('noConsole', 'No errors or warnings captured on this page.')) : null,
       [...this.entries].reverse().map((entry) => this.renderEntry(entry)),
     );
   }
@@ -87,9 +88,9 @@ export class ConsoleView extends HTMLElement {
             type: 'button',
             title: `${location.url}:${location.line}`,
             onclick: () => chrome.devtools.panels.openResource(location.url, Math.max(location.line - 1, 0), Math.max(location.column - 1, 0), () => {}),
-          }, 'Open source')
+          }, t('openSource', 'Open source'))
           : null,
-        h('button', { type: 'button', onclick: () => this.app?.explainError(entry) }, 'Explain')),
+        h('button', { type: 'button', onclick: () => this.app?.explainError(entry) }, t('explain', 'Explain'))),
       h('div', { class: 'message' }, entry.message),
     );
   }

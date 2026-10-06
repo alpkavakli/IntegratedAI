@@ -11,16 +11,18 @@ import { ACTIONS, validateAction } from '../../shared/actions.js';
 import { defaultScopeFor } from '../../shared/url-scope.js';
 import { h, setChildren } from '../lib/dom.js';
 import { IN_CARD } from '../lib/surface.js';
+import { t } from '../../shared/i18n.js';
+import { actionLabel } from '../lib/action-labels.js';
 
 const STATUS_LABEL = {
-  proposed: 'Awaiting your approval',
-  previewing: 'Previewing',
-  applied: 'Applied',
-  rejected: 'Rejected',
-  failed: 'Failed',
-  undone: 'Undone',
-  saved: 'Saved as site patch',
-  invalid: 'Invalid',
+  proposed: t('stProposed', 'Awaiting your approval'),
+  previewing: t('stPreviewing', 'Previewing'),
+  applied: t('stApplied', 'Applied'),
+  rejected: t('stRejected', 'Rejected'),
+  failed: t('stFailed', 'Failed'),
+  undone: t('stUndone', 'Undone'),
+  saved: t('stSaved', 'Saved as site patch'),
+  invalid: t('stInvalid', 'Invalid'),
 };
 
 export class ActionCard extends HTMLElement {
@@ -55,7 +57,6 @@ export class ActionCard extends HTMLElement {
   update() {
     const { app, actionId, name, input } = this;
     if (!app) return;
-    const def = ACTIONS[name];
     const record = app.session?.actions[actionId];
     const serverStatus = record?.status ?? 'proposed';
     const previewing = app.changes.isPreviewing(actionId);
@@ -65,7 +66,7 @@ export class ActionCard extends HTMLElement {
 
     setChildren(this,
       h('div', { class: 'head' },
-        def?.label ?? name,
+        actionLabel(name),
         h('span', { class: `status ${status}` }, STATUS_LABEL[status] ?? status)),
       input?.description ? h('div', { class: 'desc' }, input.description) : null,
       this.renderBody(),
@@ -81,17 +82,17 @@ export class ActionCard extends HTMLElement {
     const { name, input } = this;
     const target = this.app.targetFor(this.actionId, input);
     const targetLine = name === 'inject_css' ? null : h('div', { class: 'target' },
-      'Target: ', target ? h('code', null, target) : (IN_CARD ? '(the element you picked)' : '(element selected in Elements panel)'), ' ',
-      target ? h('button', { class: 'link', type: 'button', onclick: () => this.app.selectInElements(target) }, 'select') : null);
+      t('target', 'Target:'), ' ', target ? h('code', null, target) : (IN_CARD ? t('targetPicked', '(the element you picked)') : t('targetSelected', '(element selected in Elements panel)')), ' ',
+      target ? h('button', { class: 'link', type: 'button', onclick: () => this.app.selectInElements(target) }, t('selectLink', 'select')) : null);
 
     if (name === 'inject_css') {
-      const t = input.toggle;
+      const toggle = input.toggle;
       return h('div', null,
         h('pre', null, h('code', null, input.css)),
-        t ? h('div', { class: 'note' },
-          `Toggle button "${t.label}"${t.activeLabel ? ` / "${t.activeLabel}"` : ''} `,
-          t.placeSelector ? ['in ', h('code', null, t.placeSelector), t.position && t.position !== 'append' ? ` (${t.position})` : ''] : '(floating in the corner)',
-          '. It appears on the page after you save this as a site patch, and remembers on/off.') : null);
+        toggle ? h('div', { class: 'note' },
+          t('toggleButton', 'Toggle button "$1"', toggle.label + (toggle.activeLabel ? `" / "${toggle.activeLabel}` : '')), ' ',
+          toggle.placeSelector ? [t('toggleIn', 'in'), ' ', h('code', null, toggle.placeSelector), toggle.position && toggle.position !== 'append' ? ` (${toggle.position})` : ''] : t('toggleFloating', '(floating in the corner)'),
+          '. ', t('toggleNote', 'It appears on the page after you save this as a site patch, and remembers on/off.')) : null);
     }
 
     if (name === 'modify_element') {
@@ -109,8 +110,9 @@ export class ActionCard extends HTMLElement {
 
     if (name === 'interact') {
       const VERB = {
-        click: 'Click', type: 'Type into', select: 'Choose in', check: 'Check', uncheck: 'Uncheck', submit: 'Submit the form of',
-        scroll: 'Scroll', press: 'Press', wait: 'Wait for', hover: 'Point at',
+        click: t('vClick', 'Click'), type: t('vType', 'Type into'), select: t('vSelect', 'Choose in'), check: t('vCheck', 'Check'),
+        uncheck: t('vUncheck', 'Uncheck'), submit: t('vSubmit', 'Submit the form of'),
+        scroll: t('vScroll', 'Scroll'), press: t('vPress', 'Press'), wait: t('vWait', 'Wait for'), hover: t('vHover', 'Point at'),
       };
       const steps = /** @type {any[]} */ (input.steps ?? []);
       const clicks = steps.some((s) => s.action === 'click' || s.action === 'submit');
@@ -118,38 +120,38 @@ export class ActionCard extends HTMLElement {
         h('ol', { class: 'changes' }, steps.map((s) => h('li', null,
           `${VERB[s.action] ?? s.action} `,
           s.text ? `"${s.text}"` : null,
-          s.text && s.selector ? ' in ' : null,
+          s.text && s.selector ? ` ${t('toggleIn', 'in')} ` : null,
           s.selector ? h('code', null, s.selector) : null,
-          s.ref ? `the element the AI found (${s.ref})` : null,
+          s.ref ? t('refFound', 'the element the AI found ($1)', s.ref) : null,
           s.action === 'type' || s.action === 'select' ? ` → "${String(s.value ?? '').slice(0, 120)}"` : null,
-          s.action === 'scroll' || s.action === 'press' ? ` ${s.value ?? 'into view'}` : null,
+          s.action === 'scroll' || s.action === 'press' ? ` ${s.value ?? t('intoView', 'into view')}` : null,
           s.action === 'wait' && !s.selector && !s.text && !s.ref ? `${s.value} s` : null,
-          s.selector || s.ref ? [' ', h('button', { class: 'link', type: 'button', onclick: () => this.app.highlight(s.selector, s.ref, input.frame) }, 'show')] : null))),
+          s.selector || s.ref ? [' ', h('button', { class: 'link', type: 'button', onclick: () => this.app.highlight(s.selector, s.ref, input.frame) }, t('showLink', 'show'))] : null))),
         h('div', { class: 'note' }, clicks
-          ? 'Uses real clicks and typing, like you would. Clicks and submits cannot be undone.'
-          : 'Uses real typing and selection, like you would. Can be undone.'));
+          ? t('interactClicks', 'Uses real clicks and typing, like you would. Clicks and submits cannot be undone.')
+          : t('interactTyping', 'Uses real typing and selection, like you would. Can be undone.')));
     }
 
     if (name === 'navigate') {
-      return h('div', null, input.url ? ['Open ', h('code', null, input.url)] : `Go ${input.go}`);
+      return h('div', null, input.url ? [t('navOpen', 'Open'), ' ', h('code', null, input.url)] : input.go === 'back' ? t('navBack', 'Go back') : input.go === 'forward' ? t('navForward', 'Go forward') : t('navReload', 'Reload'));
     }
 
     if (name === 'translate_page') {
       return h('div', null,
-        h('div', null, `Translate the visible text of the page into ${input.language}.`),
-        h('div', { class: 'note' }, 'Uses your AI (a request for every few dozen pieces of text). Only the text changes; Undo restores it.'));
+        h('div', null, t('translateInto', 'Translate the visible text of the page into $1.', input.language)),
+        h('div', { class: 'note' }, t('translateNote', 'Uses your AI (a request for every few dozen pieces of text). Only the text changes; Undo restores it.')));
     }
 
     if (name === 'execute_js') {
       return h('div', null,
-        h('div', { class: 'warning' }, '⚠ Runs arbitrary JavaScript in this page, with access to its data and logged-in session.'),
+        h('div', { class: 'warning' }, t('jsWarning', '⚠ Runs arbitrary JavaScript in this page, with access to its data and logged-in session.')),
         targetLine,
         h('pre', null, h('code', null, input.code)),
         input.undoCode
           ? h('details', null,
-            h('summary', null, 'Undo: model-provided script (best effort, not guaranteed to fully restore)'),
+            h('summary', null, t('jsUndo', 'Undo: model-provided script (best effort, not guaranteed to fully restore)')),
             h('pre', null, h('code', null, input.undoCode)))
-          : h('div', { class: 'warning' }, 'Not undoable. To revert, reload the page.'));
+          : h('div', { class: 'warning' }, t('jsNoUndo', 'Not undoable. To revert, reload the page.')));
     }
     return h('pre', null, JSON.stringify(input, null, 2));
   }
@@ -182,35 +184,35 @@ export class ActionCard extends HTMLElement {
     const check = name === 'execute_js' ? null : h('button', {
       type: 'button',
       disabled: disabled || app.session?.busy,
-      title: 'The AI takes a screenshot of the result and proposes fixes for anything that still looks wrong',
+      title: t('checkItHelp', 'The AI takes a screenshot of the result and proposes fixes for anything that still looks wrong'),
       onclick: () => app.sendFromUi(checkRequest(this.input?.description || ACTIONS[name]?.label || name)),
-    }, 'Check it');
+    }, t('checkIt', 'Check it'));
 
     // Put an applied CSS change into the project's own source files (when a project is set up for this site).
     const toSource = name === 'inject_css' && app.sourceProject && !this.sourceBusy && !this.sourceProposal
       && this.app.session?.actions[actionId]?.source?.status !== 'written'
       ? h('button', {
         type: 'button', disabled,
-        title: `Claude Code looks through ${app.sourceProject.path} and proposes edits. Nothing is written until you click "Write to files".`,
+        title: t('toSourceHelp', 'Claude Code looks through $1 and proposes edits. Nothing is written until you click "Write to files".', app.sourceProject.path),
         onclick: () => this.proposeSource(),
-      }, 'Apply to source…')
+      }, t('toSource', 'Apply to source…'))
       : null;
 
-    if (status === 'saved') return [check, toSource, h('span', { class: 'note' }, 'Manage it in the Patches tab.')];
+    if (status === 'saved') return [check, toSource, h('span', { class: 'note' }, t('manageInPatches', 'Manage it in the Patches tab.'))];
 
     if (status === 'applied') {
       if (!appliedHere) {
-        return [h('span', { class: 'note' }, 'No longer active on this page (it was reloaded or DevTools lost track of it).')];
+        return [h('span', { class: 'note' }, t('noLongerActive', 'No longer active on this page (it was reloaded or DevTools lost track of it).'))];
       }
       return [
         check,
         toSource,
         app.changes.canUndo(actionId)
-          ? h('button', { type: 'button', disabled, onclick: run(() => app.undoAction(actionId)) }, 'Undo')
-          : h('span', { class: 'note' }, 'Cannot be undone automatically; reload the page to revert.'),
+          ? h('button', { type: 'button', disabled, onclick: run(() => app.undoAction(actionId)) }, t('undo', 'Undo'))
+          : h('span', { class: 'note' }, t('cannotUndo', 'Cannot be undone automatically; reload the page to revert.')),
         name === 'inject_css'
           ? h('button', { type: 'button', disabled, onclick: () => { this.showSaveForm = !this.showSaveForm; this.update(); } },
-            this.input.toggle ? 'Save as site patch + toggle…' : 'Save as site patch…')
+            this.input.toggle ? t('savePatchToggle', 'Save as site patch + toggle…') : t('savePatch', 'Save as site patch…'))
           : null,
       ];
     }
@@ -222,25 +224,25 @@ export class ActionCard extends HTMLElement {
       buttons.push(
         h('label', null,
           h('input', { type: 'checkbox', checked: this.reviewed, onchange: (/** @type {any} */ e) => { this.reviewed = e.target.checked; this.update(); } }),
-          ' I reviewed this code'),
-        h('button', { type: 'button', class: 'primary', disabled: disabled || !this.reviewed, onclick: run(() => app.applyAction(actionId)) }, 'Run script'),
+          ' ', t('reviewedCode', 'I reviewed this code')),
+        h('button', { type: 'button', class: 'primary', disabled: disabled || !this.reviewed, onclick: run(() => app.applyAction(actionId)) }, t('runScript', 'Run script')),
       );
     } else if (name === 'translate_page') {
       buttons.push(h('button', { type: 'button', class: 'primary', disabled, onclick: run(() => app.applyAction(actionId)) },
-        status === 'proposed' ? 'Translate' : 'Translate again'));
+        status === 'proposed' ? t('translate', 'Translate') : t('translateAgain', 'Translate again')));
     } else if (name === 'interact' || name === 'navigate') {
       buttons.push(h('button', { type: 'button', class: 'primary', disabled, onclick: run(() => app.applyAction(actionId)) },
-        name === 'navigate' ? (status === 'proposed' ? 'Go' : 'Go again') : status === 'proposed' ? 'Run steps' : 'Run again'));
+        name === 'navigate' ? (status === 'proposed' ? t('go', 'Go') : t('goAgain', 'Go again')) : status === 'proposed' ? t('runSteps', 'Run steps') : t('runAgain', 'Run again')));
     } else {
       buttons.push(
         h('button', { type: 'button', disabled, onclick: run(() => (previewing ? app.stopPreview(actionId) : app.previewAction(actionId))) },
-          previewing ? 'Stop preview' : 'Preview'),
+          previewing ? t('stopPreview', 'Stop preview') : t('preview', 'Preview')),
         h('button', { type: 'button', class: 'primary', disabled, onclick: run(() => app.applyAction(actionId)) },
-          status === 'proposed' ? 'Apply' : 'Apply again'),
+          status === 'proposed' ? t('apply', 'Apply') : t('applyAgain', 'Apply again')),
       );
     }
     if (status === 'proposed') {
-      buttons.push(h('button', { type: 'button', disabled, onclick: run(() => app.rejectAction(actionId)) }, 'Reject'));
+      buttons.push(h('button', { type: 'button', disabled, onclick: run(() => app.rejectAction(actionId)) }, t('reject', 'Reject')));
     }
     return buttons;
   }
@@ -267,7 +269,7 @@ export class ActionCard extends HTMLElement {
     try {
       const reply = await this.app.writeSource(this.actionId, op);
       if (op === 'write') this.sourceProposal = null;
-      if (reply.skipped?.length) this.sourceError = `Not restored because you changed them since: ${reply.skipped.join(', ')}`;
+      if (reply.skipped?.length) this.sourceError = t('notRestored', 'Not restored because you changed them since: $1', reply.skipped.join(', '));
     } catch (err) {
       this.sourceError = String(/** @type {any} */ (err)?.message ?? err);
     } finally {
@@ -284,13 +286,13 @@ export class ActionCard extends HTMLElement {
     const project = this.app.sourceProject;
     const error = this.sourceError ? h('div', { class: 'errors' }, this.sourceError) : null;
     if (this.sourceBusy) {
-      return h('div', { class: 'source' }, h('div', { class: 'note' }, `Looking through ${project?.name ?? 'your project'} for where this belongs… (this can take a minute)`));
+      return h('div', { class: 'source' }, h('div', { class: 'note' }, t('lookingThrough', 'Looking through $1 for where this belongs… (this can take a minute)', project?.name ?? t('yourProject', 'your project'))));
     }
     const p = this.sourceProposal;
     if (p) {
       const close = () => { this.sourceProposal = null; this.update(); };
       return h('div', { class: 'source' },
-        h('div', { class: 'head' }, `Apply to source: ${p.project.name}`),
+        h('div', { class: 'head' }, t('toSourceHead', 'Apply to source: $1', p.project.name)),
         p.summary ? h('div', null, p.summary) : null,
         p.previews.map((/** @type {any} */ e) => h('div', { class: 'edit' },
           h('div', { class: 'file' }, h('code', null, e.file), e.isNew ? ' (new file)' : ` (line ${e.line})`),
@@ -301,18 +303,18 @@ export class ActionCard extends HTMLElement {
         error,
         h('div', { class: 'buttons' }, p.previews.length
           ? [
-            h('button', { type: 'button', class: 'primary', onclick: () => this.writeSource('write') }, `Write to ${p.previews.length === 1 ? 'file' : 'files'}`),
-            h('button', { type: 'button', onclick: close }, 'Discard'),
+            h('button', { type: 'button', class: 'primary', onclick: () => this.writeSource('write') }, p.previews.length === 1 ? t('writeFile', 'Write to file') : t('writeFiles', 'Write to files')),
+            h('button', { type: 'button', onclick: close }, t('discard', 'Discard')),
           ]
-          : h('button', { type: 'button', onclick: close }, 'Close')));
+          : h('button', { type: 'button', onclick: close }, t('close', 'Close'))));
     }
     if (source?.status === 'written') {
       return h('div', { class: 'source' },
-        h('div', { class: 'note' }, `✓ Written to ${source.files.join(', ')}`),
+        h('div', { class: 'note' }, t('writtenTo', '✓ Written to $1', source.files.join(', '))),
         error,
-        h('div', { class: 'buttons' }, h('button', { type: 'button', onclick: () => this.writeSource('undo') }, 'Undo source edits')));
+        h('div', { class: 'buttons' }, h('button', { type: 'button', onclick: () => this.writeSource('undo') }, t('undoSource', 'Undo source edits'))));
     }
-    if (source?.status === 'undone') return h('div', { class: 'source' }, h('div', { class: 'note' }, 'Source edits undone.'), error);
+    if (source?.status === 'undone') return h('div', { class: 'source' }, h('div', { class: 'note' }, t('sourceUndone', 'Source edits undone.')), error);
     return error ? h('div', { class: 'source' }, error) : null;
   }
 
@@ -326,10 +328,10 @@ export class ActionCard extends HTMLElement {
     const scope = /** @type {HTMLSelectElement} */ (h('select', {
       onchange: () => { pattern.hidden = scope.value !== 'pattern'; },
     },
-    origin ? h('option', { value: 'origin' }, `Whole site (${origin.value})`) : null,
-    group && group.pattern !== '/' ? h('option', { value: 'group' }, `Pages like this: ${group.name ?? 'this page type'} (${group.pattern})`) : null,
-    h('option', { value: 'prefix' }, `This page (${pageUrl})`),
-    h('option', { value: 'pattern' }, 'Custom URL pattern…')));
+    origin ? h('option', { value: 'origin' }, t('scopeSite', 'Whole site ($1)', origin.value)) : null,
+    group && group.pattern !== '/' ? h('option', { value: 'group' }, t('scopeGroup', 'Pages like this: $1 ($2)', group.name ?? t('thisPageType', 'this page type'), group.pattern)) : null,
+    h('option', { value: 'prefix' }, t('scopePage', 'This page ($1)', pageUrl)),
+    h('option', { value: 'pattern' }, t('scopePattern', 'Custom URL pattern…'))));
 
     const save = async () => {
       /** @type {import('../../shared/url-scope.js').Scope} */
@@ -351,11 +353,11 @@ export class ActionCard extends HTMLElement {
     };
 
     return h('div', { class: 'save-form' },
-      h('label', null, 'Name'), name,
-      h('label', null, 'Apply on'), h('div', null, scope, ' ', pattern),
+      h('label', null, t('name', 'Name')), name,
+      h('label', null, t('applyOn', 'Apply on')), h('div', null, scope, ' ', pattern),
       h('div', { class: 'row-buttons' },
-        h('button', { type: 'button', class: 'primary', onclick: save }, 'Save patch'),
-        h('button', { type: 'button', onclick: () => { this.showSaveForm = false; this.update(); } }, 'Cancel')));
+        h('button', { type: 'button', class: 'primary', onclick: save }, t('savePatchButton', 'Save patch')),
+        h('button', { type: 'button', onclick: () => { this.showSaveForm = false; this.update(); } }, t('cancel', 'Cancel'))));
   }
 }
 

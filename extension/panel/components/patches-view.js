@@ -9,6 +9,7 @@
 import { describeScope, scopeMatches } from '../../shared/url-scope.js';
 import { bg } from '../lib/bg.js';
 import { h, setChildren } from '../lib/dom.js';
+import { t } from '../../shared/i18n.js';
 import { boostCss } from '../../shared/css-boost.js';
 
 export class PatchesView extends HTMLElement {
@@ -34,9 +35,9 @@ export class PatchesView extends HTMLElement {
     this.app.setPatchCount(here.filter((p) => p.enabled).length);
 
     setChildren(this,
-      h('div', { class: 'list-heading' }, `This page (${here.length})`),
-      here.length ? here.map((p) => this.renderPatch(p)) : h('div', { class: 'meta' }, 'No patches apply to this page. Apply a CSS change in the chat, then click "Save as site patch…".'),
-      elsewhere.length ? h('div', { class: 'list-heading' }, `Other sites (${elsewhere.length})`) : null,
+      h('div', { class: 'list-heading' }, t('thisPageCount', 'This page ($1)', here.length)),
+      here.length ? here.map((p) => this.renderPatch(p)) : h('div', { class: 'meta' }, t('noPatches', 'No patches apply to this page. Apply a CSS change in the chat, then click "Save as site patch…".')),
+      elsewhere.length ? h('div', { class: 'list-heading' }, t('otherSitesCount', 'Other sites ($1)', elsewhere.length)) : null,
       elsewhere.map((p) => this.renderPatch(p)),
     );
   }
@@ -52,11 +53,11 @@ export class PatchesView extends HTMLElement {
     return h('div', { class: 'item' },
       h('div', { class: 'row' },
         h('input', {
-          type: 'checkbox', checked: patch.enabled, title: patch.enabled ? 'Enabled' : 'Disabled', 'aria-label': `Patch "${patch.name}" enabled`,
+          type: 'checkbox', checked: patch.enabled, title: patch.enabled ? t('enabled', 'Enabled') : t('disabled', 'Disabled'), 'aria-label': t('patchEnabled', 'Patch "$1" enabled', patch.name),
           onchange: (/** @type {any} */ e) => update({ enabled: e.target.checked }),
         }),
         h('span', { class: 'title', title: patch.name }, patch.name),
-        h('button', { type: 'button', onclick: () => { editing ? this.editing.delete(patch.id) : this.editing.add(patch.id); this.refresh(); } }, editing ? 'Close' : 'Edit'),
+        h('button', { type: 'button', onclick: () => { editing ? this.editing.delete(patch.id) : this.editing.add(patch.id); this.refresh(); } }, editing ? t('close', 'Close') : t('edit', 'Edit')),
         h('button', {
           type: 'button', class: 'danger',
           // Two clicks to delete (native confirm() dialogs are unreliable inside DevTools).
@@ -65,14 +66,14 @@ export class PatchesView extends HTMLElement {
               await bg('patches.remove', { id: patch.id }).catch((err) => this.app?.showError(err.message));
             } else {
               e.target.dataset.armed = '1';
-              e.target.textContent = 'Click again to delete';
-              setTimeout(() => { delete e.target.dataset.armed; e.target.textContent = 'Delete'; }, 3000);
+              e.target.textContent = t('clickAgainDelete', 'Click again to delete');
+              setTimeout(() => { delete e.target.dataset.armed; e.target.textContent = t('delete', 'Delete'); }, 3000);
             }
           },
-        }, 'Delete')),
+        }, t('delete', 'Delete'))),
       h('div', { class: 'meta' },
-        `Applies to ${describeScope(patch.scope)} · ${patch.enabled ? 'enabled' : 'disabled'}`,
-        patch.toggle ? ` · page button "${patch.toggle.label}"` : ''),
+        `${t('appliesTo', 'Applies to $1', describeScope(patch.scope))} · ${patch.enabled ? t('enabledLower', 'enabled') : t('disabledLower', 'disabled')}`,
+        patch.toggle ? ` · ${t('pageButton', 'page button "$1"', patch.toggle.label)}` : ''),
       editing
         ? h('div', null,
           nameInput,
@@ -84,7 +85,7 @@ export class PatchesView extends HTMLElement {
                 this.editing.delete(patch.id);
                 await update({ name: nameInput.value.trim() || patch.name, css: cssInput.value, injectedCss: boostCss(cssInput.value) });
               },
-            }, 'Save')))
+            }, t('save', 'Save'))))
         : h('pre', null, h('code', null, patch.css.length > 600 ? `${patch.css.slice(0, 600)}…` : patch.css)),
     );
   }

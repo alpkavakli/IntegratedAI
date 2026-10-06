@@ -12,7 +12,8 @@ AI panel in Chrome DevTools: explains layout and console errors, previews CSS fi
 
 **Category:** Developer Tools
 
-**Language:** English
+**Languages:** English (default) and Turkish. The name and summary come from `extension/_locales/<lang>/messages.json`;
+the dashboard takes a description per language (Store listing → language menu), below.
 
 **Description:**
 
@@ -39,6 +40,38 @@ AI panel in Chrome DevTools: explains layout and console errors, previews CSS fi
 >
 > Developers can instead run the free local agent server to use a Claude subscription through Claude Code
 > and move CSS into their own project ("Apply to source"): https://github.com/alpkavakli/IntegratedAI
+
+**Description in Turkish (Türkçe):**
+
+> Chrome DevTools içinde bir yapay zekâ asistanı. Elements panelinde bir öğe seç, **AI** sekmesine geç ve sor:
+> "bu neden taşıyor?", "bunu daha güzel göster", "gezinme çubuğuna koyu mod düğmesi ekle".
+>
+> Hızlı sorular için DevTools gerekmez: araç çubuğundaki düğmeye tıkla, **sayfadaki yapay zekâ kartı** açılsın.
+> Sayfa hakkında sor, bir şeyleri okut ya da açıklat, CSS düzeltmelerini önizle. Kartı istediğin yere sürükle
+> ya da panel olarak kenara yasla.
+>
+> - **İncelediğin sayfayı anlar:** seçili öğe, stilleri, eşleşen CSS kuralları, konsol hataları, ağ istekleri
+>   ve ekran görüntüleri.
+> - **O önerir, sen onaylarsın:** her değişiklik önizleyip uygulayabileceğin ya da geri alabileceğin bir karttır.
+>   Hiçbir şey kendiliğinden çalışmaz.
+> - **CSS düzeltmeleri ve temalar**, sayfada isteğe bağlı aç/kapa düğmeleriyle site yamaları olarak kaydedilir.
+> - **Senin yerine yapar:** gerçek tarayıcı olaylarıyla form doldurur, seçenek seçer ve adımları tıklayarak ilerler.
+> - **Ajan modları:** bir işi sayfada kendi başına, sen izlerken adım adım yapsın. Her adımdan önce ya da yalnızca
+>   riskli adımlardan (gönderme, yollama, ödeme, silme) önce sorar; sen seçersin.
+> - **Sayfayı çevirir:** sayfanın metnini istediğin dile çevirir; Geri al ile eski hâline döner.
+> - **Her siteyi hatırlar:** önemli seçicileri ve tercihlerini, böylece bir sonraki sohbet bilgili başlar.
+> - **Konsol hatalarını açıklar** ve kaynağa atlar.
+> - **Senin anahtarın, senin seçimin:** Anthropic (Claude), OpenAI, Google Gemini, OpenRouter, DeepSeek, Qwen, Kimi,
+>   GLM veya MiniMax için bir API anahtarı yapıştır ve başla, Ollama ile ücretsiz yerel modeller kullan ya da
+>   OpenAI uyumlu herhangi bir hizmeti bağla. Doğrudan o sağlayıcıyla konuşur; sohbetler ve site hafızası
+>   tarayıcında kalır. Bizde hesap yok, izleme yok.
+> - **Ayrı hafızalar:** bir sohbetin notlarını ona özel tut ya da site genelinde paylaş.
+>
+> Geliştiriciler bunun yerine ücretsiz yerel ajan sunucusunu çalıştırıp Claude aboneliğini Claude Code üzerinden
+> kullanabilir ve CSS'i kendi projelerine taşıyabilir ("Kaynağa uygula"): https://github.com/alpkavakli/IntegratedAI
+
+The interface follows Chrome's language: Turkish when Chrome is in Turkish, English otherwise. To check it, start
+Chrome with `--lang=tr` (and a separate profile).
 
 **Screenshots (1280×800), ready in `store/screenshots/`**, upload in this order:
 1. `01-card.png`: the card on the page (toolbar button): the picked badge, the cause, and a previewed CSS fix

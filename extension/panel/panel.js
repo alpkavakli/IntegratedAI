@@ -979,7 +979,7 @@ export class App {
     if (this.replaying || this.session?.busy) return;
     this.replaying = true;
     this.showTab('chat');
-    this.chat.askSubject = 'this task';
+    this.chat.askSubject = 'task';
     this.chat.setBusy(true);
     this.updateComposer();
     this.tasksView.refresh();
@@ -993,7 +993,7 @@ export class App {
       header.done(t('taskStopped', 'The saved task "$1" stopped: $2', task.name, /** @type {any} */ (err).message), false);
     } finally {
       this.replaying = false;
-      this.chat.askSubject = 'the AI';
+      this.chat.askSubject = 'ai';
       this.unwatchPageStop();
       this.chat.cancelAsks();
       this.chat.setBusy(false);

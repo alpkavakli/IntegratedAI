@@ -24,7 +24,15 @@
   const SNAP = 24; // dragging this close to the left/right edge docks the card there
   const FADE = { off: 1, light: 0.7, strong: 0.45 };
   const FADE_NEXT = { off: 'light', light: 'strong', strong: 'off' };
-  const FADE_TITLE = { off: 'See-through: off', light: 'See-through: light', strong: 'See-through: strong' };
+  /** Interface text in the browser's language (like shared/i18n.js, which a content script can't import). */
+  const t = (/** @type {string} */ key, /** @type {string} */ english) => {
+    try { return chrome.i18n.getMessage(key) || english; } catch { return english; }
+  };
+  const FADE_TITLE = {
+    off: t('fadeOff', 'See-through: off (when the mouse is elsewhere)'),
+    light: t('fadeLight', 'See-through: light (when the mouse is elsewhere)'),
+    strong: t('fadeStrong', 'See-through: strong (when the mouse is elsewhere)'),
+  };
 
   /** @type {{ mode: 'float' | 'left' | 'right', x: number, y: number, w: number, h: number, fade: 'off' | 'light' | 'strong' }} */
   let layout = { mode: 'float', x: -1, y: -1, w: 400, h: 640, fade: 'light' };
@@ -63,8 +71,8 @@
           <span class="spacer"></span>
           <button type="button" data-do="fade">${GLYPH.fade}</button>
           <button type="button" data-do="dock">${GLYPH.dock}</button>
-          <button type="button" data-do="minimize" title="Minimise" aria-label="Minimise">${GLYPH.minimize}</button>
-          <button type="button" data-do="close" title="Close" aria-label="Close">${GLYPH.close}</button>
+          <button type="button" data-do="minimize" title="${t('minimise', 'Minimise')}" aria-label="${t('minimise', 'Minimise')}">${GLYPH.minimize}</button>
+          <button type="button" data-do="close" title="${t('close', 'Close')}" aria-label="${t('close', 'Close')}">${GLYPH.close}</button>
         </div>
         <iframe title="IntegratedAI" allow="clipboard-write"></iframe>
         ${['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'].map((edge) => `<div class="edge ${edge}" data-edge="${edge}"></div>`).join('')}
@@ -142,11 +150,11 @@
     }
     push(layout.mode === 'float' || minimized ? 0 : w);
     const fadeButton = root.querySelector('[data-do=fade]');
-    fadeButton.title = `${FADE_TITLE[layout.fade]} (when the mouse is elsewhere)`;
+    fadeButton.title = FADE_TITLE[layout.fade];
     fadeButton.setAttribute('aria-label', fadeButton.title);
     fadeButton.dataset.level = layout.fade;
     const dockButton = root.querySelector('[data-do=dock]');
-    dockButton.title = layout.mode === 'float' ? 'Dock to the right side' : 'Float';
+    dockButton.title = layout.mode === 'float' ? t('dockRight', 'Dock to the right side') : t('float', 'Float');
     dockButton.setAttribute('aria-label', dockButton.title);
     fade();
   }
@@ -338,7 +346,7 @@
     // The AI tab in DevTools opened on this tab: it continues the conversation, so step aside.
     if (msg?.type === 'card.devtools' && host) {
       staleFrame = true;
-      setMinimized(true, 'IntegratedAI · continued in DevTools');
+      setMinimized(true, t('continuedInDevtools', 'IntegratedAI · continued in DevTools'));
     }
   });
 

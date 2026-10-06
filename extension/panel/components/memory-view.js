@@ -11,6 +11,7 @@
  */
 
 import { h, setChildren } from '../lib/dom.js';
+import { t } from '../../shared/i18n.js';
 
 export class MemoryView extends HTMLElement {
   /** @param {import('../panel.js').App} app */
@@ -26,30 +27,30 @@ export class MemoryView extends HTMLElement {
     const app = /** @type {import('../panel.js').App} */ (this.app);
     const memory = app.memoryInfo;
     if (!app.connected) {
-      setChildren(this, h('div', { class: 'meta' }, 'Not connected to the agent server.'));
+      setChildren(this, h('div', { class: 'meta' }, t('notConnectedServer', 'Not connected to the agent server.')));
       return;
     }
     // Which memory this conversation uses.
     const mode = app.memoryMode ?? 'shared';
     const modeSelect = /** @type {HTMLSelectElement} */ (h('select', {
-      'aria-label': 'Memory for this conversation',
+      'aria-label': t('memoryForConversation', 'Memory for this conversation'),
       onchange: () => app.configure({ memoryMode: modeSelect.value }),
     },
-    h('option', { value: 'shared' }, 'Shared with this site (every conversation here)'),
-    h('option', { value: 'private' }, 'Private to this conversation'),
-    h('option', { value: 'off' }, 'Off (nothing is remembered)')));
+    h('option', { value: 'shared' }, t('memShared', 'Shared with this site (every conversation here)')),
+    h('option', { value: 'private' }, t('memPrivate', 'Private to this conversation')),
+    h('option', { value: 'off' }, t('memOff', 'Off (nothing is remembered)'))));
     modeSelect.value = mode;
     const modeRow = h('div', { class: 'item' },
-      h('div', { class: 'row' }, h('strong', null, 'Memory for this conversation'), modeSelect),
+      h('div', { class: 'row' }, h('strong', null, t('memoryForConversation', 'Memory for this conversation')), modeSelect),
       h('div', { class: 'meta' }, mode === 'private'
-        ? 'This conversation keeps its own notes. They don\'t mix with the site\'s shared memory or other conversations.'
+        ? t('memPrivateText', "This conversation keeps its own notes. They don't mix with the site's shared memory or other conversations.")
         : mode === 'off'
-          ? 'Nothing is read or saved for this conversation.'
-          : 'Notes are shared by all conversations on this site.'));
+          ? t('memOffText', 'Nothing is read or saved for this conversation.')
+          : t('memSharedText', 'Notes are shared by all conversations on this site.')));
 
     if (!memory) {
       setChildren(this, modeRow, mode === 'off' ? null
-        : h('div', { class: 'meta' }, 'No site memory for this page (only http(s) and file pages have one).'));
+        : h('div', { class: 'meta' }, t('noSiteMemory', 'No site memory for this page (only http(s) and file pages have one).')));
       return;
     }
 
@@ -62,42 +63,42 @@ export class MemoryView extends HTMLElement {
     setChildren(this,
       modeRow,
       h('div', { class: 'item' },
-        h('div', { class: 'row' }, h('strong', null, mode === 'private' ? `${memory.site} (private)` : memory.site)),
-        h('div', { class: 'meta' }, `This page: ${memory.path}`),
+        h('div', { class: 'row' }, h('strong', null, mode === 'private' ? t('sitePrivate', '$1 (private)', memory.site) : memory.site)),
+        h('div', { class: 'meta' }, t('thisPagePath', 'This page: $1', memory.path)),
         this.renderCurrentGroup(memory)),
 
-      h('div', { class: 'list-heading' }, `Whole site (${siteNotes.length})`),
+      h('div', { class: 'list-heading' }, t('wholeSiteCount', 'Whole site ($1)', siteNotes.length)),
       siteNotes.map((n) => this.renderNote(n)),
-      h('div', { class: 'list-heading' }, `This kind of page (${hereNotes.length})`),
+      h('div', { class: 'list-heading' }, t('thisKindCount', 'This kind of page ($1)', hereNotes.length)),
       hereNotes.map((n) => this.renderNote(n)),
       this.renderAddNote(),
-      otherNotes.length ? h('div', { class: 'list-heading' }, `Other kinds of pages (${otherNotes.length})`) : null,
+      otherNotes.length ? h('div', { class: 'list-heading' }, t('otherKindsCount', 'Other kinds of pages ($1)', otherNotes.length)) : null,
       otherNotes.map((n) => this.renderNote(n, groupName(n.scope))),
 
-      memory.groups.length ? h('div', { class: 'list-heading' }, `Page types (${memory.groups.length})`) : null,
+      memory.groups.length ? h('div', { class: 'list-heading' }, t('pageTypesCount', 'Page types ($1)', memory.groups.length)) : null,
       memory.groups.map((/** @type {any} */ g) => this.renderGroup(g)),
       h('div', { class: 'meta', style: 'margin-top:10px' },
-        'The AI reads the notes that apply to the current page at the start of each conversation, and adds notes when it learns something reusable. Notes are facts, not instructions; delete anything wrong.'),
+        t('memoryHelp', 'The AI reads the notes that apply to the current page at the start of each conversation, and adds notes when it learns something reusable. Notes are facts, not instructions; delete anything wrong.')),
     );
   }
 
   /** @param {any} memory */
   renderCurrentGroup(memory) {
     const { group } = memory;
-    const name = /** @type {HTMLInputElement} */ (h('input', { type: 'text', value: group.name ?? '', placeholder: 'e.g. Chapter reader', 'aria-label': 'Page type name' }));
-    const pattern = /** @type {HTMLInputElement} */ (h('input', { type: 'text', value: group.pattern, 'aria-label': 'Page type URL pattern' }));
+    const name = /** @type {HTMLInputElement} */ (h('input', { type: 'text', value: group.name ?? '', placeholder: t('pageTypeExample', 'e.g. Chapter reader'), 'aria-label': t('pageTypeName', 'Page type name') }));
+    const pattern = /** @type {HTMLInputElement} */ (h('input', { type: 'text', value: group.pattern, 'aria-label': t('pageTypePattern', 'Page type URL pattern') }));
     return h('div', null,
       h('div', null,
-        'Page type: ',
-        group.auto ? h('em', null, 'not named yet') : h('strong', null, group.name),
+        t('pageType', 'Page type:'), ' ',
+        group.auto ? h('em', null, t('notNamedYet', 'not named yet')) : h('strong', null, group.name),
         ' ', h('code', null, group.pattern)),
       h('div', { class: 'row', style: 'margin-top:4px' },
         name, pattern,
         h('button', {
           type: 'button',
           onclick: () => this.edit({ op: 'defineGroup', name: name.value, pattern: pattern.value }),
-        }, group.auto ? 'Name it' : 'Update')),
-      h('div', { class: 'meta' }, '"*" = one path part (any ID or slug), a final "**" = anything below.'));
+        }, group.auto ? t('nameIt', 'Name it') : t('update', 'Update'))),
+      h('div', { class: 'meta' }, t('patternHelp', '"*" = one path part (any ID or slug), a final "**" = anything below.')));
   }
 
   /**
@@ -106,41 +107,41 @@ export class MemoryView extends HTMLElement {
    */
   renderNote(note, groupLabel) {
     const editing = this.editing.has(note.id);
-    const input = /** @type {HTMLInputElement} */ (h('input', { type: 'text', value: note.text, style: 'flex:1', 'aria-label': 'Note' }));
+    const input = /** @type {HTMLInputElement} */ (h('input', { type: 'text', value: note.text, style: 'flex:1', 'aria-label': t('note', 'Note') }));
     return h('div', { class: 'item note' },
       editing
         ? h('div', { class: 'row' },
           input,
-          h('button', { type: 'button', class: 'primary', onclick: () => { this.editing.delete(note.id); this.edit({ op: 'updateNote', noteId: note.id, text: input.value }); } }, 'Save'),
-          h('button', { type: 'button', onclick: () => { this.editing.delete(note.id); this.render(); } }, 'Cancel'))
+          h('button', { type: 'button', class: 'primary', onclick: () => { this.editing.delete(note.id); this.edit({ op: 'updateNote', noteId: note.id, text: input.value }); } }, t('save', 'Save')),
+          h('button', { type: 'button', onclick: () => { this.editing.delete(note.id); this.render(); } }, t('cancel', 'Cancel')))
         : h('div', { class: 'row' },
           h('span', { style: 'flex:1' }, note.text),
-          h('button', { type: 'button', onclick: () => { this.editing.add(note.id); this.render(); } }, 'Edit'),
-          h('button', { type: 'button', class: 'danger', onclick: () => this.edit({ op: 'deleteNote', noteId: note.id }) }, 'Delete')),
+          h('button', { type: 'button', onclick: () => { this.editing.add(note.id); this.render(); } }, t('edit', 'Edit')),
+          h('button', { type: 'button', class: 'danger', onclick: () => this.edit({ op: 'deleteNote', noteId: note.id }) }, t('delete', 'Delete'))),
       h('div', { class: 'meta' },
-        `${note.by === 'user' ? 'added by you' : 'learned by the AI'} · ${new Date(note.createdAt).toLocaleDateString()}`,
+        `${note.by === 'user' ? t('addedByYou', 'added by you') : t('learnedByAi', 'learned by the AI')} · ${new Date(note.createdAt).toLocaleDateString()}`,
         groupLabel ? ` · ${groupLabel}` : ''));
   }
 
   renderAddNote() {
-    const text = /** @type {HTMLInputElement} */ (h('input', { type: 'text', placeholder: 'Add a note, e.g. "I prefer a serif font for reading"', style: 'flex:1', 'aria-label': 'New note' }));
-    const scope = /** @type {HTMLSelectElement} */ (h('select', { 'aria-label': 'Applies to' },
-      h('option', { value: 'site' }, 'whole site'),
-      h('option', { value: 'page_group' }, 'this kind of page')));
+    const text = /** @type {HTMLInputElement} */ (h('input', { type: 'text', placeholder: t('addNoteExample', 'Add a note, e.g. "I prefer a serif font for reading"'), style: 'flex:1', 'aria-label': t('newNote', 'New note') }));
+    const scope = /** @type {HTMLSelectElement} */ (h('select', { 'aria-label': t('appliesToLabel', 'Applies to') },
+      h('option', { value: 'site' }, t('wholeSiteLower', 'whole site')),
+      h('option', { value: 'page_group' }, t('thisKindLower', 'this kind of page'))));
     const add = () => text.value.trim() && this.edit({ op: 'addNote', text: text.value, scope: scope.value });
     text.addEventListener('keydown', (e) => { if (e.key === 'Enter') add(); });
-    return h('div', { class: 'row add-note' }, text, scope, h('button', { type: 'button', onclick: add }, 'Add'));
+    return h('div', { class: 'row add-note' }, text, scope, h('button', { type: 'button', onclick: add }, t('add', 'Add')));
   }
 
   /** @param {any} group */
   renderGroup(group) {
-    const name = /** @type {HTMLInputElement} */ (h('input', { type: 'text', value: group.name, 'aria-label': 'Page type name' }));
-    const pattern = /** @type {HTMLInputElement} */ (h('input', { type: 'text', value: group.pattern, 'aria-label': 'Page type URL pattern' }));
+    const name = /** @type {HTMLInputElement} */ (h('input', { type: 'text', value: group.name, 'aria-label': t('pageTypeName', 'Page type name') }));
+    const pattern = /** @type {HTMLInputElement} */ (h('input', { type: 'text', value: group.pattern, 'aria-label': t('pageTypePattern', 'Page type URL pattern') }));
     return h('div', { class: 'item' },
       h('div', { class: 'row' },
         name, pattern,
-        h('button', { type: 'button', onclick: () => this.edit({ op: 'updateGroup', groupId: group.id, name: name.value, pattern: pattern.value }) }, 'Save'),
-        h('button', { type: 'button', class: 'danger', onclick: () => this.edit({ op: 'deleteGroup', groupId: group.id }) }, 'Delete')));
+        h('button', { type: 'button', onclick: () => this.edit({ op: 'updateGroup', groupId: group.id, name: name.value, pattern: pattern.value }) }, t('save', 'Save')),
+        h('button', { type: 'button', class: 'danger', onclick: () => this.edit({ op: 'deleteGroup', groupId: group.id }) }, t('delete', 'Delete'))));
   }
 
   /** @param {Record<string, unknown>} change */
