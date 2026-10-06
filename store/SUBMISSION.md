@@ -68,7 +68,7 @@ AI calls), or a single one with e.g. `node scripts/store-screenshots.mjs 03-form
 | `webNavigation` | Detects when a page the user saved a patch for starts loading, to reapply that patch. |
 | Host permission `<all_urls>` | The tool works on whatever page the user is inspecting in DevTools, so it must be able to read that page (on request), capture its console errors, take screenshots, and apply approved CSS on any site. |
 | Content scripts on `<all_urls>` | `console-capture.js` records console errors on the page so the AI can explain them; `patch-toggles.js` shows on/off buttons for patches the user saved with a toggle. Neither sends data anywhere. |
-| Remote code | **No.** All code is in the package. The AI's suggestions are data; optional user-approved scripts run via DevTools' `inspectedWindow.eval`, never fetched from a server. |
+| Remote code | See "Remote code" below: answer **Yes** and paste the justification. |
 
 **Data usage disclosures** (check these in the form):
 - Website content: **yes**, only on pages the user inspects, sent to the AI provider the user chose (Anthropic,
@@ -76,9 +76,38 @@ AI calls), or a single one with e.g. `node scripts/store-screenshots.mjs 03-form
   the user's local server.
 - Authentication info: the user's own API keys are stored locally and each is sent only to its own provider
   to authenticate their requests (declare it if the form asks; never sent to the developer).
-- Web history, personally identifiable info, authentication info, financial/health data, personal communications,
-  location, user activity: **no** (not collected; sensitive headers are removed before anything is sent).
+- Personal communications: **yes**. When the user asks the AI to read or work on a page that shows messages or
+  email (e.g. a web chat), the text it reads from that page goes to the AI provider the user chose, like any other
+  website content. Only on request, only from the inspected tab, never to the developer.
+- Web history, personally identifiable info, financial/health data, location, user activity: **no** (not collected;
+  cookies, authorization headers and token-like URL parameters are removed before anything is sent, and password
+  field values are never read).
 - Certify: not sold to third parties; not used for unrelated purposes; not used for creditworthiness/lending.
+
+## Remote code
+
+The extension's own code is all in the package. One optional feature runs code that is not: **"Let it suggest
+JavaScript"** (Options → Advanced settings, **off by default**). When it is on, the AI can propose a script; the user
+sees the full code in a card, must tick "I reviewed this code" and click Run. Answering "No" would be inaccurate, so
+answer **Yes** with this justification:
+
+> The extension never loads or runs remote code in its own pages, service worker or content scripts. One optional,
+> off-by-default feature lets the user run a JavaScript snippet suggested by the AI model they configured, in the web
+> page they are inspecting, the same way they could paste it into the DevTools console. The code is shown to the user
+> in full and runs only after they tick "I reviewed this code" and click Run, each time. It is executed with
+> `chrome.devtools.inspectedWindow.eval()` in the inspected page's own JavaScript context, which has no access to
+> extension APIs, storage or permissions; the extension does not eval anything in its own contexts. The policy exempts
+> "code run in contexts that are isolated from extension APIs".
+
+If the review still rejects it, the fallback is a store build without `execute_js` (the owner prefers keeping it).
+
+## Test instructions (the dashboard's "Test instructions" field)
+
+> No account is needed. 1) Open any web page, open DevTools (F12) and choose the **AI** tab. 2) In the setup page that
+> opens, choose **Ollama** (free, local) or paste an API key for Anthropic, OpenAI, Google Gemini or OpenRouter. 3)
+> Select an element in the Elements panel and ask, e.g. "why is this cut off?". Changes appear as cards that only run
+> when you click Apply. Agent modes (menu in the message box) let it click and type on the page, asking first as
+> configured. The JavaScript feature is off by default: Options → Advanced settings → "Let it suggest JavaScript".
 
 **Privacy policy URL:** https://alpkavakli.github.io/IntegratedAI/privacy.html
 (GitHub Pages from `/docs` on `main`; rebuild with `npm run site` after changing `store/PRIVACY.md`, then push.)

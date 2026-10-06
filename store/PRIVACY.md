@@ -17,6 +17,8 @@ Only when you use the AI panel, and only from the tab you are inspecting:
   answering (matching CSS rules, element lists, an outline of what's on screen, the text of the page or of part
   of it including the values in its form fields, page resources), also from frames embedded in the page.
   Password fields are never read out: the AI only learns whether one is filled in.
+  Whatever the page shows can be part of this: if you ask the AI to read or work on a page with messages, email
+  or personal details, that text is sent to the AI provider you chose, as part of answering you.
 - **Console messages and errors** captured on the page (when you enable the Console chip, ask about errors,
   or the AI inspects the console).
 - **Network request summaries** from DevTools (method, URL, status, size, timing), when you enable the
