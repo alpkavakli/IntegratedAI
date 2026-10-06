@@ -260,6 +260,7 @@ body[data-surface="card"] .devtools-only { display: none !important; }
 #to-devtools { font-size: 12px; }
 /* The Server button only matters with the local server (not in direct mode). */
 body:not([data-connection="server"]) .server-only { display: none !important; }
+body:not([data-provider="ollama"]) .ollama-only { display: none !important; }
 #server-toggle[aria-pressed="true"] .glyph { color: var(--ok, #188038); }
 #server-toggle.working { opacity: .6; pointer-events: none; }
 #pick-element.active { border-color: var(--accent); color: var(--accent); }

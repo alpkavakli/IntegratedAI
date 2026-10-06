@@ -56,6 +56,16 @@ in video memory. If your model can only have 8K tokens of context or less, turn 
 fewer tools, and only the newest results and page context in full. With 16K or more, leave it off: in tests,
 qwen3:8b followed the full prompt more reliably.
 
+The setup page shows these steps for Windows, macOS or Linux (it picks your system), with Copy buttons.
+
+**Freeing your graphics card:** Ollama keeps a model loaded for 5 minutes after the last message (that's the fans).
+The panel's **Unload** button (the chip icon, shown while Ollama is the provider) unloads it right away; the next
+message loads it again. To quit Ollama itself, use its own icon by the clock or in the menu bar.
+
+**Switching between connections:** the provider menu ends with the other connection: "Claude Code (local server)"
+while you use an API key or Ollama, and the direct providers you set up while you use the server. Each keeps its own
+conversations.
+
 Then pick **Ollama** in Options and click **Check connection**: it lists your models, checks that Ollama accepts the
 extension, and warns if the chosen model can't use tools. Small local models follow the instructions less reliably
 than the hosted ones; larger models give better results.

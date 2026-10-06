@@ -159,6 +159,14 @@ harness) or the owner's GitHub/Telegram test is the next thing to do.
   (owner hasn't chosen GitHub Sponsors / Ko-fi / … yet); its × hides it for good (setting `donateDismissed`).
 - Store screenshots now: 01-card, 02-theme-toggle, 03-forms, 04-tasks, 05-options (real Claude Code answers).
 
+## Done in the sixth session (2026-10-06)
+
+- Provider menu: a "Switch connection" group (direct ⇄ local server) so choosing Ollama doesn't hide Claude Code.
+- Ollama: Unload button (POST /api/generate keep_alive 0) to free the GPU; setup steps for Windows/macOS/Linux.
+- Setup page: "Write to the creator: alpkavakli@gmail.com" (owner's professional address, on request).
+- Card fixes: Server button (bg() sent the argument over the command name), fading by mouse only, docking pushes
+  the page aside (html margin + fixed edge elements, restored on float/minimise/close).
+
 ## Next work, in order
 
 0. **Chinese models (owner's next request):** providers like DeepSeek, Qwen (DashScope / Alibaba Cloud Model Studio),

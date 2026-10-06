@@ -43,6 +43,10 @@
       .command code { flex: 1; min-width: 0; padding: 4px 8px; border: 1px solid var(--border); border-radius: 4px;
         background: var(--bg-alt); white-space: pre-wrap; word-break: break-all; }
       .command .copy { flex: none; }
+      .os-pick { display: flex; align-items: center; gap: 4px; margin-bottom: 8px; color: var(--fg-muted); font-size: 12px; }
+      .os-pick span { margin-right: 4px; }
+      .os-pick button { padding: 2px 10px; }
+      .os-pick button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
       .uses { display: grid; gap: 12px; }
       .use { display: flex; gap: 10px; align-items: flex-start; }
       .use > svg { width: 20px; height: 20px; flex: none; color: var(--accent); margin-top: 1px; }
@@ -126,6 +130,12 @@
       </div>
 
       <div id="ollama-setup" hidden>
+        <div class="os-pick" id="ollama-os" role="group" aria-label="Your computer">
+          <span>Steps for</span>
+          <button type="button" data-os="windows" aria-pressed="false">Windows</button>
+          <button type="button" data-os="mac" aria-pressed="false">macOS</button>
+          <button type="button" data-os="linux" aria-pressed="false">Linux</button>
+        </div>
         <ol>
           <li>Install Ollama from <a href="https://ollama.com/download" target="_blank" rel="noopener">ollama.com</a>.</li>
           <li>Download a model that can use tools. In a terminal (<span id="ollama-terminal">PowerShell</span>), run:
@@ -270,6 +280,8 @@
       <a id="donate-link" target="_blank" rel="noopener">Donate</a>
       <button type="button" id="donate-close" class="close" title="Don't show this again" aria-label="Don't show the donation note again">×</button>
     </p>
+    <p class="license-note">Questions, ideas, a feature you'd like? Write to the creator:
+      <a href="mailto:alpkavakli@gmail.com?subject=IntegratedAI">alpkavakli@gmail.com</a></p>
     <p class="license-note">Free and open source (GNU AGPL). <a href="https://github.com/alpkavakli/IntegratedAI" target="_blank" rel="noopener">Source code</a></p>
     </main>
 

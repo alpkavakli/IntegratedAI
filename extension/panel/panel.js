@@ -40,6 +40,7 @@ import { saveTask, updateTask } from './lib/tasks.js';
 import { ServerClient } from './lib/ws-client.js';
 import { DirectClient } from './direct/direct-client.js';
 import { boostCss } from '../shared/css-boost.js';
+import { baseUrlFor } from '../shared/providers/openai-compatible.js';
 
 const $ = (/** @type {string} */ id) => /** @type {any} */ (document.getElementById(id));
 
@@ -170,6 +171,7 @@ export class App {
     $('new-chat').addEventListener('click', () => this.newConversation());
     $('copy-text').addEventListener('click', () => this.copySelectedText());
     $('server-toggle').addEventListener('click', () => this.toggleServer());
+    $('ollama-unload').addEventListener('click', () => this.unloadOllama());
     if (IN_CARD) {
       // Once: point out the full version in DevTools.
       if (!this.settings.cardTipSeen) $('card-tip').hidden = false;
@@ -189,7 +191,13 @@ export class App {
     }
     $('history-button').addEventListener('click', () => this.historyView.toggle());
     $('open-options').addEventListener('click', () => bg('options.open'));
-    $('provider-select').addEventListener('change', () => this.configure({ provider: $('provider-select').value }));
+    $('provider-select').addEventListener('change', () => {
+      const value = $('provider-select').value;
+      // The other connection (local server ⇄ direct): switch to it; the panel reloads (onSettingsChanged).
+      if (value === '@server') saveSettings({ mode: 'server' });
+      else if (value.startsWith('@direct:')) saveSettings({ mode: 'direct', directProvider: value.slice('@direct:'.length) });
+      else this.configure({ provider: value });
+    });
     $('agent-mode').addEventListener('change', () => {
       const mode = $('agent-mode').value;
       if (mode !== 'full') { this.hideBanner(); this.configure({ agentMode: mode }); return; }
@@ -865,9 +873,10 @@ export class App {
       option.disabled = !p.available;
       option.title = p.reason ?? '';
       return option;
-    }));
+    }), ...this.otherConnection());
     const current = this.providers.find((p) => p.id === this.session?.provider);
     providerSelect.value = this.session?.provider ?? '';
+    document.body.dataset.provider = this.session?.provider ?? '';
     // The conversation's model may be one typed in Options (e.g. "qwen3:latest"), not a suggestion.
     const models = [...(current?.models ?? [])];
     if (this.session?.model && !models.includes(this.session.model)) models.unshift(this.session.model);
@@ -881,6 +890,33 @@ export class App {
       const other = this.providers.find((p) => p.available);
       this.showBanner(`${current.label} isn't set up: ${current.reason}${other ? ` Or pick "${other.label}" in the provider menu.` : ''}`, true);
     }
+  }
+
+  /**
+   * The other way to connect, at the end of the provider menu: from direct mode the local server
+   * (Claude Code), from the server the direct providers that are set up. Choosing one switches the
+   * connection; each keeps its own conversations.
+   * @returns {HTMLOptGroupElement[]}
+   */
+  otherConnection() {
+    const group = document.createElement('optgroup');
+    group.label = 'Switch connection';
+    const s = this.settings;
+    if (s.mode === 'direct') {
+      const option = new Option(s.token ? 'Claude Code (local server)' : 'Claude Code (local server, not set up)', '@server');
+      option.disabled = !s.token;
+      option.title = s.token ? 'Use your Claude subscription through the local server' : 'Set it up in Options';
+      group.append(option);
+    } else {
+      const labels = { anthropic: 'Claude (API key)', openai: 'OpenAI', gemini: 'Google Gemini', openrouter: 'OpenRouter', ollama: 'Ollama' };
+      const ready = {
+        anthropic: Boolean(s.anthropicApiKey),
+        openai: Boolean(s.providerKeys?.openai), gemini: Boolean(s.providerKeys?.gemini), openrouter: Boolean(s.providerKeys?.openrouter),
+        ollama: Boolean(s.providerModels?.ollama),
+      };
+      for (const [id, label] of Object.entries(labels)) if (ready[/** @type {keyof typeof ready} */ (id)]) group.append(new Option(label, `@direct:${id}`));
+    }
+    return group.children.length ? [group] : [];
   }
 
   renderUsage() {
@@ -1002,6 +1038,26 @@ export class App {
     } finally {
       button.classList.remove('working');
       this.renderServerToggle();
+    }
+  }
+
+  /**
+   * Ollama keeps the model in memory (graphics card, fans) for 5 minutes after the last message. This
+   * unloads it now; the next message loads it again. Quitting Ollama itself is done from its own icon.
+   */
+  async unloadOllama() {
+    const model = this.session?.model;
+    if (!model) return;
+    const root = baseUrlFor('ollama', { baseUrl: this.settings.providerUrls?.ollama ?? '' }).replace(/\/v1\/?$/, '');
+    try {
+      const res = await fetch(`${root}/api/generate`, {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ model, keep_alive: 0 }),
+      });
+      if (!res.ok) throw new Error(`Ollama answered ${res.status}`);
+      this.showBanner(`Unloaded ${model}: your graphics card is free. Your next message loads it again (a few seconds). `
+        + 'To quit Ollama completely, use its own icon (by the clock, or in the menu bar).');
+    } catch (err) {
+      this.showBanner(`Couldn't reach Ollama to unload the model (${/** @type {any} */ (err).message}). If it's running, quit it from its icon.`, true);
     }
   }
 

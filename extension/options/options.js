@@ -24,17 +24,23 @@ $('ctx-network').checked = settings.contextDefaults.network;
 $('directModel').value = settings.directModel;
 $('compatUrl').value = settings.providerUrls.ollama ?? '';
 
-// ── Ollama's setup commands, for this computer's system, each with a Copy button.
+// ── Ollama's setup commands, each with a Copy button: for this computer's system, or the one picked
+// above them (Windows / macOS / Linux).
 
-const system = /Win/.test(navigator.platform) ? 'windows' : /Mac/.test(navigator.platform) ? 'mac' : 'linux';
+/** @type {'windows' | 'mac' | 'linux'} */
+let system = /Win/.test(navigator.platform) ? 'windows' : /Mac/.test(navigator.platform) ? 'mac' : 'linux';
 /** What lets the extension use Ollama, and gives models room for its instructions (Ollama's default is too small). */
 const OLLAMA_COMMANDS = {
   windows: ['setx OLLAMA_ORIGINS "chrome-extension://*"', 'setx OLLAMA_CONTEXT_LENGTH 16384'],
   mac: ['launchctl setenv OLLAMA_ORIGINS "chrome-extension://*"', 'launchctl setenv OLLAMA_CONTEXT_LENGTH 16384'],
   linux: ['sudo systemctl edit ollama', '[Service]\nEnvironment="OLLAMA_ORIGINS=chrome-extension://*"\nEnvironment="OLLAMA_CONTEXT_LENGTH=16384"'],
 };
-$('ollama-terminal').textContent = { windows: 'PowerShell', mac: 'Terminal', linux: 'a terminal' }[system];
-$('ollama-commands').replaceChildren(...OLLAMA_COMMANDS[system].map((text, i) => {
+function showOllamaSteps() {
+  for (const button of document.querySelectorAll('#ollama-os button')) {
+    button.setAttribute('aria-pressed', String(/** @type {HTMLElement} */ (button).dataset.os === system));
+  }
+  $('ollama-terminal').textContent = { windows: 'PowerShell', mac: 'Terminal', linux: 'a terminal' }[system];
+  $('ollama-commands').replaceChildren(...OLLAMA_COMMANDS[system].map((text, i) => {
   const row = document.createElement('div');
   row.className = 'command';
   const code = document.createElement('code');
@@ -55,12 +61,20 @@ $('ollama-commands').replaceChildren(...OLLAMA_COMMANDS[system].map((text, i) =>
   }
   row.append(code, copy);
   return row;
-}));
-$('ollama-restart').textContent = {
-  windows: 'Quit Ollama (right-click its icon by the clock, then Quit) and start it again from the Start menu.',
-  mac: 'Quit Ollama (its icon in the menu bar, then Quit Ollama) and open it again.',
-  linux: 'If you used systemctl above, Ollama has restarted already. Otherwise, restart it.',
-}[system];
+  }));
+  $('ollama-restart').textContent = {
+    windows: 'Quit Ollama (right-click its icon by the clock, then Quit) and start it again from the Start menu.',
+    mac: 'Quit Ollama (its icon in the menu bar, then Quit Ollama) and open it again.',
+    linux: 'If you used systemctl above, Ollama has restarted already. Otherwise, restart it.',
+  }[system];
+}
+showOllamaSteps();
+for (const button of document.querySelectorAll('#ollama-os button')) {
+  button.addEventListener('click', () => {
+    system = /** @type {any} */ (/** @type {HTMLElement} */ (button).dataset.os);
+    showOllamaSteps();
+  });
+}
 // Copy buttons: copy the command next to them.
 document.addEventListener('click', async (e) => {
   const button = /** @type {HTMLElement} */ (e.target);
