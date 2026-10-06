@@ -191,8 +191,10 @@ harness) or the owner's GitHub/Telegram test is the next thing to do.
    or two with Claude Code in Auto mode; fix what breaks. Likely areas: virtualised lists (the `scroll` step),
    contenteditable composers (`type` sets textContent; Enter is sent as key events), risky-word list in `riskOf`,
    the prompt section. How to test: see "Testing agent mode on a real site" below.
-2. **Tune the outline on real sites:** size per step (tokens add up over 40 steps), which elements are worth listing,
-   and whether the visible text is enough or the AI still calls read_text every time.
+2. **Outline tuning: partly done (2026-10-07).** Measured ~900–1,450 tokens/step on GitHub, Wikipedia, HN, BBC; now
+   main content first, short link targets, no generated class names, and change-only outlines on the same page
+   (`outlineChanges` in agent-runner.js). Still open: whether the visible text (1,200 chars) is worth it per step,
+   checked with a real model on a long task.
 3. **Real-key test of direct mode** (needs the owner's key): Anthropic first, then OpenAI/Gemini/OpenRouter.
    Ollama is done (2026-10-06): `qwen3:8b` on the owner's RTX 4060 passed a CSS fix, the sign-up form in Auto mode
    and a page summary. Found on the way: Ollama's default context (4,096 tokens) is smaller than our instructions and
