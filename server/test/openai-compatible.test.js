@@ -163,3 +163,44 @@ test('Ollama: not running, and refusing the extension, give instructions', async
   const aborted = Object.assign(new Error('aborted'), { name: 'AbortError' });
   await assert.rejects(run(async () => { throw aborted; }), (err) => err === aborted, 'stopping is not reported as "not running"');
 });
+
+test('compact mode: an Ollama option (off by default), never for hosted providers; short tool descriptions, same shapes', async () => {
+  const Ollama = openAICompatibleProvider('ollama');
+  const OpenAI = openAICompatibleProvider('openai');
+  const settings = (/** @type {boolean | undefined} */ ollamaCompact) => directConfig(/** @type {any} */ ({ providerKeys: { openai: 'k' }, providerModels: { ollama: 'qwen3' }, ollamaCompact }));
+  assert.equal(new Ollama(settings(undefined)).compact, false, 'off by default');
+  assert.equal(new Ollama(settings(true)).compact, true);
+  assert.equal(new OpenAI(settings(true)).compact, false);
+  let sent;
+  const provider = new Ollama(settings(true), {
+    fetch: async (_url, init) => { sent = JSON.parse(init.body); return sseResponse(sse([{ choices: [{ delta: {}, finish_reason: 'stop' }] }])); },
+  });
+  await collect(provider.turn({ messages: [], system: 'S', actionNames: ['interact'], model: 'qwen3', state: {}, signal: new AbortController().signal, compact: true }));
+  const tool = sent.tools[0].function;
+  assert.ok(tool.description.length < 300);
+  const fieldTexts = JSON.stringify(tool.parameters).match(/"description":"[^"]*"/g) ?? [];
+  assert.ok(fieldTexts.length && fieldTexts.every((d) => d.length <= 110), 'short field descriptions');
+  assert.match(tool.parameters.properties.description.description, /One short sentence/);
+  assert.ok(tool.parameters.properties.description, 'a field named description stays');
+  assert.deepEqual(tool.parameters.properties.steps.items.properties.action.enum.slice(0, 2), ['click', 'hover'], 'enums kept');
+});
+
+test('compact mode: older tool results are shortened, only the newest page context is sent', () => {
+  const long = 'x'.repeat(2000);
+  const step = (/** @type {number} */ i) => [
+    { role: 'assistant', ts: 0, content: [{ type: 'tool_call', id: `c${i}`, name: 'page_outline', input: {} }] },
+    { role: 'user', ts: 0, content: [{ type: 'tool_result', toolCallId: `c${i}`, content: long }] },
+  ];
+  const messages = /** @type {any[]} */ ([
+    { role: 'user', ts: 0, content: [{ type: 'context', data: { page: { url: 'https://a.example/1' } } }, { type: 'text', text: 'first' }] },
+    ...step(1), ...step(2), ...step(3), ...step(4), ...step(5),
+    { role: 'user', ts: 0, content: [{ type: 'context', data: { page: { url: 'https://a.example/2' } } }, { type: 'text', text: 'second' }] },
+  ]);
+  const tools = (/** @type {any[]} */ out) => out.filter((m) => m.role === 'tool').map((m) => m.content.length);
+  const compact = toOpenAIMessages('S', messages, { compact: true });
+  assert.deepEqual(tools(compact).map((n) => n > 1000), [false, false, true, true, true], 'the last 3 in full');
+  const users = compact.filter((m) => m.role === 'user').map((m) => m.content);
+  assert.ok(!users[0].includes('a.example/1') && users[0].includes('first'), 'old context dropped, text kept');
+  assert.ok(users[1].includes('a.example/2'));
+  assert.ok(tools(toOpenAIMessages('S', messages)).every((n) => n === 2000), 'unchanged without compact');
+});

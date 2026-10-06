@@ -190,6 +190,9 @@ try {
   const stale = await ev('document.querySelector("tr").remove()').then(() => step({ action: 'click', ref: rows.matches[0].ref })).then(() => 'clicked', (err) => String(err.message));
   check('a removed element\'s ref is reported as gone', /not on the page any more/.test(stale), stale);
 
+  const guessed = await step({ action: 'click', ref: 'e9999' }).then(() => 'clicked', (err) => String(err.message));
+  check('a guessed ref is reported as never given out', /not a ref from this page/.test(guessed), guessed);
+
   // Quiet: changes reset the timer; our own outline doesn't.
   await call(quietFor);
   await sleep(300);

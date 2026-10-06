@@ -263,7 +263,8 @@ for (const input of /** @type {NodeListOf<HTMLInputElement>} */ (document.queryS
   input.checked = input.value === settings.defaultAgentMode;
   input.addEventListener('change', () => saveSettings({ defaultAgentMode: /** @type {any} */ (input.value) }));
 }
-for (const id of ['executeJs', 'askBeforeInspections', 'webTools']) {
+$('ollamaCompact').checked = settings.ollamaCompact;
+for (const id of ['executeJs', 'askBeforeInspections', 'webTools', 'ollamaCompact']) {
   $(id).addEventListener('change', () => saveSettings({ [id]: $(id).checked }));
 }
 for (const key of ['selected', 'console', 'network']) {

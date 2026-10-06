@@ -181,9 +181,13 @@ export function pageHelpers() {
     return id;
   }
 
-  /** The element behind a ref; throws when it is gone. */
+  /** The element behind a ref; throws when it is gone, or was never given out (a guessed ref). */
   function byRef(id) {
-    const el = state().refs?.byId.get(id)?.deref();
+    const refs = state().refs;
+    if (!refs || !refs.byId.has(id)) {
+      throw new Error(`${id} is not a ref from this page: use only refs that find_elements or page_outline returned, or a selector or the visible text`);
+    }
+    const el = refs.byId.get(id).deref();
     if (!el || !el.isConnected) throw new Error(`${id} is not on the page any more (the page changed or reloaded); look the element up again`);
     return el;
   }
@@ -495,7 +499,7 @@ export function findElements(h, selected, input) {
 
   return {
     total: candidates.length,
-    note: 'Target a match in interact steps by its ref (e.g. { "ref": "e12" }); refs stay valid until the page reloads.',
+    note: 'Target a match in interact steps by its ref; refs stay valid until the page reloads.',
     matches: ordered.slice(0, limit).map((el) => {
       const value = el.matches('input[type=password]') ? '' : el.value; // never read out passwords
       const text = (el.innerText || value || '').trim().replace(/\s+/g, ' ');

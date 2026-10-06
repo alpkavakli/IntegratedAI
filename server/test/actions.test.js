@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { validate } from '../../extension/shared/validate.js';
 import {
-  ACTION_NAMES, enabledActionNames, envelopeSchema, isReadOnly, validateAction,
+  ACTION_NAMES, enabledActionNames, envelopeSchema, isReadOnly, normalizeInput, validateAction,
 } from '../../extension/shared/actions.js';
 
 test('validator: types, required, additionalProperties, enum, anyOf', () => {
@@ -111,6 +111,14 @@ test('interact: refs, hover and frames', () => {
   assert.match(validateAction('interact', { description: 'd', steps: [{ action: 'click', ref: '#main' }] }).join(), /ref must look like/);
   assert.match(validateAction('interact', { description: 'd', steps: [{ action: 'click', ref: 'e1', selector: '#a' }] }).join(), /not both/);
   assert.match(validateAction('interact', { description: 'd', frame: 'javascript:alert(1)', steps: [{ action: 'click', ref: 'e1' }] }).join(), /frame must be/);
+});
+
+test('normalizeInput: optional fields set to null count as not given, at any depth; required ones stay', () => {
+  const input = normalizeInput('interact', { description: 'd', frame: null, steps: [{ action: 'click', ref: 'e1', selector: null, value: null }] });
+  assert.deepEqual(input, { description: 'd', steps: [{ action: 'click', ref: 'e1' }] });
+  assert.deepEqual(validateAction('interact', input), []);
+  assert.deepEqual(normalizeInput('find_elements', { text: 'Go', frame: null }), { text: 'Go' });
+  assert.match(validateAction('interact', normalizeInput('interact', { description: null, steps: [] })).join(), /description/, 'required stays');
 });
 
 test('page_outline and read_text', () => {

@@ -11,9 +11,12 @@
  * these vendors' SDKs aren't needed for this one endpoint.
  */
 
-import { ACTIONS } from '../actions.js';
+import { toolSpec } from '../actions.js';
 import { Provider } from './base.js';
 import { MAX_IMAGES_SENT, newCallId, renderBlockAsText } from './common.js';
+
+/** Compact mode: how many of the newest tool results are sent in full. */
+const COMPACT_FULL_RESULTS = 3;
 
 /** @typedef {import('../protocol.js').NeutralMessage} NeutralMessage */
 
@@ -121,6 +124,7 @@ export function openAICompatibleProvider(id) {
     static label = preset.label;
     static models = preset.models;
     static capabilities = { streaming: true, nativeTools: true, reportsCost: false, vision: true };
+    /** Local models have small context windows: the orchestrator uses compact mode for them. */
 
     /** @param {import('./base.js').ProviderConfig} config */
     static defaultModel(config) {
@@ -150,17 +154,26 @@ export function openAICompatibleProvider(id) {
     }
 
     /**
+     * Compact mode (short prompt and tool descriptions, older results shortened): an Options choice for local
+     * models with a small context window. Off by default: with 16K tokens of context, qwen3:8b did the same task
+     * more reliably with the full prompt (2 of 2 runs) than with the compact one (1 of 2).
+     */
+    get compact() {
+      return preset.local === true && this.config.providers[id]?.compact === true;
+    }
+
+    /**
      * @param {import('./base.js').TurnRequest} req
      * @returns {AsyncGenerator<import('./base.js').ProviderEvent>}
      */
-    async *turn({ messages, system, actionNames, model, signal }) {
+    async *turn({ messages, system, actionNames, model, signal, compact = false }) {
       const body = {
         model,
-        messages: toOpenAIMessages(system, messages),
-        tools: actionNames.map((name) => ({
-          type: 'function',
-          function: { name, description: ACTIONS[name].description, parameters: ACTIONS[name].inputSchema },
-        })),
+        messages: toOpenAIMessages(system, messages, { compact }),
+        tools: actionNames.map((name) => {
+          const spec = toolSpec(name, compact);
+          return { type: 'function', function: { name, description: spec.description, parameters: spec.inputSchema } };
+        }),
         stream: true,
         ...(preset.includeUsage ? { stream_options: { include_usage: true } } : {}),
       };
@@ -232,10 +245,13 @@ export function openAICompatibleProvider(id) {
  * - the rest of a user message (context, memory, text) becomes a user message
  * - screenshots from tool results follow as an image in a user message ("tool" messages can't hold images);
  *   only the last MAX_IMAGES_SENT are attached (each costs ~1–1.5k tokens on every call), as for Anthropic
+ * - compact mode (local models): only the last COMPACT_FULL_RESULTS tool results are sent in full (older ones are
+ *   shortened), and only the newest page context (the selected element etc.); site memory is always kept
  * @param {string} system
  * @param {NeutralMessage[]} messages
+ * @param {{ compact?: boolean }} [opts]
  */
-export function toOpenAIMessages(system, messages) {
+export function toOpenAIMessages(system, messages, { compact = false } = {}) {
   /** @type {Set<unknown>} tool_result blocks whose images are still sent */
   const keepImages = new Set();
   let imagesLeft = MAX_IMAGES_SENT;
@@ -247,6 +263,21 @@ export function toOpenAIMessages(system, messages) {
       }
     }
   }
+
+  /** Compact mode: the tool results and page context blocks sent in full (the newest ones). @type {Set<unknown>} */
+  const full = new Set();
+  if (compact) {
+    const blocks = messages.flatMap((m) => m.content);
+    for (const b of blocks.filter((x) => x.type === 'tool_result').slice(-COMPACT_FULL_RESULTS)) full.add(b);
+    const lastContext = blocks.findLast((x) => x.type === 'context');
+    if (lastContext) full.add(lastContext);
+  }
+  /** @param {any} b */
+  const shorten = (b) => {
+    if (!compact || full.has(b)) return b.content;
+    const text = String(b.content);
+    return text.length > 300 ? `${text.slice(0, 300)}… (an older result, shortened)` : text;
+  };
 
   /** @type {any[]} */
   const out = [{ role: 'system', content: system }];
@@ -266,11 +297,11 @@ export function toOpenAIMessages(system, messages) {
       if (b.type !== 'tool_result') continue;
       const r = /** @type {any} */ (b);
       const dropped = r.images?.length && !keepImages.has(b) ? '\n(The screenshot from this result is no longer attached.)' : '';
-      out.push({ role: 'tool', tool_call_id: r.toolCallId, content: (r.isError ? `Error: ${r.content}` : r.content) + dropped });
+      out.push({ role: 'tool', tool_call_id: r.toolCallId, content: (r.isError ? `Error: ${shorten(r)}` : shorten(r)) + dropped });
       if (r.images && keepImages.has(b)) images.push(...r.images);
     }
     const parts = m.content
-      .filter((b) => b.type !== 'tool_result')
+      .filter((b) => b.type !== 'tool_result' && !(compact && b.type === 'context' && !full.has(b)))
       .map((b) => renderBlockAsText(/** @type {any} */ (b)))
       .filter(Boolean)
       .map((text) => ({ type: 'text', text }));

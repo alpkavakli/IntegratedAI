@@ -18,7 +18,7 @@
 
 import { randomBytes } from 'node:crypto';
 import { formatResult } from '../../../extension/shared/agent/format-result.js';
-import { ACTIONS, isPageAction, isReadOnly, validateAction } from '../../../extension/shared/actions.js';
+import { ACTIONS, isPageAction, isReadOnly, normalizeInput, validateAction } from '../../../extension/shared/actions.js';
 
 /**
  * @typedef {{ conversationId: string, names: string[], signal: AbortSignal,
@@ -75,7 +75,8 @@ export class PageTools {
    */
   async call(grant, name, input) {
     if (!grant.names.includes(name)) return { text: `Unknown tool "${name}"`, isError: true };
-    const errors = validateAction(name, input ?? {});
+    input = normalizeInput(name, input ?? {});
+    const errors = validateAction(name, input);
     if (errors.length) return { text: `Invalid input: ${errors.join('; ')}`, isError: true };
     const record = { name, input: input ?? {}, ok: /** @type {boolean | undefined} */ (undefined) };
     grant.calls.push(record);

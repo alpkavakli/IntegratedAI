@@ -26,6 +26,8 @@ export const DEFAULT_SETTINGS = {
   providerModels: { openai: '', gemini: '', openrouter: '', ollama: '' },
   /** Direct mode: address of local providers ('' = the default, http://localhost:11434/v1 for Ollama). */
   providerUrls: { ollama: '' },
+  /** Ollama: short prompts and tool descriptions, for models with a small context window (8K tokens or less). */
+  ollamaCompact: false,
   serverUrl: `ws://127.0.0.1:${DEFAULT_PORT}/ws`,
   token: '',
   /** Allow the model to propose arbitrary JavaScript (each run still needs approval). */

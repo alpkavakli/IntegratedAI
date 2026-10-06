@@ -54,6 +54,7 @@ export function directConfig(settings) {
       apiKey: settings.providerKeys?.[id] ?? '',
       model: settings.providerModels?.[id] ?? '',
       baseUrl: settings.providerUrls?.[id] ?? '',
+      ...(id === 'ollama' ? { compact: settings.ollamaCompact === true } : {}),
     };
   }
   return { maxStepsPerTurn: 8, preferredProvider: settings.directProvider || 'anthropic', providers };

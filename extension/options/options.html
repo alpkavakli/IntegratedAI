@@ -191,6 +191,11 @@
       <label class="small-field">Agent server
         <input type="text" id="serverUrl" spellcheck="false"></label>
       <div class="hint">Change these only if Ollama or the agent server runs somewhere else.</div>
+      <label class="check">
+        <input type="checkbox" id="ollamaCompact">
+        <span><strong>Short prompts for Ollama.</strong> Uses about 2,800 tokens for instructions and tools instead of 6,600.
+          Turn it on only if your model has a context window of 8K tokens or less; with more, the full prompt works better.</span>
+      </label>
 
       <h3>Your data</h3>
       <div class="hint">Everything stays on your computer and is kept when the extension updates.</div>

@@ -23,7 +23,8 @@ import { pageHelpers } from './page-scripts.js';
 export function evalInPage(expression, frame) {
   return new Promise((resolve, reject) => {
     chrome.devtools.inspectedWindow.eval(expression, frame ? { frameURL: frame } : {}, (result, exceptionInfo) => {
-      if (exceptionInfo?.isException) reject(new Error(String(exceptionInfo.value)));
+      // The message only: page exceptions arrive as "Error: …" plus a stack trace nobody needs in the chat.
+      if (exceptionInfo?.isException) reject(new Error(String(exceptionInfo.value).split(/\r?\n/)[0].replace(/^(Error|TypeError|RangeError): /, '')));
       else if (exceptionInfo?.isError && frame && /frame/i.test(`${exceptionInfo.code} ${exceptionInfo.description}`)) {
         reject(new Error(`No frame with the URL ${frame} (page_outline lists the frames and their URLs)`));
       } else if (exceptionInfo?.isError) reject(new Error(exceptionInfo.description || exceptionInfo.code || 'Evaluation failed'));

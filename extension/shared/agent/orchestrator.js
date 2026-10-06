@@ -21,7 +21,7 @@
  */
 
 import { ACTION_STATUS } from '../protocol.js';
-import { AGENT_MODES, enabledActionNames, isReadOnly, isServerSide, runsLive, validateAction } from '../actions.js';
+import { AGENT_MODES, compactActionNames, enabledActionNames, isKnownAction, isReadOnly, isServerSide, normalizeInput, runsLive, validateAction } from '../actions.js';
 import { siteKey } from '../page-groups.js';
 import { formatResult } from './format-result.js';
 import { fingerprint, forPanel, snapshot } from './session-model.js';
@@ -67,6 +67,8 @@ import { buildSystemPrompt } from './system-prompt.js';
 
 /** Model calls per turn in the agent modes, where each page step is one call (config.maxAgentSteps overrides). */
 const AGENT_STEPS = 40;
+/** Stop a turn after this many model calls in a row with only invalid tool calls (small models can loop on one mistake). */
+const MAX_INVALID_STREAK = 4;
 
 export const MEMORY_MODES = ['shared', 'private', 'off'];
 
@@ -205,20 +207,25 @@ export class Orchestrator {
       const provider = this.registry.create(session.provider);
       const P = /** @type {any} */ (provider.constructor);
 
-      const actionNames = enabledActionNames(settings);
+      // Compact mode (local models with a small context window): a short prompt, short tool descriptions,
+      // fewer tools, and older tool results shortened in the history.
+      const compact = /** @type {any} */ (provider).compact === true;
+      const actionNames = compact ? compactActionNames(enabledActionNames(settings)) : enabledActionNames(settings);
       const webTools = settings.webTools === true;
       const pageTools = Boolean(this.pageTools && P.pageToolsViaMcp);
       const agentMode = this.agentModeFor(session, settings);
-      const system = buildSystemPrompt({ actionNames, webTools, pageTools, structuredEnvelope: Boolean(P.structuredEnvelope), agentMode });
+      const system = buildSystemPrompt({ actionNames, webTools, pageTools, structuredEnvelope: Boolean(P.structuredEnvelope), agentMode, compact });
       // Working through a task on the page takes one model call per step.
       const maxSteps = agentMode === 'suggest' ? this.config.maxStepsPerTurn : (this.config.maxAgentSteps ?? AGENT_STEPS);
 
       this.trackPage(session, context, text);
       this.append(session, this.buildUserMessage(session, text, context));
 
+      // Model calls in a row whose tool calls were all invalid (a model stuck on the same mistake).
+      let invalidStreak = 0;
       for (let step = 0; step < maxSteps; step++) {
         const { message, toolCalls, usage, stopReason: sr } = await this.callModel(session, provider, {
-          system, actionNames, webTools, pageTools, agentMode, signal: abort.signal,
+          system, actionNames, webTools, pageTools, agentMode, compact, signal: abort.signal,
         });
         addUsage(turnUsage, usage);
         stopReason = sr;
@@ -226,9 +233,18 @@ export class Orchestrator {
         // pause_turn: the API paused a long server-side tool run (web search); call again to let it continue.
         if (!toolCalls.length) { if (sr === 'pause_turn') continue; break; }
 
+        // Optional fields set to null count as not given (small models write "frame": null).
+        for (const call of toolCalls) call.input = normalizeInput(call.name, call.input);
         // Until results are recorded, these calls are "open" (keeps history valid if we stop early).
         session.openToolCalls = toolCalls.map((c) => c.id);
+        const allInvalid = toolCalls.every((c) => validateAction(c.name, c.input, settings).length > 0);
         const continueLoop = await this.handleToolCalls(session, toolCalls, settings, abort.signal, agentMode);
+        invalidStreak = allInvalid ? invalidStreak + 1 : 0;
+        if (invalidStreak >= MAX_INVALID_STREAK) {
+          stopReason = 'invalid_calls';
+          this.panel.send(id, { type: 'error', conversationId: id, message: `Stopped: the model sent invalid steps ${MAX_INVALID_STREAK} times in a row. Try again, rephrase the task, or pick a larger model.` });
+          break;
+        }
         if (!continueLoop) break; // only proposals: wait for the user's decisions
 
         if (step === maxSteps - 1) {
@@ -264,9 +280,9 @@ export class Orchestrator {
    * Run one provider call and assemble the assistant message.
    * @param {Session} session
    * @param {import('../providers/base.js').Provider} provider
-   * @param {{ system: string, actionNames: string[], webTools: boolean, pageTools?: boolean, agentMode?: string, signal: AbortSignal }} o
+   * @param {{ system: string, actionNames: string[], webTools: boolean, pageTools?: boolean, agentMode?: string, compact?: boolean, signal: AbortSignal }} o
    */
-  async callModel(session, provider, { system, actionNames, webTools, pageTools = false, agentMode = 'suggest', signal }) {
+  async callModel(session, provider, { system, actionNames, webTools, pageTools = false, agentMode = 'suggest', compact = false, signal }) {
     const providerId = /** @type {any} */ (provider.constructor).id;
     const state = (session.providerState[providerId] ??= {});
 
@@ -285,7 +301,7 @@ export class Orchestrator {
     const live = actionNames.filter((name) => runsLive(name, agentMode));
     const grant = pageTools && this.pageTools ? this.pageTools.grant(session.id, actionNames, signal, live) : null;
     const events = provider.turn({
-      messages: session.messages, system, actionNames, webTools, model: session.model, state, signal,
+      messages: session.messages, system, actionNames, webTools, model: session.model, state, signal, compact,
       ...(grant ? { pageTools: { url: mcpUrl(this.config), token: grant.token } } : {}),
     });
     try {
@@ -356,11 +372,15 @@ export class Orchestrator {
       const errors = validateAction(call.name, call.input, settings);
       if (errors.length) {
         needsResults = true;
-        if (!isReadOnly(call.name)) {
+        // Live steps and inspections show as lines in the chat: mark those as not run (with why),
+        // instead of "running" or looking like they ran. Invalid proposals become an invalid card.
+        const asLine = isReadOnly(call.name) || runsLive(call.name, agentMode);
+        if (isKnownAction(call.name)) {
           session.actions[call.id] = {
             name: call.name, input: call.input, status: 'invalid', errors, reportedStatus: 'invalid',
-            ...(runsLive(call.name, agentMode) ? { live: true } : {}),
+            ...(asLine ? { live: true, detail: `Not run: ${errors.join('; ')}`.slice(0, 2000) } : {}),
           };
+          if (asLine) this.panel.send(session.id, { type: 'action.live', conversationId: session.id, actionId: call.id, record: session.actions[call.id] });
         }
         results.push({ type: 'tool_result', toolCallId: call.id, isError: true, content: `Invalid action: ${errors.join('; ')}` });
         continue;

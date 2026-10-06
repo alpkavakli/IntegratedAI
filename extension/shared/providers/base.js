@@ -48,6 +48,8 @@
  * @property {string} model                 model id/alias chosen for this conversation
  * @property {Record<string, any>} state    per-conversation memory for this provider (persisted)
  * @property {AbortSignal} signal           aborted when the user clicks Stop
+ * @property {boolean} [compact]            compact mode (a provider whose instance has compact = true: Ollama with
+ *                                          "Short prompts" on): short tool descriptions, older tool results shortened
  */
 
 /**

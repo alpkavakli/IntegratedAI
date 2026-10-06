@@ -60,7 +60,7 @@ const selectorProp = {
 
 const refProp = {
   type: 'string',
-  description: 'Or: the element\'s ref from find_elements or page_outline, e.g. "e12". Always means exactly that element (more reliable than a selector); valid until the page reloads.',
+  description: 'Or: the element\'s ref ("e" and a number) as returned by find_elements or page_outline. Always means exactly that element (more reliable than a selector); valid until the page reloads.',
 };
 
 const frameProp = {
@@ -99,7 +99,7 @@ export const ACTIONS = {
     readOnly: true,
     risk: 'none',
     description:
-      'Search the page for elements by CSS selector and/or visible text, e.g. to locate the nav bar, a footer or all buttons labelled "Sign in". Returns, for each match (visible ones first), a ref like "e12" to target it in interact steps, a plain-words name, a selector and its text. With neither selector nor text, returns the page landmarks (header, nav, main, footer, …). Use this instead of guessing selectors. Also searches open shadow roots.',
+      'Search the page for elements by CSS selector and/or visible text, e.g. to locate the nav bar, a footer or all buttons labelled "Sign in". Returns, for each match (visible ones first), a ref to target it in interact steps, a plain-words name, a selector and its text. With neither selector nor text, returns the page landmarks (header, nav, main, footer, …). Use this instead of guessing selectors. Also searches open shadow roots.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -117,7 +117,7 @@ export const ACTIONS = {
     readOnly: true,
     risk: 'none',
     description:
-      'What is on screen right now, the way a person scanning the page sees it: the buttons, links and fields (each with a ref like "e12" to use in interact steps, its state and where links go), the focused element, an open dialog, headings, iframes, and the visible text (short). ' +
+      'What is on screen right now, the way a person scanning the page sees it: the buttons, links and fields (each with a ref to use in interact steps, its state and where links go), the focused element, an open dialog, headings, iframes, and the visible text (short). ' +
       'Use it to get your bearings on a page; interact and navigate return it automatically after each step. all: true lists the whole page instead of only what is on screen.',
     inputSchema: {
       type: 'object',
@@ -374,7 +374,7 @@ export const ACTIONS = {
                   'press: press the key in value ("Enter", "Escape", "Tab", "ArrowDown", …) on the element (or on whatever has focus). ' +
                   'wait: wait until the element appears (up to 10 s), or without a target for value seconds (max 10).',
               },
-              ref: { type: 'string', description: 'The element\'s ref from find_elements or page_outline, e.g. "e12".' },
+              ref: { type: 'string', description: 'The element\'s ref, exactly as find_elements or page_outline returned it.' },
               selector: { type: 'string', description: 'Or: CSS selector of the element.' },
               text: { type: 'string', description: 'Or: the element\'s visible text / label (e.g. "Register", "A."). Combined with selector, searches inside matches of selector.' },
               value: { type: 'string', description: 'Text to type, the option to select, the scroll direction, the key to press, or seconds to wait.' },
@@ -431,6 +431,77 @@ export const ACTIONS = {
 
 export const ACTION_NAMES = /** @type {string[]} */ (Object.keys(ACTIONS));
 
+// ───────────────────────────────────────────────────────────── compact mode (local models)
+
+/**
+ * One-line descriptions for compact mode. Local models (Ollama) have a small context window
+ * (often 4–16K tokens), and the full descriptions plus the system prompt take ~6,500 of it,
+ * so a task runs out of room after a few steps. The schemas stay the same, minus their
+ * per-field descriptions; these lines carry what the model needs to call each action.
+ */
+const BRIEF = {
+  inspect_element: 'Details of one element (ref, selector or the selected one): include any of computed_all, rules, ancestors, children, html.',
+  find_elements: 'Search the page by CSS selector and/or visible text. Each match has a ref to target in interact.',
+  page_outline: 'What is on screen: buttons, links and fields with refs, focused element, dialog, headings, visible text.',
+  read_text: 'Read the text of the page or one element (ref/selector). Use offset=nextOffset for more.',
+  inspect_console: 'Recent console messages and errors.',
+  inspect_network: 'Network requests since DevTools opened (redacted).',
+  inspect_resources: 'List page resources, or read one (readContentOf: exact URL).',
+  screenshot: 'An image of an element (ref/selector) or of the visible page.',
+  remember: 'Save one short, reusable fact about this site (scope "site" or "page_group"). No secrets.',
+  forget: 'Delete a site-memory note by id.',
+  define_page_group: 'Name this kind of page and its path pattern, e.g. "/book/*/*".',
+  inject_css: 'Propose CSS for the page (the user applies it). Preferred way to change looks. Optional toggle: an on/off button.',
+  modify_element: 'Propose changes to one element: styles, attributes, classes or text.',
+  interact: 'Operate the page: steps of {action, ref|selector|text, value}. action: click, hover, type, select, check, uncheck, submit, '
+    + 'scroll (value down/up/top/bottom), press (value: key), wait (value: seconds). Steps wait for the page to settle.',
+  navigate: 'Open a URL in this tab (url), or go: back, forward, reload.',
+  execute_js: 'Last resort: propose JavaScript (body of an async function) for the user to run; give undoCode if possible.',
+};
+
+/** Actions left out in compact mode: rarely needed, and every tool costs context. */
+const COMPACT_LEAVE_OUT = new Set(['inspect_network', 'inspect_resources', 'define_page_group', 'forget']);
+
+/**
+ * The actions offered in compact mode.
+ * @param {string[]} names enabled action names
+ */
+export function compactActionNames(names) {
+  return names.filter((name) => !COMPACT_LEAVE_OUT.has(name));
+}
+
+/**
+ * A schema with short field descriptions: the first sentence of each, at most 90 characters. The shape
+ * and enums stay, so validation is unchanged. (Without any, small models lose track of what a field is
+ * for: qwen3 kept leaving out interact's required "description" and putting one in every step instead.)
+ * @param {Schema} schema
+ * @returns {Schema}
+ */
+function withShortDescriptions(schema) {
+  const rest = /** @type {any} */ ({ ...schema });
+  if (rest.description) {
+    const first = String(rest.description).split(/(?<=[\w)"]\.)\s+(?=[A-Z(])/)[0];
+    rest.description = first.length > 90 ? `${first.slice(0, 89)}…` : first;
+  }
+  if (rest.properties) rest.properties = Object.fromEntries(Object.entries(rest.properties).map(([k, v]) => [k, withShortDescriptions(/** @type {Schema} */ (v))]));
+  if (rest.items) rest.items = withShortDescriptions(rest.items);
+  if (rest.anyOf) rest.anyOf = rest.anyOf.map(withShortDescriptions);
+  return rest;
+}
+
+/**
+ * An action as a tool for a model: full descriptions, or the compact form for local models.
+ * @param {string} name
+ * @param {boolean} [compact]
+ * @returns {{ description: string, inputSchema: Schema }}
+ */
+export function toolSpec(name, compact = false) {
+  const def = ACTIONS[name];
+  return compact
+    ? { description: BRIEF[/** @type {keyof typeof BRIEF} */ (name)] ?? def.description, inputSchema: withShortDescriptions(def.inputSchema) }
+    : { description: def.description, inputSchema: def.inputSchema };
+}
+
 /** @param {string} name */
 export function isKnownAction(name) {
   return Object.hasOwn(ACTIONS, name);
@@ -470,6 +541,27 @@ export function enabledActionNames(settings) {
     const req = ACTIONS[name].requiresSetting;
     return !req || settings[req] === true;
   });
+}
+
+/**
+ * Drop optional fields a model set to null (small models write "frame": null for "no frame"), at any
+ * depth, so they count as not given instead of failing validation. Required fields are kept as they are.
+ * @param {string} name
+ * @param {unknown} input
+ * @returns {unknown}
+ */
+export function normalizeInput(name, input) {
+  if (!isKnownAction(name)) return input;
+  /** @param {any} value @param {Schema} schema @returns {any} */
+  const clean = (value, schema) => {
+    if (Array.isArray(value) && schema.items) return value.map((v) => clean(v, /** @type {Schema} */ (schema.items)));
+    if (!value || typeof value !== 'object' || Array.isArray(value) || !schema.properties) return value;
+    const required = new Set(schema.required ?? []);
+    return Object.fromEntries(Object.entries(value)
+      .filter(([key, v]) => !(v === null && !required.has(key)))
+      .map(([key, v]) => [key, schema.properties?.[key] ? clean(v, schema.properties[key]) : v]));
+  };
+  return clean(input, ACTIONS[name].inputSchema);
 }
 
 // Attributes that could run script or navigate to script. modify_element must not set these.

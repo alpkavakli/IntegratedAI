@@ -51,7 +51,10 @@ alone are about 6,500, so with the default Ollama silently cuts them off and the
 - Linux (systemd): add `Environment="OLLAMA_ORIGINS=chrome-extension://*"` and `Environment="OLLAMA_CONTEXT_LENGTH=16384"` with `systemctl edit ollama`, then restart it.
 
 On a GPU with 8 GB, also setting `OLLAMA_FLASH_ATTENTION=1` and `OLLAMA_KV_CACHE_TYPE=q8_0` keeps an 8B model plus 16K of context
-in video memory.
+in video memory. If your model can only have 8K tokens of context or less, turn on **Short prompts for Ollama**
+(Options → Advanced settings): a short system prompt and tool descriptions (about 2,800 tokens instead of 6,600),
+fewer tools, and only the newest results and page context in full. With 16K or more, leave it off: in tests,
+qwen3:8b followed the full prompt more reliably.
 
 Then pick **Ollama** in Options and click **Check connection**: it lists your models, checks that Ollama accepts the
 extension, and warns if the chosen model can't use tools. Small local models follow the instructions less reliably

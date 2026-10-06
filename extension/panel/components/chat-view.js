@@ -137,7 +137,7 @@ export class ChatView extends HTMLElement {
       const details = i.include?.join(', ') || i.urlContains || i.readContentOf || i.selector || i.ref || (i.text ? `"${i.text}"` : '') || i.query
         || (i.all ? 'whole page' : '')
         || (i.fullViewport ? 'visible page' : '');
-      return h('div', { class: 'inspection' }, `${ACTIONS[call.name]?.label ?? call.name}${details ? ` (${details})` : ''}`);
+      return h('div', { class: 'inspection', 'data-action': call.id }, `${ACTIONS[call.name]?.label ?? call.name}${details ? ` (${details})` : ''}`);
     }
     const card = /** @type {ActionCard} */ (document.createElement('ai-action-card'));
     card.bind(/** @type {any} */ (this.app), call.id, call.name, call.input);

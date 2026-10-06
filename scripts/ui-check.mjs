@@ -76,7 +76,8 @@ const ollama = http.createServer((req, res) => {
     const send = (/** @type {unknown} */ chunk) => res.write(`data: ${JSON.stringify(chunk)}\n\n`);
     res.writeHead(200, { 'content-type': 'text/event-stream' });
     const request = JSON.parse(body);
-    if (/Working on the page yourself/.test(request.messages[0].content)) {
+    // (The full prompt has a section for it; the compact one, which Ollama gets, says the steps RUN on the page.)
+    if (/Working on the page yourself|RUN on the page right away/.test(request.messages[0].content)) {
       // Tool results since the user's message (screenshots come as user messages that start with an image note).
       const lastAsk = request.messages.findLastIndex((/** @type {any} */ m) => m.role === 'user' && typeof m.content === 'string');
       const results = request.messages.slice(lastAsk).filter((/** @type {any} */ m) => m.role === 'tool');
