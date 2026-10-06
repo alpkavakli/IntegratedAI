@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { backupDataDir, dataInfo, prepareDataDir } from '../src/storage/data-version.js';
-import { buildExport, conversationsToWrite, mergeMemory, mergePatches, parseImport } from '../../extension/shared/data-transfer.js';
+import { buildExport, conversationsToWrite, mergeMemory, mergePatches, mergeTasks, parseImport } from '../../extension/shared/data-transfer.js';
 import { newSession } from '../../extension/shared/agent/session-model.js';
 import { testConfig } from './helpers.js';
 
@@ -90,11 +90,11 @@ test('import rejects foreign, newer and damaged files; ignores the token', () =>
 
 const note = (id, text, createdAt = 1, scope = 'site') => ({ id, text, scope, by: 'assistant', createdAt });
 
-test('export v2 carries direct-mode conversations and memory; a version 1 file still imports', () => {
+test('export carries direct-mode conversations and memory; a version 1 file still imports', () => {
   const session = { ...newSession({ provider: 'openai', model: 'gpt-6.1-sol' }), busy: true };
   const memory = { site: 'a.com', groups: [], notes: [note('n1', 'Login is at /signin')] };
   const file = JSON.parse(JSON.stringify(buildExport({ patches: [], settings: {}, extensionVersion: '1', conversations: [session], memory: [memory] })));
-  assert.equal(file.version, 2);
+  assert.equal(file.version, 3);
   assert.equal('busy' in file.conversations[0], false, 'runtime-only state is not exported');
   const parsed = parseImport(file);
   assert.equal(parsed.conversations[0].id, session.id);
@@ -137,4 +137,26 @@ test('imported memory is joined with what is here, without duplicates or going o
   const over = mergeMemory(capped.merged, { ...many, notes: many.notes.slice(100) }).merged;
   assert.equal(over.notes.length, 100);
   assert.equal(over.notes[0].id, 'm20', 'the oldest notes are dropped');
+});
+
+test('saved tasks: exported, imported (new ones added), and a damaged or tampered task is refused', () => {
+  const task = {
+    id: 't1', name: 'Sign up', site: 'a.com', startUrl: 'https://a.com/signup', created: 1,
+    steps: [
+      { kind: 'interact', step: { action: 'type', value: 'Sam', alternatives: [{ selector: '#name' }, { text: 'Full name' }] } },
+      { kind: 'interact', step: { action: 'type', alternatives: [{ selector: '#pw' }] }, secret: true },
+      { kind: 'navigate', input: { url: 'https://a.com/done' } },
+    ],
+  };
+  const file = JSON.parse(JSON.stringify(buildExport({ patches: [], settings: {}, extensionVersion: '1', tasks: [task] })));
+  assert.deepEqual(parseImport(file).tasks, [task]);
+  const bad = (/** @type {any} */ change) => () => parseImport({ ...file, tasks: [{ ...task, ...change }] });
+  assert.throws(bad({ startUrl: 'javascript:alert(1)' }), /start page/);
+  assert.throws(bad({ steps: [{ kind: 'navigate', input: { url: 'javascript:alert(1)' } }] }), /url must be/);
+  assert.throws(bad({ steps: [{ kind: 'interact', step: { action: 'click', alternatives: [{ selector: '#a', onclick: 'x' }] } }] }), /not allowed/);
+  assert.throws(bad({ steps: [{ kind: 'run_js', code: 'x' }] }), /not a step/);
+  assert.equal(parseImport({ ...file, tasks: undefined }).tasks.length, 0, 'older files have no tasks');
+  const { merged, added } = mergeTasks([task], [task, { ...task, id: 't2' }]);
+  assert.equal(added, 1);
+  assert.deepEqual(merged.map((t) => t.id), ['t2', 't1']);
 });

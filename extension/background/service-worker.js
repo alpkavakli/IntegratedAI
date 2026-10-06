@@ -14,7 +14,7 @@
  */
 
 import { scopeMatches } from '../shared/url-scope.js';
-import { buildExport, conversationsToWrite, mergeMemory, mergePatches, parseImport } from '../shared/data-transfer.js';
+import { buildExport, conversationsToWrite, mergeMemory, mergePatches, mergeTasks, parseImport } from '../shared/data-transfer.js';
 import { indexEntry } from '../shared/agent/session-model.js';
 import { DB_NAME as DIRECT_DB, openDb as openDirectDb } from '../panel/direct/stores.js';
 
@@ -66,6 +66,7 @@ const handlers = {
   // Options → Your data
   'data.summary': async () => ({
     patches: (await getPatches()).length,
+    tasks: ((await chrome.storage.local.get('tasks')).tasks ?? []).length,
     storageVersion: STORAGE_VERSION,
     extensionVersion: chrome.runtime.getManifest().version,
     // Direct mode keeps conversations (IndexedDB) and site memory ("memory:<site>" keys) in the extension.
@@ -79,6 +80,7 @@ const handlers = {
     conversations: await readDirectConversations(),
     memory: Object.entries(await chrome.storage.local.get(null))
       .filter(([key]) => key.startsWith(MEMORY_PREFIX)).map(([, record]) => record),
+    tasks: (await chrome.storage.local.get('tasks')).tasks ?? [],
   }),
   'data.import': async ({ data }) => importData(data),
   'data.clear': async () => clearData(),
@@ -293,12 +295,14 @@ chrome.runtime.onInstalled.addListener(async ({ reason }) => {
 chrome.runtime.onStartup.addListener(() => { migrateStorage(); });
 
 /**
- * Import patches (merged), settings (never the pairing token), and direct mode's
- * conversations and site memory (merged; nothing here is replaced by an older copy).
+ * Import patches (merged), settings (never the pairing token), saved tasks (new ones added), and direct
+ * mode's conversations and site memory (merged; nothing here is replaced by an older copy).
  * @param {unknown} data parsed export file
  */
 async function importData(data) {
-  const { patches, settings, conversations, memory } = parseImport(data);
+  const { patches, settings, conversations, memory, tasks } = parseImport(data);
+  const taskResult = mergeTasks((await chrome.storage.local.get('tasks')).tasks ?? [], tasks);
+  if (taskResult.added) await chrome.storage.local.set({ tasks: taskResult.merged });
   const imported = conversations.length ? await importDirectConversations(conversations) : { added: 0, updated: 0 };
   let notes = 0;
   for (const record of memory) {
@@ -315,7 +319,7 @@ async function importData(data) {
   for (const patch of patches.filter((p) => p.enabled)) await forMatchingTabs(patch, (tabId) => insertCss(tabId, patchCss(patch)));
   return {
     added: result.added, updated: result.updated, skipped: result.skipped, settings: Object.keys(settings),
-    conversations: imported.added + imported.updated, notes,
+    conversations: imported.added + imported.updated, notes, tasks: taskResult.added,
   };
 }
 

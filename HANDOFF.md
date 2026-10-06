@@ -99,6 +99,19 @@ same selector for every file row, and couldn't read a file because the code was 
 Not yet tried with a real model: the new tools and refs. A Claude Code run on the demo pages (store-screenshots
 harness) or the owner's GitHub/Telegram test is the next thing to do.
 
+## Done in the third session (2026-10-06)
+
+- **Real Ollama** (qwen3:8b, RTX 4060): works end to end; setup docs now include `OLLAMA_CONTEXT_LENGTH`.
+- **Short prompts for Ollama** (Options, off by default): ~2,800 instead of ~6,600 tokens of instructions and tools.
+  Measured: at 16K context qwen3:8b did the form task better with the full prompt (2/2 vs 1/2), so it is only for
+  small context windows. Found along the way and fixed: models copied the example ref "e12" (no literal example
+  refs in prompts now), invalid steps/inspections showed as running or as if they ran (now "not run: why"), null
+  optional fields (normalizeInput), and a turn stops after 4 all-invalid model calls in a row.
+- **Saved tasks**: "Save these N steps as a task" after an agent turn; Tasks tab with Run / Rename / Delete; replay
+  without the AI in `AgentRunner.replay` (Auto-mode asks, Stop works); `recordStep` stores selector + visible-name
+  targets and no password values; `validateTaskSteps` checks saved/imported steps; export format v3 includes tasks.
+  ui-check saves and replays a task.
+
 ## Next work, in order
 
 1. **Agent mode on real, logged-in apps** (the owner's wish: "let it browse Telegram"). Try Telegram Web and a shop

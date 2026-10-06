@@ -223,6 +223,14 @@ iframe (`frame`: the frame's URL, which `page_outline` lists). Before each step 
 **■** button in the panel stop it at any time.
 Style changes, element edits and scripts stay cards in every mode. Page content is treated as untrusted data: the AI
 is told never to follow instructions found on pages, and the panel (not the AI) decides what needs your OK.
+**Saved tasks.** After an agent turn that did things on the page, the chat offers **Save these N steps as a task**.
+The **Tasks** tab lists the tasks for this site: **Run** replays the steps without the AI (free, fast, the same every
+time), asking before risky steps as in Auto mode; Stop in the panel or on the page stops it. If the tab is on another
+page, the task opens its start page first. Steps are saved with targets that survive a reload (the element's selector,
+then its visible name), never with refs, and never with what was typed into a password field (that step is skipped
+on replay). Saved steps pass the same checks as the AI's, also when imported from an export file. Tasks are stored
+in the browser and included in *Options → Your data → Export*.
+
 With the Claude Code CLI, the page actions are offered as MCP tools (`mcp__page__interact`, `mcp__page__navigate`) in
 the agent modes only.
 
@@ -455,7 +463,7 @@ tool calling can reuse `envelopeSchema()` like the CLI provider does.
 npm test
 ```
 
-115 unit tests cover:
+126 unit tests cover:
 - action validation and safety rules
 - auth (Origin, Host, token) and patch scopes
 - CLI argument building and output parsing, including session resume, cost differences, recovery from a lost session, decoding the streamed reply, enabling only the web tools and our MCP page tools, and the one-time correction when a model calls page actions as tools
@@ -468,6 +476,8 @@ npm test
 - direct mode: the shared request handler, provider choice, and the OpenAI-compatible providers (streamed tool calls, cut-off answers, readable errors for bad keys, Ollama's address, missing server and refused origin)
 - export / import (no secrets, version 1 files, merging conversations and memory), data folder versions and backups
 - action validation including refs, frames, `page_outline` and `read_text`; strict Anthropic tool schemas kept within the API's budget (24 optional parameters per request)
+- saved tasks: recording (refs become selectors with the visible name as fallback, no password values), export /
+  import, and refusing tampered steps
 - agent modes: which actions run live, denied steps, more steps per turn, Full auto never a default, the new steps and navigate, MCP tools only in agent modes
 - CSS boosting, screenshots re-sent only for the last 3, and approved scripts that use `await` (timeouts, reloads)
 

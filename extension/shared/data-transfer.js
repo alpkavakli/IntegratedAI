@@ -1,8 +1,8 @@
 // @ts-check
 /**
  * Export / import of the data the EXTENSION keeps in Chrome: saved patches,
- * settings and, from version 2 on, direct mode's conversations and site memory
- * (shared and private). In local server mode, conversations and memory live in
+ * settings, from version 2 on direct mode's conversations and site memory
+ * (shared and private), and from version 3 on saved tasks. In local server mode, conversations and memory live in
  * the server's data folder instead, which keeps its own backups.
  *
  * Why: Chrome keeps extension storage across updates, but deletes it on
@@ -11,16 +11,17 @@
  *
  * Secrets are never exported: not the pairing token, not API keys.
  *
- * Version history: 1 = patches + settings; 2 = adds `conversations` and `memory`.
- * Version 1 files still import.
+ * Version history: 1 = patches + settings; 2 = adds `conversations` and `memory`; 3 = adds `tasks`.
+ * Older files still import.
  */
 
 import { validate } from './validate.js';
+import { validateTaskSteps } from './actions.js';
 import { isSessionId } from './agent/session-model.js';
 import { MEMORY_LIMITS } from './agent/memory.js';
 
 export const EXPORT_FORMAT = 'integratedai-extension-data';
-export const EXPORT_VERSION = 2;
+export const EXPORT_VERSION = 3;
 
 const SCOPE_SCHEMA = {
   type: 'object',
@@ -93,9 +94,9 @@ const IMPORTABLE_SETTINGS = ['serverUrl', 'executeJs', 'webTools', 'askBeforeIns
 
 /**
  * @param {{ patches: any[], settings: Record<string, any>, extensionVersion: string,
- *   conversations?: any[], memory?: any[] }} data
+ *   conversations?: any[], memory?: any[], tasks?: any[] }} data
  */
-export function buildExport({ patches, settings, extensionVersion, conversations = [], memory = [] }) {
+export function buildExport({ patches, settings, extensionVersion, conversations = [], memory = [], tasks = [] }) {
   return {
     format: EXPORT_FORMAT,
     version: EXPORT_VERSION,
@@ -105,7 +106,23 @@ export function buildExport({ patches, settings, extensionVersion, conversations
     settings: Object.fromEntries(IMPORTABLE_SETTINGS.filter((k) => k in settings).map((k) => [k, settings[k]])),
     conversations: conversations.map(({ busy, ...session }) => session), // `busy` is runtime-only
     memory,
+    tasks,
   };
+}
+
+/**
+ * Is an imported saved task well formed, with steps that pass the same checks as the AI's? Its steps run
+ * on pages when the user clicks Run, so a damaged or hand-edited file must not get odd steps in.
+ * @param {any} t
+ */
+function taskErrors(t) {
+  if (!t || typeof t !== 'object' || typeof t.id !== 'string' || !t.id || t.id.length > 100) return ['no id'];
+  if (typeof t.name !== 'string' || !t.name.trim() || t.name.length > 80) return ['no name'];
+  if (typeof t.site !== 'string' || typeof t.created !== 'number') return ['damaged'];
+  let url = null;
+  try { url = new URL(t.startUrl); } catch { /* checked below */ }
+  if (!url || !['http:', 'https:'].includes(url.protocol)) return ['the start page must be an http(s) address'];
+  return validateTaskSteps(t.steps);
 }
 
 /**
@@ -126,7 +143,7 @@ function isConversation(s) {
 /**
  * Check an import file and return what it contains. Throws a readable error.
  * @param {unknown} data parsed JSON
- * @returns {{ patches: any[], settings: Record<string, any>, conversations: any[], memory: any[] }}
+ * @returns {{ patches: any[], settings: Record<string, any>, conversations: any[], memory: any[], tasks: any[] }}
  */
 export function parseImport(data) {
   const d = /** @type {any} */ (data);
@@ -155,7 +172,25 @@ export function parseImport(data) {
     if (errors.length) throw new Error(`Site memory ${i + 1} is damaged: ${errors[0]}`);
     memory.push(record);
   }
-  return { patches, settings, conversations, memory };
+  const tasks = [];
+  for (const [i, task] of (Array.isArray(d.tasks) ? d.tasks : []).entries()) {
+    const errors = taskErrors(task);
+    if (errors.length) throw new Error(`Saved task ${i + 1} is damaged: ${errors[0]}`);
+    const { id, name, site, startUrl, steps, created, lastRun } = task;
+    tasks.push({ id, name, site, startUrl, steps, created, ...(typeof lastRun === 'number' ? { lastRun } : {}) });
+  }
+  return { patches, settings, conversations, memory, tasks };
+}
+
+/**
+ * Add imported tasks that aren't here yet (by id); tasks already here are kept as they are.
+ * @param {any[]} existing
+ * @param {any[]} incoming
+ */
+export function mergeTasks(existing, incoming) {
+  const ids = new Set(existing.map((t) => t.id));
+  const added = incoming.filter((t) => !ids.has(t.id));
+  return { merged: [...added, ...existing], added: added.length };
 }
 
 /**

@@ -56,7 +56,7 @@
 <h2>What is stored, and where</h2>
 <p>All storage is local to your computer:</p>
 <ul>
-<li><strong>In Chrome</strong> (extension storage): your settings, your API keys (direct mode), the pairing token (local server mode) and saved CSS patches. In direct mode also your conversations (IndexedDB) and site memory, including private per-conversation memory. Removed when you uninstall the extension, or via <em>Options → Your data → Delete extension data</em>. Each API key is only ever sent to its own provider. <em>Options → Your data → Export</em> saves this data (without API keys or the pairing token) to a file on your computer, only when you click it.</li>
+<li><strong>In Chrome</strong> (extension storage): your settings, your API keys (direct mode), the pairing token (local server mode), saved CSS patches and saved tasks (the page steps you chose to save, including what was typed, but never what was typed into a password field). In direct mode also your conversations (IndexedDB) and site memory, including private per-conversation memory. Removed when you uninstall the extension, or via <em>Options → Your data → Delete extension data</em>. Each API key is only ever sent to its own provider. <em>Options → Your data → Export</em> saves this data (without API keys or the pairing token) to a file on your computer, only when you click it.</li>
 <li><strong>Local server mode, on your computer, in the agent server's folder</strong> (<code>~/.integratedai</code>): conversations, site memory notes and page types, logs of failed calls, and automatic backups made before data-format updates. You can view, back up or delete this folder at any time; individual memory notes can be edited or deleted in the panel's Memory tab.</li>
 </ul>
 <h2>What the extension does on pages</h2>
@@ -71,6 +71,9 @@
 </ul>
 </ul>
 <p>Style changes, element edits and scripts still wait for your approval in every mode. Agent modes don't change what data is read or where it goes (above); a &quot;working… Stop&quot; badge on the page lets you stop the AI at any time.</p>
+<ul>
+<li>Runs a saved task's steps when you click <strong>Run</strong> in the Tasks tab, without the AI and without sending anything anywhere. It asks you before risky steps, as in Auto mode, and the same Stop badge stops it.</li>
+</ul>
 <h2>Children</h2>
 <p>The extension is not directed at children under 13.</p>
 <h2>Changes</h2>

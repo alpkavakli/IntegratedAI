@@ -53,7 +53,8 @@ Nothing is sent to the developer of this extension or to any other third party.
 All storage is local to your computer:
 
 - **In Chrome** (extension storage): your settings, your API keys (direct mode), the pairing token
-  (local server mode) and saved CSS patches. In direct mode also your conversations (IndexedDB) and site
+  (local server mode), saved CSS patches and saved tasks (the page steps you chose to save, including what was
+  typed, but never what was typed into a password field). In direct mode also your conversations (IndexedDB) and site
   memory, including private per-conversation memory. Removed when you uninstall the extension, or via
   *Options → Your data → Delete extension data*. Each API key is only ever sent to its own provider.
   *Options → Your data → Export* saves this data (without API keys or the pairing token) to a file on your
@@ -77,6 +78,8 @@ All storage is local to your computer:
 
   Style changes, element edits and scripts still wait for your approval in every mode. Agent modes don't change
   what data is read or where it goes (above); a "working… Stop" badge on the page lets you stop the AI at any time.
+- Runs a saved task's steps when you click **Run** in the Tasks tab, without the AI and without sending anything
+  anywhere. It asks you before risky steps, as in Auto mode, and the same Stop badge stops it.
 
 ## Children
 

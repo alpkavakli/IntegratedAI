@@ -329,6 +329,38 @@ try {
   await sleep(1000);
   if (await ev(agent.page.session, `!!document.getElementById('integratedai-working')`)) violations.push('agent: the badge stayed after the turn');
 
+  // Saved tasks: save the steps the AI just did, then run them again from the Tasks tab (no AI involved).
+  // The tab is on the pricing page now, so the task first goes back to the sign-up page it started on.
+  await agent.ui(`document.querySelector('.save-task button.link').click()`);
+  await agent.ui(`(() => { const box = document.querySelector('.save-task'); box.querySelector('input').value = 'Sign up for screen printing';
+    [...box.querySelectorAll('button')].find((b) => b.textContent === 'Save').click(); })()`);
+  await sleep(600);
+  const saved = await agent.ui(`document.querySelector('.save-task')?.innerText ?? ''`);
+  if (!/Saved as "Sign up for screen printing"/.test(saved)) violations.push(`tasks: saving failed (${saved})`);
+  await agent.showTab('tasks'); await sleep(600);
+  await shot(agent.panel, 'panel-12-tasks-light');
+  await audit(agent.panel.session, 'panel tasks tab (light)');
+  await agent.ui(`document.querySelector('ai-tasks details')?.setAttribute('open', '')`);
+  await agent.ui(`[...document.querySelectorAll('ai-tasks button')].find((b) => b.textContent === 'Run').click()`);
+  let taskAsked = '';
+  for (let i = 0; i < 120; i++) {
+    const ask = await agent.ui(`document.querySelector('.ask-step')?.innerText ?? ''`);
+    if (ask) {
+      taskAsked = ask;
+      await agent.ui(`[...document.querySelectorAll('.ask-step button')].find((b) => b.textContent === 'Allow').click()`);
+    }
+    if (await agent.ui(`/Ran the saved task|saved task .* stopped/.test(document.getElementById('chat').innerText)`)) break;
+    await sleep(250);
+  }
+  const taskLines = await agent.ui(`[...document.querySelectorAll('.activity')].map((l) => l.textContent).slice(-8)`);
+  await shot(agent.panel, 'panel-13-task-ran-light');
+  log(`tasks: asked "${taskAsked.replace(/\s+/g, ' ')}"`);
+  for (const line of taskLines) log(`  ${line}`);
+  if (!taskLines.some((/** @type {string} */ l) => /Ran the saved task "Sign up for screen printing" \(\d+ steps\)/.test(l))) violations.push(`tasks: the task did not run through (${taskLines.at(-1)})`);
+  if (!taskLines.some((/** @type {string} */ l) => /Type "Sam Rivera" into the "Full name" field/.test(l))) violations.push('tasks: the replay did not type the name');
+  if (!/Allow this task to click button "Reserve my spot"/.test(taskAsked)) violations.push(`tasks: the risky click was not asked about (${taskAsked})`);
+  await agent.showTab('chat');
+
   // Stop on the page: a new task, then the badge's Stop (its shadow root is closed, so set what its click sets).
   await agent.ui(`document.getElementById('new-chat').click()`);
   await sleep(1500);

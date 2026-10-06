@@ -544,6 +544,38 @@ export function enabledActionNames(settings) {
 }
 
 /**
+ * Check a saved task's steps (from the panel, or from an imported file) with the same rules as the
+ * AI's steps: each interact step, with each of its alternative targets, is a valid interact step, and
+ * each navigate is a valid navigate.
+ * @param {unknown} steps
+ * @returns {string[]} errors (empty = valid)
+ */
+export function validateTaskSteps(steps) {
+  if (!Array.isArray(steps) || !steps.length || steps.length > 200) return ['a task needs 1–200 steps'];
+  /** @type {string[]} */
+  const errors = [];
+  steps.forEach((/** @type {any} */ entry, n) => {
+    const at = `step ${n + 1}`;
+    if (!entry || typeof entry !== 'object') { errors.push(`${at} is not a step`); return; }
+    if (entry.kind === 'navigate') {
+      errors.push(...validateAction('navigate', { description: 'saved task', ...entry.input }).map((e) => `${at}: ${e}`));
+      return;
+    }
+    if (entry.kind !== 'interact' || !entry.step || typeof entry.step !== 'object') { errors.push(`${at} is not a step`); return; }
+    const { alternatives, ...step } = entry.step;
+    if (alternatives !== undefined && (!Array.isArray(alternatives) || alternatives.length > 5)) { errors.push(`${at}: bad targets`); return; }
+    const variants = alternatives?.length ? alternatives.map((/** @type {any} */ t) => ({ ...step, ...t })) : [step];
+    for (const variant of variants) {
+      const input = { description: 'saved task', steps: [variant], ...(entry.frame !== undefined ? { frame: entry.frame } : {}) };
+      // A password step is saved without its value; it is skipped on replay, so a missing value is fine there.
+      const checked = entry.secret === true && variant.action === 'type' ? { ...input, steps: [{ ...variant, value: '' }] } : input;
+      errors.push(...validateAction('interact', checked).map((e) => `${at}: ${e}`));
+    }
+  });
+  return errors;
+}
+
+/**
  * Drop optional fields a model set to null (small models write "frame": null for "no frame"), at any
  * depth, so they count as not given instead of failing validation. Required fields are kept as they are.
  * @param {string} name

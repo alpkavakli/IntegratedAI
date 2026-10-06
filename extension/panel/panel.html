@@ -13,6 +13,7 @@
         <nav class="tabs" role="tablist">
           <button type="button" role="tab" id="tab-chat" aria-controls="view-chat" aria-selected="true" data-tab="chat" class="active">Chat</button>
           <button type="button" role="tab" id="tab-patches" aria-controls="view-patches" aria-selected="false" tabindex="-1" data-tab="patches">Patches <span id="patch-count" class="badge" hidden></span></button>
+          <button type="button" role="tab" id="tab-tasks" aria-controls="view-tasks" aria-selected="false" tabindex="-1" data-tab="tasks">Tasks <span id="task-count" class="badge" hidden></span></button>
           <button type="button" role="tab" id="tab-console" aria-controls="view-console" aria-selected="false" tabindex="-1" data-tab="console">Console <span id="error-count" class="badge error" hidden></span></button>
           <button type="button" role="tab" id="tab-memory" aria-controls="view-memory" aria-selected="false" tabindex="-1" data-tab="memory">Memory <span id="memory-count" class="badge" hidden></span></button>
         </nav>
@@ -74,6 +75,10 @@
 
       <section id="view-patches" role="tabpanel" aria-labelledby="tab-patches" class="view" hidden>
         <ai-patches id="patches"></ai-patches>
+      </section>
+
+      <section id="view-tasks" role="tabpanel" aria-labelledby="tab-tasks" class="view" hidden>
+        <ai-tasks id="tasks"></ai-tasks>
       </section>
 
       <section id="view-console" role="tabpanel" aria-labelledby="tab-console" class="view" hidden>

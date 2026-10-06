@@ -22,6 +22,7 @@ import './components/history-view.js';
 import './components/memory-view.js';
 import { relativeTime } from './components/history-view.js';
 import './components/patches-view.js';
+import './components/tasks-view.js';
 import { bg } from './lib/bg.js';
 import { h } from './lib/dom.js';
 import { ChangeManager } from './lib/changes.js';
@@ -30,6 +31,7 @@ import { callInPage, selectInElementsPanel } from './lib/inspected.js';
 import { runInspection } from './lib/inspections.js';
 import { highlight, pageInfo, selectedLabel, selectedText } from './lib/page-scripts.js';
 import { loadSettings, onSettingsChanged } from './lib/settings.js';
+import { saveTask, updateTask } from './lib/tasks.js';
 import { ServerClient } from './lib/ws-client.js';
 import { DirectClient } from './direct/direct-client.js';
 import { boostCss } from '../shared/css-boost.js';
@@ -45,6 +47,8 @@ export class App {
     this.session = null;
     /** @type {import('../shared/protocol.js').ProviderInfo[]} */
     this.providers = [];
+    /** A saved task is running (Tasks tab → Run). */
+    this.replaying = false;
     this.changes = new ChangeManager(this.tabId);
     /** The AI backend: the local agent server, or direct mode inside the extension (same interface). Set in start(). */
     this.client = /** @type {ServerClient | DirectClient} */ (/** @type {any} */ (null));
@@ -106,6 +110,7 @@ export class App {
     await this.changes.load(page.timeOrigin);
 
     this.patchesView = $('patches').bind(this);
+    this.tasksView = $('tasks').bind(this);
     this.consoleView = $('console').bind(this);
     this.historyView = $('history').bind(this);
     this.memoryView = $('memory').bind(this);
@@ -133,7 +138,8 @@ export class App {
 
     $('composer').addEventListener('submit', (/** @type {Event} */ e) => {
       e.preventDefault();
-      if (this.session?.busy) this.client.send({ type: 'chat.cancel', conversationId: this.session.id });
+      if (this.replaying) this.stopTask();
+      else if (this.session?.busy) this.client.send({ type: 'chat.cancel', conversationId: this.session.id });
       else this.sendFromUi($('prompt').value);
     });
     // The text box grows with what you type (up to a limit), like other chat apps.
@@ -147,7 +153,7 @@ export class App {
     $('prompt').addEventListener('keydown', (/** @type {KeyboardEvent} */ e) => {
       if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
         e.preventDefault();
-        if (!this.session?.busy) this.sendFromUi($('prompt').value);
+        if (!this.session?.busy && !this.replaying) this.sendFromUi($('prompt').value);
       }
     });
 
@@ -177,10 +183,11 @@ export class App {
       tab.setAttribute('aria-selected', String(active));
       tab.setAttribute('tabindex', active ? '0' : '-1');
     }
-    for (const view of ['chat', 'patches', 'console', 'memory']) $(`view-${view}`).hidden = view !== name;
+    for (const view of ['chat', 'patches', 'tasks', 'console', 'memory']) $(`view-${view}`).hidden = view !== name;
     if (name === 'memory') this.refreshMemory();
     this.consoleView.setVisible(name === 'console');
     if (name === 'patches') this.patchesView.refresh();
+    if (name === 'tasks') this.tasksView.refresh();
     if (name === 'chat') $('prompt').focus();
   }
 
@@ -297,6 +304,7 @@ export class App {
     const tick = async () => {
       try {
         if (await callInPage(takeStopRequest)) {
+          if (this.replaying) this.stopTask();
           if (this.session?.busy) this.client.send({ type: 'chat.cancel', conversationId: this.session.id });
           this.chat.cancelAsks();
           return;
@@ -376,6 +384,7 @@ export class App {
       case 'turn.done':
         this.chat.cancelAsks();
         this.unwatchPageStop();
+        this.offerToSaveTask();
         if (session) {
           session.busy = false;
           session.usage = msg.sessionUsage;
@@ -758,7 +767,7 @@ export class App {
   }
 
   updateComposer() {
-    const busy = Boolean(this.session?.busy);
+    const busy = Boolean(this.session?.busy || this.replaying);
     // Like other chat apps: an arrow to send, a square to stop (both icons are in panel.html).
     $('send').classList.toggle('busy', busy);
     $('send').title = busy ? 'Stop' : 'Send (Enter)';
@@ -810,6 +819,68 @@ export class App {
     el.title = this.session?.provider === 'claude-cli'
       ? 'Estimated cost reported by Claude Code. With a subscription this is usage against your plan, not a separate bill.'
       : 'Estimated API cost of this conversation';
+  }
+
+  // ───────────────────────────────────────────────────────── saved tasks
+
+  /**
+   * After an agent turn that did things on the page: offer to save those steps as a task,
+   * to run again later without the AI.
+   */
+  offerToSaveTask() {
+    const steps = this.agent.recorded;
+    if (!steps.length || this.agentMode() === 'suggest') return;
+    const startUrl = this.agent.startUrl || this.pageUrl;
+    // The user's request is a good default name ("Sign me up for screen printing").
+    const lastAsk = this.session?.messages.findLast((m) => m.role === 'user' && m.content.some((b) => b.type === 'text'));
+    const text = /** @type {any} */ (lastAsk?.content.find((b) => b.type === 'text'))?.text ?? '';
+    this.chat.offerSaveTask(steps.length, text.split('\n')[0].slice(0, 80), async (name) => {
+      await saveTask({ name, startUrl, steps: structuredClone(steps) });
+      await this.tasksView.refresh();
+    });
+  }
+
+  /**
+   * Run a saved task: its steps, without the AI, asking before risky ones (as in Auto mode).
+   * @param {import('./lib/tasks.js').Task} task
+   */
+  async runTask(task) {
+    if (this.replaying || this.session?.busy) return;
+    this.replaying = true;
+    this.showTab('chat');
+    this.chat.askSubject = 'this task';
+    this.chat.setBusy(true);
+    this.updateComposer();
+    this.tasksView.refresh();
+    this.watchPageStop();
+    const header = this.chat.activity(`Running the saved task "${task.name}"`);
+    try {
+      const done = await this.agent.replay(task);
+      header.done(`Ran the saved task "${task.name}" (${done.length} step${done.length === 1 ? '' : 's'})`);
+      await updateTask(task.id, { lastRun: Date.now() });
+    } catch (err) {
+      header.done(`The saved task "${task.name}" stopped: ${/** @type {any} */ (err).message}`, false);
+    } finally {
+      this.replaying = false;
+      this.chat.askSubject = 'the AI';
+      this.unwatchPageStop();
+      this.chat.cancelAsks();
+      this.chat.setBusy(false);
+      this.updateComposer();
+      this.tasksView.refresh();
+    }
+  }
+
+  /** Stop a running task (Stop in the panel or on the page). */
+  stopTask() {
+    this.agent.abort();
+    this.chat.cancelAsks();
+  }
+
+  /** @param {number} n */
+  setTaskCount(n) {
+    $('task-count').hidden = n === 0;
+    $('task-count').textContent = String(n);
   }
 
   /** @param {number} n */

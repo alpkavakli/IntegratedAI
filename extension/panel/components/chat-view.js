@@ -5,7 +5,7 @@
  */
 
 import { ACTIONS, isPageAction, isReadOnly, isServerSide, runsLive, validateAction } from '../../shared/actions.js';
-import { h } from '../lib/dom.js';
+import { h, setChildren } from '../lib/dom.js';
 import { renderMarkdown } from '../lib/markdown.js';
 import { ActionCard } from './action-card.js';
 
@@ -33,6 +33,8 @@ export class ChatView extends HTMLElement {
     this.thinkingTimer = undefined;
     /** Open "Allow?" questions, answered "deny" when the turn ends. @type {Set<(answer: 'deny') => void>} */
     this.pendingAsks = new Set();
+    /** Who "Allow … to click …?" asks for: the AI, or a saved task being run. */
+    this.askSubject = 'the AI';
     return this;
   }
 
@@ -182,6 +184,39 @@ export class ChatView extends HTMLElement {
   }
 
   /**
+   * Under an agent turn that did things on the page: "Save as task", which asks for a name and saves.
+   * @param {number} count steps done
+   * @param {string} suggestedName
+   * @param {(name: string) => Promise<void>} save
+   */
+  offerSaveTask(count, suggestedName, save) {
+    const name = /** @type {HTMLInputElement} */ (h('input', { type: 'text', value: suggestedName, 'aria-label': 'Task name', maxlength: '80' }));
+    const status = h('span', { class: 'detail' });
+    const form = h('div', { class: 'row', hidden: true }, name,
+      h('button', {
+        type: 'button', class: 'primary',
+        onclick: async () => {
+          try {
+            await save(name.value);
+            setChildren(box, h('span', { class: 'detail' }, `Saved as "${name.value.trim() || 'Untitled task'}". Run it from the Tasks tab.`));
+          } catch (err) {
+            status.textContent = ` ${/** @type {any} */ (err).message}`;
+          }
+        },
+      }, 'Save'),
+      status);
+    const box = h('div', { class: 'save-task' },
+      h('button', {
+        type: 'button', class: 'link',
+        onclick: (/** @type {any} */ e) => { e.target.hidden = true; form.hidden = false; name.focus(); name.select(); },
+      }, `Save these ${count} step${count === 1 ? '' : 's'} as a task`),
+      form);
+    const stick = this.isNearBottom();
+    this.insert(box);
+    if (stick) this.scrollToBottom();
+  }
+
+  /**
    * Ask before a page step (agent modes). Resolves 'allow', 'all' (stop asking for this task) or 'deny'.
    * @param {string} what  e.g. 'click button "Send"'
    * @param {string} risky why it needs a yes even in Auto mode, or ''
@@ -196,7 +231,7 @@ export class ChatView extends HTMLElement {
         resolve(answer);
       };
       const box = h('div', { class: `ask-step${risky ? ' risky' : ''}` },
-        h('div', { class: 'ask-what' }, `Allow the AI to ${what}?`),
+        h('div', { class: 'ask-what' }, `Allow ${this.askSubject ?? 'the AI'} to ${what}?`),
         risky ? h('div', { class: 'ask-why' }, `This ${risky}.`) : null,
         h('div', { class: 'buttons' },
           h('button', { type: 'button', class: 'primary', onclick: () => done('allow') }, 'Allow'),

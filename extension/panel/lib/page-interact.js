@@ -27,8 +27,8 @@
  * label (so the user can follow the AI working), and described, including whether the step
  * is risky (the agent modes ask before those). With hold: true the outline stays until the
  * step runs (or clearHighlight), so it marks the target while the user is asked.
- * @returns {{ found: false } | { found: true, did: string, undoable: boolean }
- *   | { found: true, what: string, risky: string }}  risky: why it is, or ''
+ * @returns {{ found: false } | { found: true, did: string, undoable: boolean, target?: { selector: string, text: string, secret?: boolean } }
+ *   | { found: true, what: string, risky: string }}  risky: why it is, or ''; target: see below (steps on an element)
  */
 export function interactStep(h, selected, { actionId, step, dry = false, hold = false }) {
   const norm = (s) => String(s ?? '').replace(/\s+/g, ' ').trim().toLowerCase();
@@ -297,100 +297,113 @@ export function interactStep(h, selected, { actionId, step, dry = false, hold = 
       : node.control || node.querySelector('input, textarea, select, [contenteditable=""], [contenteditable="true"]') || node;
   }
 
-  switch (step.action) {
-    case 'click': {
-      const control = el.closest('button, input, select, textarea, fieldset');
-      if (control && control.disabled) throw new Error(`${humanName(el)} is disabled (greyed out), so it can't be clicked yet`);
-      const cover = coveredBy(el);
-      const link = el.closest('a[href]');
-      realClick(el);
-      const notes = [];
-      if (cover) notes.push(`${humanName(cover)} (${h.label(cover)}) was on top of it, so a person couldn't have clicked it; close that first if nothing happened`);
-      if (el.getAttribute('aria-disabled') === 'true') notes.push('it is marked as disabled, so it may have done nothing');
-      if (link && link.target === '_blank') notes.push(`it opens in a new tab, which the panel can't follow; use navigate with ${link.href} to open it here`);
-      return { found: true, did: `clicked ${name}${which}${notes.length ? `. Note: ${notes.join('; ')}` : ''}`, undoable: false };
-    }
+  /**
+   * A target that still works after the page reloads (refs don't): the element's unique selector, and the
+   * visible name to fall back on. Saved tasks replay steps with these. A password field's typed value is
+   * never kept (secret: true).
+   */
+  const target = {
+    selector: h.cssPath(el),
+    text: String(step.text || el.getAttribute('aria-label') || (el.innerText || '').trim()).replace(/\s+/g, ' ').slice(0, 80),
+    ...(step.action === 'type' && field(el).matches('input[type=password], [autocomplete=one-time-code], [autocomplete*=password]') ? { secret: true } : {}),
+  };
+  const result = (() => {
+    switch (step.action) {
+      case 'click': {
+        const control = el.closest('button, input, select, textarea, fieldset');
+        if (control && control.disabled) throw new Error(`${humanName(el)} is disabled (greyed out), so it can't be clicked yet`);
+        const cover = coveredBy(el);
+        const link = el.closest('a[href]');
+        realClick(el);
+        const notes = [];
+        if (cover) notes.push(`${humanName(cover)} (${h.label(cover)}) was on top of it, so a person couldn't have clicked it; close that first if nothing happened`);
+        if (el.getAttribute('aria-disabled') === 'true') notes.push('it is marked as disabled, so it may have done nothing');
+        if (link && link.target === '_blank') notes.push(`it opens in a new tab, which the panel can't follow; use navigate with ${link.href} to open it here`);
+        return { found: true, did: `clicked ${name}${which}${notes.length ? `. Note: ${notes.join('; ')}` : ''}`, undoable: false };
+      }
 
-    case 'hover':
-      hoverOver(el);
-      return { found: true, did: `pointed at ${name}${which}`, undoable: true };
+      case 'hover':
+        hoverOver(el);
+        return { found: true, did: `pointed at ${name}${which}`, undoable: true };
 
-    case 'type': {
-      const target = field(el);
-      if (!target.isContentEditable && !('value' in target)) throw new Error(`${name} is not a text field`);
-      if (target.disabled || target.readOnly) throw new Error(`${humanName(target)} is ${target.disabled ? 'disabled' : 'read-only'}`);
-      const before = target.isContentEditable ? target.innerHTML : target.value;
-      undo.push({ el: target, kind: target.isContentEditable ? 'html' : 'value', before });
-      if (!insertText(target, step.value)) {
-        // The editing command didn't take (some field types, unusual editors): set it directly.
-        if (target.isContentEditable) {
-          target.textContent = step.value;
-          fire(target, 'input', InputEvent, { inputType: 'insertText', data: step.value });
-        } else {
-          setNative(target, 'value', step.value);
-          fire(target, 'input', InputEvent, { inputType: 'insertText', data: step.value });
+      case 'type': {
+        const target = field(el);
+        if (!target.isContentEditable && !('value' in target)) throw new Error(`${name} is not a text field`);
+        if (target.disabled || target.readOnly) throw new Error(`${humanName(target)} is ${target.disabled ? 'disabled' : 'read-only'}`);
+        const before = target.isContentEditable ? target.innerHTML : target.value;
+        undo.push({ el: target, kind: target.isContentEditable ? 'html' : 'value', before });
+        if (!insertText(target, step.value)) {
+          // The editing command didn't take (some field types, unusual editors): set it directly.
+          if (target.isContentEditable) {
+            target.textContent = step.value;
+            fire(target, 'input', InputEvent, { inputType: 'insertText', data: step.value });
+          } else {
+            setNative(target, 'value', step.value);
+            fire(target, 'input', InputEvent, { inputType: 'insertText', data: step.value });
+            fire(target, 'change');
+          }
+        } else if (!target.isContentEditable) {
           fire(target, 'change');
         }
-      } else if (!target.isContentEditable) {
+        return { found: true, did: `typed "${step.value.slice(0, 60)}" into ${name}${which}`, undoable: true };
+      }
+
+      case 'select': {
+        const target = field(el);
+        if (target.tagName !== 'SELECT') throw new Error(`${name} is not a <select>; open a custom dropdown with click steps instead`);
+        const want = norm(step.value);
+        const option = [...target.options].find((o) => norm(o.value) === want || norm(o.text) === want)
+          || [...target.options].find((o) => norm(o.text).includes(want));
+        if (!option) throw new Error(`No option "${step.value}" in ${name}; the options are: ${[...target.options].slice(0, 30).map((o) => `"${o.text.trim()}"`).join(', ')}`);
+        undo.push({ el: target, kind: 'value', before: target.value });
+        setNative(target, 'value', option.value);
+        fire(target, 'input');
         fire(target, 'change');
+        return { found: true, did: `selected "${option.text.trim()}" in ${name}`, undoable: true };
       }
-      return { found: true, did: `typed "${step.value.slice(0, 60)}" into ${name}${which}`, undoable: true };
-    }
 
-    case 'select': {
-      const target = field(el);
-      if (target.tagName !== 'SELECT') throw new Error(`${name} is not a <select>; open a custom dropdown with click steps instead`);
-      const want = norm(step.value);
-      const option = [...target.options].find((o) => norm(o.value) === want || norm(o.text) === want)
-        || [...target.options].find((o) => norm(o.text).includes(want));
-      if (!option) throw new Error(`No option "${step.value}" in ${name}; the options are: ${[...target.options].slice(0, 30).map((o) => `"${o.text.trim()}"`).join(', ')}`);
-      undo.push({ el: target, kind: 'value', before: target.value });
-      setNative(target, 'value', option.value);
-      fire(target, 'input');
-      fire(target, 'change');
-      return { found: true, did: `selected "${option.text.trim()}" in ${name}`, undoable: true };
-    }
-
-    case 'check':
-    case 'uncheck': {
-      const want = step.action === 'check';
-      const target = field(el);
-      const isNative = target.matches('input[type=checkbox], input[type=radio]');
-      const checked = isNative ? target.checked : el.getAttribute('aria-checked') === 'true';
-      if (checked === want) return { found: true, did: `${humanName(target)} was already ${want ? 'ticked' : 'unticked'}`, undoable: true };
-      if (isNative && target.type === 'radio') {
-        if (!want) throw new Error('A radio button cannot be unchecked; check another option instead');
-        const group = target.name ? [...document.querySelectorAll(`input[type=radio][name="${CSS.escape(target.name)}"]`)] : [];
-        undo.push({ el: group.find((r) => r.checked) || null, kind: 'radio' });
-      } else {
-        undo.push({ el: isNative ? target : el, kind: 'toggle' });
+      case 'check':
+      case 'uncheck': {
+        const want = step.action === 'check';
+        const target = field(el);
+        const isNative = target.matches('input[type=checkbox], input[type=radio]');
+        const checked = isNative ? target.checked : el.getAttribute('aria-checked') === 'true';
+        if (checked === want) return { found: true, did: `${humanName(target)} was already ${want ? 'ticked' : 'unticked'}`, undoable: true };
+        if (isNative && target.type === 'radio') {
+          if (!want) throw new Error('A radio button cannot be unchecked; check another option instead');
+          const group = target.name ? [...document.querySelectorAll(`input[type=radio][name="${CSS.escape(target.name)}"]`)] : [];
+          undo.push({ el: group.find((r) => r.checked) || null, kind: 'radio' });
+        } else {
+          undo.push({ el: isNative ? target : el, kind: 'toggle' });
+        }
+        // Click the visible part: hidden native inputs (common in UI kits) don't take real clicks.
+        realClick(isNative && !visible(target) ? (target.labels && target.labels[0]) || el : (isNative ? target : el));
+        return { found: true, did: `${want ? 'checked' : 'unchecked'} ${name}${which}`, undoable: true };
       }
-      // Click the visible part: hidden native inputs (common in UI kits) don't take real clicks.
-      realClick(isNative && !visible(target) ? (target.labels && target.labels[0]) || el : (isNative ? target : el));
-      return { found: true, did: `${want ? 'checked' : 'unchecked'} ${name}${which}`, undoable: true };
+
+      case 'scroll':
+        if (step.value === undefined) return { found: true, did: `scrolled ${name} into view`, undoable: true };
+        return scrollBy(el);
+
+      case 'press':
+        return pressKey(el);
+
+      case 'wait':
+        return { found: true, did: `waited for ${name}`, undoable: true };
+
+      case 'submit': {
+        const form = el.tagName === 'FORM' ? el : el.closest('form');
+        if (!form) throw new Error(`${name} is not inside a form; click its submit button instead`);
+        if (typeof form.requestSubmit === 'function') form.requestSubmit();
+        else form.submit();
+        return { found: true, did: `submitted the form of ${name}`, undoable: false };
+      }
+
+      default:
+        throw new Error(`Unknown step action "${step.action}"`);
     }
-
-    case 'scroll':
-      if (step.value === undefined) return { found: true, did: `scrolled ${name} into view`, undoable: true };
-      return scrollBy(el);
-
-    case 'press':
-      return pressKey(el);
-
-    case 'wait':
-      return { found: true, did: `waited for ${name}`, undoable: true };
-
-    case 'submit': {
-      const form = el.tagName === 'FORM' ? el : el.closest('form');
-      if (!form) throw new Error(`${name} is not inside a form; click its submit button instead`);
-      if (typeof form.requestSubmit === 'function') form.requestSubmit();
-      else form.submit();
-      return { found: true, did: `submitted the form of ${name}`, undoable: false };
-    }
-
-    default:
-      throw new Error(`Unknown step action "${step.action}"`);
-  }
+  })();
+  return { ...result, target };
 }
 
 /**

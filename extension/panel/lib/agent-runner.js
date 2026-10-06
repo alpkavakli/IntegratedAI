@@ -13,8 +13,13 @@
  *   full → never ask
  *
  * The panel checks the mode itself (not the agent): in Suggest mode nothing runs here.
+ *
+ * Steps that worked are also recorded (with targets that survive a reload: a selector and the
+ * element's visible name), so the user can save them as a task and replay them later without the AI
+ * (replay(): the same steps, asking before risky ones as in Auto mode).
  */
 
+import { validateTaskSteps } from '../../shared/actions.js';
 import { callInPage, evalInPage } from './inspected.js';
 import { clearHighlight, interactStep, quietFor } from './page-interact.js';
 import { pageOutline } from './page-scripts.js';
@@ -50,11 +55,62 @@ export class AgentRunner {
     /** "Allow all for this task" was clicked (reset when a turn starts). */
     this.allowAll = false;
     this.counter = 0;
+    /** Steps that worked in this turn, for "Save as task". @type {TaskStep[]} */
+    this.recorded = [];
+    /** The page the recorded steps started on. */
+    this.startUrl = '';
+    /** Stop was clicked: the next step throws. */
+    this.aborted = false;
   }
 
-  /** A new turn: ask again. */
+  /** A new turn: ask again, and record afresh. */
   reset() {
     this.allowAll = false;
+    this.recorded = [];
+    this.startUrl = '';
+    this.aborted = false;
+  }
+
+  /** Stop what's running (between steps; a step that has started finishes). */
+  abort() {
+    this.aborted = true;
+  }
+
+  /** @param {number} index */
+  checkAborted(index) {
+    if (this.aborted) throw new Error(`Stopped by the user before step ${index + 1}.`);
+  }
+
+  /**
+   * Replay a saved task: its steps in order, as in Auto mode (asks before risky steps). Starts on the
+   * task's page first if the tab is somewhere else. Throws on the first step that fails.
+   * @param {{ startUrl: string, steps: TaskStep[] }} task
+   * @returns {Promise<string[]>} what was done
+   */
+  async replay(task) {
+    // Saved steps are checked like the AI's steps (an imported file could have been edited).
+    const errors = validateTaskSteps(task.steps);
+    if (errors.length) throw new Error(`This task can't run: ${errors[0]}`);
+    this.reset();
+    /** @type {string[]} */
+    const done = [];
+    const here = await pageNow().catch(() => null);
+    if (task.startUrl && here && stripHash(here.url) !== stripHash(task.startUrl)) {
+      done.push(await this.navigate({ url: task.startUrl }, 'auto'));
+    }
+    for (const [index, entry] of task.steps.entries()) {
+      this.checkAborted(index);
+      if (entry.kind === 'navigate') {
+        done.push(await this.navigate(entry.input, 'auto'));
+        continue;
+      }
+      if (entry.secret) {
+        this.ui.activity('Skipping a password field').done('Skipped typing into a password field (passwords are not saved in tasks)', false);
+        continue;
+      }
+      done.push(...await this.interact({ steps: [entry.step], frame: entry.frame }, 'auto'));
+    }
+    return done;
   }
 
   /**
@@ -89,6 +145,7 @@ export class AgentRunner {
    */
   async run(name, input, mode) {
     if (!['ask', 'auto', 'full'].includes(mode)) throw new Error('Page actions only run in Ask, Auto or Full auto mode');
+    if (!this.startUrl) this.startUrl = (await pageNow().catch(() => null))?.url ?? '';
     const done = name === 'navigate' ? [await this.navigate(input, mode)] : await this.interact(input, mode);
     return { done, ...(await observe(name === 'interact' ? input.frame : undefined)) };
   }
@@ -101,26 +158,38 @@ export class AgentRunner {
     const actionId = `live-${Date.now()}-${++this.counter}`;
     /** @type {string[]} */
     const done = [];
-    for (const [index, step] of steps.entries()) {
+    for (const [index, given] of steps.entries()) {
+      this.checkAborted(index);
+      let step = given;
       // A plain pause.
       if (step.action === 'wait' && !step.selector && !step.text && !step.ref) {
         const line = this.ui.activity(`Waiting ${step.value} s`);
         await sleep(Math.min(Number(step.value) * 1000, WAIT_MAX_MS));
         line.done(`Waited ${step.value} s`);
         done.push(`waited ${step.value} s`);
+        this.recorded.push({ kind: 'interact', step: { action: 'wait', value: step.value } });
         continue;
       }
+      // A saved task's step can name several targets (selector, then visible text): the first one found is used.
+      const variants = step.alternatives?.length ? step.alternatives.map((/** @type {any} */ t) => ({ action: step.action, value: step.value, ...t })) : [step];
       // Find it (it may appear after the previous step), outline it, and describe it.
       const deadline = Date.now() + (step.action === 'wait' ? WAIT_MAX_MS : STEP_TIMEOUT_MS);
       let preview;
       try {
         // hold: the outline stays on the target while the user is asked and until the step runs.
-        while (!(preview = await callInPage(interactStep, { actionId, step, dry: true, hold: true }, frame))?.found && Date.now() < deadline) await sleep(POLL_MS);
+        for (;;) {
+          for (const variant of variants) {
+            preview = await callInPage(interactStep, { actionId, step: variant, dry: true, hold: true }, frame);
+            if (preview?.found) { step = variant; break; }
+          }
+          if (preview?.found || Date.now() >= deadline) break;
+          await sleep(POLL_MS);
+        }
       } catch (err) {
         throw new Error(`Step ${index + 1} failed: ${/** @type {any} */ (err).message}${soFar(done)}`);
       }
       if (!preview?.found) {
-        const what = [step.ref, step.selector, step.text && `"${step.text}"`].filter(Boolean).join(' ');
+        const what = variants.map((v) => [v.ref, v.selector, v.text && `"${v.text}"`].filter(Boolean).join(' ')).join(' or ');
         throw new Error(`Step ${index + 1} (${step.action} ${what}): no matching element on the page.${soFar(done)}`);
       }
       try {
@@ -151,6 +220,7 @@ export class AgentRunner {
       // The chat says it the way it was asked; the AI gets the precise version (selectors, values).
       line.done(/^(couldn't|.* was already)/.test(result.did) ? capitalize(result.did) : capitalize(preview.what));
       done.push(result.did);
+      this.recorded.push(recordStep(step, result.target, frame));
       await settle(before?.url, false, frame);
     }
     return done;
@@ -181,8 +251,48 @@ export class AgentRunner {
     await settle(before.url, true);
     const now = await pageNow();
     line.done(`${capitalize(what)}: now on ${now.title || now.url}`);
+    this.recorded.push({ kind: 'navigate', input: url ? { url } : { go } });
     return `${what}; the page is now ${now.url}`;
   }
+}
+
+/**
+ * One step of a saved task.
+ * @typedef {{ kind: 'interact', step: any, frame?: string, secret?: boolean }
+ *   | { kind: 'navigate', input: { url?: string, go?: 'back' | 'forward' | 'reload' }, secret?: undefined }} TaskStep
+ */
+
+/**
+ * A step as it can be replayed after a reload: refs become the element's selector, with its visible
+ * name as the fallback target. A password field's value is left out.
+ * @param {any} step the step as it ran
+ * @param {{ selector: string, text: string, secret?: boolean } | undefined} target what it ran on
+ * @param {string} [frame]
+ * @returns {TaskStep}
+ */
+export function recordStep(step, target, frame) {
+  const { ref, selector, text, alternatives, ...rest } = step;
+  const kept = /** @type {any} */ ({ ...rest });
+  if (target?.secret) delete kept.value;
+  /** @type {{ selector?: string, text?: string }[]} */
+  const targets = [];
+  if (target) {
+    if (target.selector) targets.push({ selector: target.selector });
+    if (target.text) targets.push({ text: target.text });
+  } else if (selector || text) {
+    targets.push({ ...(selector ? { selector } : {}), ...(text ? { text } : {}) }); // a step without an element (scroll, press)
+  }
+  return {
+    kind: 'interact',
+    step: targets.length ? { ...kept, alternatives: targets } : kept,
+    ...(frame ? { frame } : {}),
+    ...(target?.secret ? { secret: true } : {}),
+  };
+}
+
+/** @param {string} url */
+function stripHash(url) {
+  return url.replace(/#.*$/, '');
 }
 
 /** The inspected page's URL and title (may throw while a new page is loading). */

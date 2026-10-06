@@ -248,7 +248,12 @@ button.send.busy .i-stop { display: block; }
 .chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 320px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11px; }
 
 /* ── patches & console lists ─────────────────────────────── */
-ai-patches, ai-console { display: block; flex: 1; overflow-y: auto; padding: 8px; }
+ai-patches, ai-tasks, ai-console { display: block; flex: 1; overflow-y: auto; padding: 8px; }
+.save-task { margin: 2px 0 8px; }
+.save-task .row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.save-task input { flex: 1; min-width: 160px; }
+ai-tasks details { margin-top: 4px; }
+ai-tasks .item .row input { flex: 1; min-width: 0; }
 .list-heading { font-weight: 600; margin: 8px 0 4px; color: var(--fg-muted); }
 .item { border: 1px solid var(--border); border-radius: 4px; padding: 6px 8px; margin-bottom: 6px; }
 .item .row { display: flex; align-items: center; gap: 6px; }
