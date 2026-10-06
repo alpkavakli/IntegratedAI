@@ -3,8 +3,10 @@
  * Providers that speak the OpenAI Chat Completions API:
  *   OpenAI, Google Gemini (its OpenAI-compatible endpoint), OpenRouter,
  *   DeepSeek, Qwen (Alibaba Cloud Model Studio), Kimi (Moonshot AI), GLM (Z.ai), MiniMax,
- *   and Ollama (models running on the user's own computer, no key).
- * Adding another (Groq, Mistral, LM Studio, …) is one more entry in PRESETS.
+ *   Ollama (models running on the user's own computer, no key),
+ *   and Custom: any other service with this API (Groq, Together, Mistral, LM Studio, vLLM, your own
+ *   server), at the address the user enters, with an optional key and any model.
+ * A provider many people want can still become its own entry in PRESETS.
  *
  * Thinking models: DeepSeek, Qwen, Kimi, GLM and MiniMax return the model's reasoning as
  * `reasoning_content` next to the answer, and want it back unchanged in the history of the following
@@ -38,6 +40,7 @@ const COMPACT_FULL_RESULTS = 3;
  * @property {boolean} [local]        runs on the user's computer: no key, and the address can be changed in Options
  * @property {string} [addressHint]   the address can be changed in Options (other regions, own workspace): what to put there
  * @property {boolean} [sendReasoning] send each assistant message's reasoning_content back (thinking models that require it)
+ * @property {boolean} [custom]       no fixed address: the user enters it (and any model); the key is optional
  */
 
 /**
@@ -120,6 +123,15 @@ export const PRESETS = {
     sendReasoning: true,
     addressHint: 'Accounts in mainland China: https://api.minimaxi.com/v1',
   },
+  // Any other OpenAI-compatible service: address, key (if it needs one) and model come from Options.
+  custom: {
+    label: 'Custom',
+    baseUrl: '',
+    models: [],
+    keyUrl: '',
+    includeUsage: false,
+    custom: true,
+  },
   ollama: {
     label: 'Ollama',
     baseUrl: 'http://localhost:11434/v1',
@@ -139,8 +151,13 @@ export const PRESETS = {
  */
 export function baseUrlFor(id, providerConfig) {
   const preset = PRESETS[id];
-  const own = (preset.local || preset.addressHint) && providerConfig?.baseUrl?.trim().replace(/\/+$/, '');
+  const own = (preset.local || preset.addressHint || preset.custom) && providerConfig?.baseUrl?.trim().replace(/\/+$/, '');
   return own || preset.baseUrl;
+}
+
+/** "https://host:port" of a URL, or the text itself if it isn't one. @param {string} url */
+function safeOrigin(url) {
+  try { return new URL(url).origin; } catch { return url || '(no address)'; }
 }
 
 /**
@@ -157,7 +174,9 @@ export async function presetFetch(id, doFetch, url, init) {
   try {
     res = await doFetch(url, init);
   } catch (err) {
-    if (!preset.local || /** @type {any} */ (err)?.name === 'AbortError') throw err;
+    if (/** @type {any} */ (err)?.name === 'AbortError') throw err;
+    if (preset.custom) throw new Error(`Can't reach ${safeOrigin(url)}. Check the address in Options, and that the service is running.`);
+    if (!preset.local) throw err;
     throw new Error(`Can't reach ${preset.label} at ${new URL(url).origin}. Is it running? Start the Ollama app (or run "ollama serve").`);
   }
   if (!res.ok) {
@@ -188,6 +207,11 @@ export function openAICompatibleProvider(id) {
 
     /** @param {import('./base.js').ProviderConfig} config */
     static async checkAvailability(config) {
+      if (preset.custom) {
+        return config.providers[id]?.baseUrl && config.providers[id]?.model
+          ? { available: true }
+          : { available: false, reason: 'Enter the address and the model of your service in Options.' };
+      }
       if (preset.local) {
         // No key: choosing a model in Options is what turns it on.
         return config.providers[id]?.model
@@ -237,7 +261,8 @@ export function openAICompatibleProvider(id) {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
-          ...(preset.local ? {} : { authorization: `Bearer ${settings?.apiKey ?? ''}` }),
+          // (Custom services may not need a key: then none is sent.)
+          ...(preset.local || (preset.custom && !settings?.apiKey) ? {} : { authorization: `Bearer ${settings?.apiKey ?? ''}` }),
           ...preset.headers,
         },
         body: JSON.stringify(body),

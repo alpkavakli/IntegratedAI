@@ -167,6 +167,17 @@ harness) or the owner's GitHub/Telegram test is the next thing to do.
 - Card fixes: Server button (bg() sent the argument over the command name), fading by mouse only, docking pushes
   the page aside (html margin + fixed edge elements, restored on float/minimise/close).
 
+## Done in the seventh session (2026-10-07)
+
+- **DeepSeek, Qwen, Kimi, GLM, MiniMax** presets (ids from each provider's docs, 2026-10-07). They are thinking
+  models: `reasoning_content` is captured from the stream into the assistant message's `raw` and sent back to the
+  same provider (`sendReasoning`; DeepSeek answers 400 without it); tool-call messages from other providers get "".
+  `addressHint` presets (Qwen workspace URL; Kimi/GLM/MiniMax mainland-China URLs) have an API address field.
+  **Not yet tried with real keys.**
+- **Custom** preset: any OpenAI-compatible service (address required, key optional, any model).
+- **Model lists:** Options → Check remembers GET /models per provider (`settings.modelLists`), the panel refreshes
+  it at most daily (`refreshModelList`) and updates the live direct config; the model menu = suggestions + listed.
+
 ## Next work, in order
 
 0. **Chinese models (owner's next request):** providers like DeepSeek, Qwen (DashScope / Alibaba Cloud Model Studio),

@@ -41,6 +41,8 @@ Only when you use the AI panel, and only from the tab you are inspecting:
     Kimi by Moonshot AI, `api.moonshot.ai` (or `api.moonshot.cn`) ([kimi.ai](https://www.kimi.ai));
     GLM by Z.ai, `api.z.ai` (or `open.bigmodel.cn`) ([z.ai](https://z.ai));
     MiniMax, `api.minimax.io` (or `api.minimaxi.com`) ([minimax.io](https://www.minimax.io))
+  - Custom: a service whose address you enter yourself (for example your own server, or another AI provider),
+    with the key you enter, under that service's terms
   - Ollama, which runs models on your own computer (by default `localhost:11434`, or the address you enter
     in Options). No key is used and nothing leaves your computer, unless you enter the address of another machine.
 - **Local server mode:**

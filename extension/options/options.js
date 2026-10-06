@@ -128,29 +128,38 @@ function showChoice() {
   }
   const preset = PRESETS[choice];
   const keyBased = choice === 'anthropic' || (preset && !preset.local);
+  const custom = Boolean(preset?.custom);
   hide('key-setup', !keyBased);
   hide('ollama-setup', choice !== 'ollama');
   hide('server-setup', choice !== 'server');
-  $('step2-title').textContent = choice === 'ollama' ? 'Set up Ollama' : choice === 'server' ? 'Connect the agent server' : 'Paste your API key';
-  $('test-key').textContent = keyBased ? 'Check key' : 'Check connection';
+  $('step2-title').textContent = choice === 'ollama' ? 'Set up Ollama' : choice === 'server' ? 'Connect the agent server'
+    : custom ? 'Connect your service' : 'Paste your API key';
+  $('test-key').textContent = keyBased && !custom ? 'Check key' : 'Check connection';
+  hide('key-where', custom);
+  hide('custom-where', !custom);
+  $('apiKey').placeholder = custom ? 'API key (if the service needs one)' : 'Paste your API key';
   setStatus('');
   markDone(false);
 
   if (keyBased) {
     const page = KEY_PAGES[/** @type {'anthropic'} */ (choice)] ?? preset.keyUrl;
-    /** @type {HTMLAnchorElement} */ ($('key-link')).href = page;
-    $('key-link').textContent = new URL(page).host;
-    $('key-host').textContent = choice === 'anthropic' ? 'api.anthropic.com' : new URL(baseUrlFor(choice, { baseUrl: settings.providerUrls?.[choice] })).host;
+    if (page) {
+      /** @type {HTMLAnchorElement} */ ($('key-link')).href = page;
+      $('key-link').textContent = new URL(page).host;
+    }
+    $('key-host').textContent = choice === 'anthropic' ? 'api.anthropic.com' : hostOf(baseUrlFor(choice, { baseUrl: settings.providerUrls?.[choice] }));
     $('apiKey').value = savedKey(choice);
   }
-  // Providers with other regions or per-account addresses: an address field (empty = the usual one).
-  const address = Boolean(keyBased && preset?.addressHint);
+  // Providers with other regions or per-account addresses, and Custom: an address field (Custom: required).
+  const address = Boolean(keyBased && (preset?.addressHint || custom));
   hide('address-field', !address);
   hide('address-hint', !address);
   if (address) {
     $('providerUrl').value = settings.providerUrls?.[choice] ?? '';
-    $('providerUrl').placeholder = preset.baseUrl;
-    $('address-hint').textContent = `Leave empty for ${preset.baseUrl}. ${preset.addressHint}.`;
+    $('providerUrl').placeholder = custom ? 'https://api.example.com/v1' : preset.baseUrl;
+    $('address-hint').textContent = custom
+      ? 'For example https://api.groq.com/openai/v1, https://api.mistral.ai/v1, or http://localhost:1234/v1 for LM Studio.'
+      : `Leave empty for ${preset.baseUrl}. ${preset.addressHint}.`;
   }
 
   // Model: a list of Claude models, or any model id for the others (suggestions from the preset or the key).
@@ -160,11 +169,11 @@ function showChoice() {
   if (preset) {
     $('compatModels').replaceChildren(...preset.models.map((m) => new Option(m, m)));
     $('compatModel').value = settings.providerModels[choice] || (preset.local ? '' : preset.models[0]);
-    $('compatModel').placeholder = preset.local ? 'Chosen when you check the connection' : '';
+    $('compatModel').placeholder = preset.local ? 'Chosen when you check the connection' : custom ? "The model's name (Check lists them)" : '';
   }
 
   // Already set up? Check it now, so the page shows it's ready.
-  if ((keyBased && savedKey(choice)) || (choice === 'ollama' && settings.providerModels.ollama) || (choice === 'server' && settings.token)) {
+  if ((keyBased && !custom && savedKey(choice)) || (custom && settings.providerUrls?.custom) || (choice === 'ollama' && settings.providerModels.ollama) || (choice === 'server' && settings.token)) {
     check();
   }
 }
@@ -247,8 +256,8 @@ $('serverUrl').addEventListener('change', () => saveSettings({ serverUrl: $('ser
 $('providerUrl').addEventListener('change', async () => {
   settings.providerUrls = { ...settings.providerUrls, [choice]: $('providerUrl').value.trim() };
   await saveSettings({ providerUrls: settings.providerUrls });
-  $('key-host').textContent = new URL(baseUrlFor(choice, { baseUrl: settings.providerUrls[choice] })).host;
-  if (savedKey(choice)) check();
+  $('key-host').textContent = hostOf(baseUrlFor(choice, { baseUrl: settings.providerUrls[choice] }));
+  if (savedKey(choice) || PRESETS[choice]?.custom) check();
 });
 $('test-key').addEventListener('click', async () => {
   if (choice !== 'server' && choice !== 'ollama') await saveKey();
@@ -292,8 +301,9 @@ async function checkProvider(provider) {
     return { ok: true, text: `Your key works (${model.display_name}).` };
   }
   const preset = PRESETS[provider];
-  if (!preset.local && !savedKey(provider)) return { ok: false, text: 'Paste your API key first.' };
-  const auth = { ...(preset.local ? {} : { authorization: `Bearer ${savedKey(provider)}` }), ...preset.headers };
+  if (preset.custom && !settings.providerUrls?.custom) return { ok: false, text: "Enter your service's address first." };
+  if (!preset.local && !preset.custom && !savedKey(provider)) return { ok: false, text: 'Paste your API key first.' };
+  const auth = { ...(preset.local || !savedKey(provider) ? {} : { authorization: `Bearer ${savedKey(provider)}` }), ...preset.headers };
   if (preset.keyCheckUrl) await presetFetch(provider, fetch, preset.keyCheckUrl, { headers: auth });
   const base = baseUrlFor(provider, { baseUrl: preset.local ? $('compatUrl').value : settings.providerUrls?.[provider] });
   const listed = await fetch(`${base}/models`, { headers: auth }).catch(() => null);
@@ -309,6 +319,13 @@ async function checkProvider(provider) {
   const res = await presetFetch(provider, fetch, `${base}/models`, { headers: auth });
   const ids = ((await res.json()).data ?? []).map((/** @type {any} */ m) => String(m.id).replace(/^models\//, '')).sort();
   $('compatModels').replaceChildren(...ids.map((id) => new Option(id, id)));
+  // Remembered for the panel's model menu (new models show up there without an update of the extension).
+  settings.modelLists = { ...settings.modelLists, [provider]: { ids, at: Date.now() } };
+  await saveSettings({ modelLists: settings.modelLists });
+  if (preset.custom && !$('compatModel').value.trim() && ids.length) {
+    $('compatModel').value = ids[0];
+    await saveCompatModel(ids[0]);
+  }
   if (preset.local) {
     if (!ids.length) return { ok: false, text: 'Ollama is running but has no models yet. Download one, for example: ollama pull qwen3' };
     if (!$('compatModel').value.trim()) {
@@ -324,6 +341,7 @@ async function checkProvider(provider) {
   if (!found) {
     return { ok: false, text: `${preset.local ? 'Ollama is running' : 'Your key works'}, but "${chosen}" isn't one of your ${ids.length} models. Pick one in the Model box.` };
   }
+  if (preset.custom) return { ok: true, text: `Connected (${chosen}).` };
   if (provider !== 'ollama') return { ok: true, text: `Your key works (${chosen}).` };
 
   // Chrome sends the extension's Origin only with POST requests (like the chat requests), so listing
@@ -374,6 +392,11 @@ function checkServer() {
       resolve({ ok: false, text: "Can't reach the agent server. Is it running (npm start)?" });
     };
   });
+}
+
+/** The host of an address, or a placeholder while there is none. @param {string} url */
+function hostOf(url) {
+  try { return new URL(url).host; } catch { return 'the address you enter'; }
 }
 
 // ── Advanced settings

@@ -126,7 +126,7 @@ test('direct registry: every provider with a key is available; the preferred one
   const registry = new DirectRegistry(directConfig(/** @type {any} */ (base)));
   const list = await registry.list();
   assert.deepEqual(list.map((p) => [p.id, p.available]), [['anthropic', false], ['openai', true], ['gemini', false], ['openrouter', true],
-    ['deepseek', false], ['qwen', false], ['kimi', false], ['glm', false], ['minimax', false], ['ollama', false]]);
+    ['deepseek', false], ['qwen', false], ['kimi', false], ['glm', false], ['minimax', false], ['custom', false], ['ollama', false]]);
   assert.equal(list.find((p) => p.id === 'openai').defaultModel, 'gpt-x');
   assert.equal(list.find((p) => p.id === 'openrouter').defaultModel, PRESETS.openrouter.models[0]);
   assert.equal(await registry.pickDefault(), 'openai', 'preferred Gemini has no key, so the first provider with a key');
@@ -247,4 +247,34 @@ test('providers with other regions or per-account addresses use the address from
   assert.equal(baseUrlFor('kimi', { baseUrl: 'https://api.moonshot.cn/v1/' }), 'https://api.moonshot.cn/v1');
   assert.equal(baseUrlFor('qwen', { baseUrl: 'https://ws1.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1' }), 'https://ws1.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1');
   assert.equal(baseUrlFor('openai', { baseUrl: 'https://evil.example/v1' }), 'https://api.openai.com/v1', 'fixed address');
+});
+
+test('Custom: any OpenAI-compatible service at the address from Options; the key is optional', async () => {
+  const Custom = openAICompatibleProvider('custom');
+  const config = (/** @type {any} */ extra) => directConfig(/** @type {any} */ ({ providerKeys: {}, providerModels: {}, providerUrls: {}, ...extra }));
+  assert.equal((await Custom.checkAvailability(config({}))).available, false);
+  assert.equal((await Custom.checkAvailability(config({ providerUrls: { custom: 'http://localhost:1234/v1' } }))).available, false, 'needs a model too');
+  const ready = config({ providerUrls: { custom: 'http://localhost:1234/v1/' }, providerModels: { custom: 'my-model' } });
+  assert.equal((await Custom.checkAvailability(ready)).available, true, 'no key needed');
+  let sent;
+  const provider = new Custom(ready, {
+    fetch: async (url, init) => { sent = { url, init }; return sseResponse(sse([{ choices: [{ delta: {}, finish_reason: 'stop' }] }])); },
+  });
+  await collect(provider.turn({ messages: [], system: 'S', actionNames: [], model: 'my-model', state: {}, signal: new AbortController().signal }));
+  assert.equal(sent.url, 'http://localhost:1234/v1/chat/completions');
+  assert.equal(sent.init.headers.authorization, undefined, 'no key, no header');
+  const keyed = new Custom(config({ providerUrls: { custom: 'https://api.example.com/v1' }, providerModels: { custom: 'm' }, providerKeys: { custom: 'sk-1' } }), {
+    fetch: async (url, init) => { sent = { url, init }; return sseResponse(sse([{ choices: [{ delta: {}, finish_reason: 'stop' }] }])); },
+  });
+  await collect(keyed.turn({ messages: [], system: 'S', actionNames: [], model: 'm', state: {}, signal: new AbortController().signal }));
+  assert.equal(sent.init.headers.authorization, 'Bearer sk-1');
+});
+
+test('the model menu: built-in suggestions, then the models the provider listed (new ones without an update)', async () => {
+  const registry = new DirectRegistry(directConfig(/** @type {any} */ ({
+    providerKeys: { deepseek: 'k' }, providerModels: {},
+    modelLists: { deepseek: { ids: ['deepseek-flash', 'deepseek-v5'], at: 1 } },
+  })));
+  const deepseek = (await registry.list()).find((p) => p.id === 'deepseek');
+  assert.deepEqual(deepseek.models, ['deepseek-flash', 'deepseek-v4-pro', 'deepseek-v5']);
 });

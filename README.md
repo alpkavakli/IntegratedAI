@@ -48,6 +48,12 @@ your own Model Studio address (it contains your workspace); Kimi, GLM and MiniMa
 addresses. The setup page has an **API address** field for these, with the address to use. Model ids checked
 2026-10-07 against each provider's documentation; **Check key** lists what your key can use.
 
+**New models, and your own:** the model box accepts any model name, and **Check key** lists everything your key can
+use. That list is remembered, and the panel refreshes it at most once a day, so new models appear in the panel's
+model menu without an update of the extension (the built-in names come first). **Custom** (under "For developers")
+connects any other service with the OpenAI Chat Completions API and tool calls: Groq, Mistral, Together, LM Studio,
+vLLM, your own server. Enter its address, its key if it needs one, and the model.
+
 Both use the **same agent code** (`extension/shared/agent/`: orchestrator, prompts, memory, request handling). In direct mode it runs inside the extension: Anthropic through a vendored build of the official SDK (`extension/vendor/`, regenerate with `npm run vendor:sdk`); OpenAI, Gemini, OpenRouter and Ollama through their OpenAI-compatible Chat Completions API (`extension/shared/providers/openai-compatible.js`; another compatible service is one more preset there).
 
 **Ollama (free, local models).** Install [Ollama](https://ollama.com/download), download a model that supports tools

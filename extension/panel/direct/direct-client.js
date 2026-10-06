@@ -36,6 +36,7 @@ export const DIRECT_PROVIDERS = [
   openAICompatibleProvider('kimi'),
   openAICompatibleProvider('glm'),
   openAICompatibleProvider('minimax'),
+  openAICompatibleProvider('custom'),
   openAICompatibleProvider('ollama'),
 ];
 
@@ -62,7 +63,7 @@ export function directConfig(settings) {
       ...(id === 'ollama' ? { compact: settings.ollamaCompact === true } : {}),
     };
   }
-  return { maxStepsPerTurn: 8, preferredProvider: settings.directProvider || 'anthropic', providers };
+  return { maxStepsPerTurn: 8, preferredProvider: settings.directProvider || 'anthropic', providers, modelLists: settings.modelLists ?? {} };
 }
 
 /** The providers available in direct mode, each usable once its key is set in Options. */
@@ -116,7 +117,9 @@ export class DirectRegistry {
         label: P === AnthropicProvider ? 'Anthropic API (direct)' : P.label,
         available,
         reason,
-        models: P.models,
+        // The built-in suggestions, then what the provider itself lists (remembered by Options → Check, and
+        // refreshed by the panel), so new models show up without an update of the extension.
+        models: [...new Set([...P.models, ...(this.config.modelLists?.[P.id]?.ids ?? [])])],
         defaultModel: P.defaultModel(this.config),
       };
     }));
@@ -142,14 +145,17 @@ export class DirectClient extends EventTarget {
 
   async connect() {
     const settings = await this.getSettings();
-    // Ollama needs no key; a chosen model means it's set up.
-    if (!settings.anthropicApiKey && !Object.values(settings.providerKeys ?? {}).some(Boolean) && !settings.providerModels?.ollama) {
-      this.setStatus('unauthorized', 'Direct mode needs an API key (Anthropic, OpenAI, Gemini or OpenRouter) or Ollama. Set one up in Options.');
+    // Ollama needs no key (a chosen model means it's set up), and a Custom service may not need one either.
+    const keyless = settings.providerModels?.ollama || (settings.providerUrls?.custom && settings.providerModels?.custom);
+    if (!settings.anthropicApiKey && !Object.values(settings.providerKeys ?? {}).some(Boolean) && !keyless) {
+      this.setStatus('unauthorized', 'Direct mode needs an API key, Ollama, or your own service. Set one up in Options.');
       return;
     }
     this.setStatus('connecting');
     try {
       const config = directConfig(settings);
+      /** Live: the panel updates config.modelLists when it learns a provider's models (no reconnect needed). */
+      this.config = config;
       this.store = new IdbSessionStore(await openDb());
       /** @type {MemoryStore | null} */
       let memory = null;

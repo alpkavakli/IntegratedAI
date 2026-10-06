@@ -103,6 +103,8 @@ export class App {
         this.settings = s;
         this.renderProviderPicker(); // shows the new default if this conversation hasn't chosen
       }
+      // Model lists learned in Options (Check): straight into the model menu.
+      if (/** @type {any} */ (this.client)?.config) /** @type {any} */ (this.client).config.modelLists = s.modelLists ?? {};
       // Switching between direct mode and the local server: start the panel over.
       if (s.mode !== this.settings.mode) {
         location.reload();
@@ -352,6 +354,7 @@ export class App {
       await this.setSession(reply.session);
       this.providers = (await this.client.request({ type: 'providers.list' })).providers;
       this.renderProviderPicker();
+      this.refreshModelList(this.session?.provider);
     } catch (err) {
       this.showBanner(`Could not open the conversation: ${/** @type {any} */ (err).message}`, true);
     }
@@ -1042,6 +1045,33 @@ export class App {
       button.classList.remove('working');
       this.renderServerToggle();
     }
+  }
+
+  /**
+   * Direct mode: ask the provider which models it has (at most once a day per provider), so new models
+   * show up in the model menu without an update of the extension. Quietly does nothing on any problem.
+   * @param {string | undefined} id
+   */
+  async refreshModelList(id) {
+    const preset = id ? PRESETS[id] : undefined;
+    if (this.settings.mode !== 'direct' || !preset || !this.providers.find((p) => p.id === id)?.available) return;
+    const DAY = 24 * 60 * 60 * 1000;
+    if (Date.now() - (this.settings.modelLists?.[id]?.at ?? 0) < DAY) return;
+    try {
+      const key = this.settings.providerKeys?.[id];
+      const res = await fetch(`${baseUrlFor(id, { baseUrl: this.settings.providerUrls?.[id] ?? '' })}/models`, {
+        headers: { ...(preset.local || !key ? {} : { authorization: `Bearer ${key}` }), ...preset.headers },
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!res.ok) return;
+      const ids = ((await res.json()).data ?? []).map((/** @type {any} */ m) => String(m.id).replace(/^models\//, '')).sort();
+      if (!ids.length) return;
+      this.settings.modelLists = { ...this.settings.modelLists, [id]: { ids, at: Date.now() } };
+      await saveSettings({ modelLists: this.settings.modelLists });
+      if (/** @type {any} */ (this.client).config) /** @type {any} */ (this.client).config.modelLists = this.settings.modelLists;
+      this.providers = (await this.client.request({ type: 'providers.list' })).providers;
+      this.renderProviderPicker();
+    } catch { /* offline, or no model list here: the suggestions stay */ }
   }
 
   /** The local Ollama's address without "/v1" (its own API). */

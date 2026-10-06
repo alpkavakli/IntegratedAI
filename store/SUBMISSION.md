@@ -32,7 +32,7 @@ AI panel in Chrome DevTools: explains layout and console errors, previews CSS fi
 > - **Remembers each site:** key selectors and your preferences, so the next conversation starts informed.
 > - **Explains console errors** and jumps to the source.
 > - **Your key, your choice:** paste an API key for Anthropic (Claude), OpenAI, Google Gemini, OpenRouter, DeepSeek,
->   Qwen, Kimi, GLM or MiniMax and go, or use free local models with Ollama.
+>   Qwen, Kimi, GLM or MiniMax and go, use free local models with Ollama, or connect any OpenAI-compatible service.
 >   It talks straight to that provider; conversations and site memory stay in your browser. No account with us,
 >   no tracking.
 > - **Separate memories:** keep a conversation's notes private to it, or share them across the site.

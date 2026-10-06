@@ -127,6 +127,8 @@
       <div class="providers" role="radiogroup" aria-label="Developer setup">
         <label class="provider-card"><input type="radio" name="provider" value="server">
           <strong>Claude Code</strong><span>your Claude subscription · needs this project from GitHub</span></label>
+        <label class="provider-card"><input type="radio" name="provider" value="custom">
+          <strong>Custom</strong><span>any OpenAI-compatible service or your own server: Groq, Mistral, LM Studio, vLLM…</span></label>
       </div>
     </section>
 
@@ -134,8 +136,11 @@
       <h2><span class="num"><span>2</span></span> <span id="step2-title">Paste your API key</span></h2>
 
       <div id="key-setup">
-        <p>Create a key at <a id="key-link" target="_blank" rel="noopener"></a>, copy it, and paste it here.
+        <p id="key-where">Create a key at <a id="key-link" target="_blank" rel="noopener"></a>, copy it, and paste it here.
           It is checked right away.</p>
+        <p id="custom-where" hidden>Use any service that offers the OpenAI Chat Completions API with tool calls. Enter its
+          address (it usually ends in <code>/v1</code>), its API key if it needs one, and the model's name, then click
+          <strong>Check connection</strong>.</p>
         <div class="key-row">
           <input type="password" id="apiKey" spellcheck="false" autocomplete="off" placeholder="Paste your API key" aria-label="API key">
         </div>

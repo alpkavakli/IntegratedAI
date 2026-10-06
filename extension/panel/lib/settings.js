@@ -21,13 +21,18 @@ export const DEFAULT_SETTINGS = {
   /** Direct mode: which provider new conversations use ('anthropic', or a preset in shared/providers/openai-compatible.js). */
   directProvider: 'anthropic',
   /** Direct mode: API keys for the other providers (stay in this browser; each is sent only to its provider). */
-  providerKeys: { openai: '', gemini: '', openrouter: '', deepseek: '', qwen: '', kimi: '', glm: '', minimax: '' },
+  providerKeys: { openai: '', gemini: '', openrouter: '', deepseek: '', qwen: '', kimi: '', glm: '', minimax: '', custom: '' },
   /** Direct mode: model per provider ('' = the provider's first suggestion; Ollama: '' = not set up). */
-  providerModels: { openai: '', gemini: '', openrouter: '', deepseek: '', qwen: '', kimi: '', glm: '', minimax: '', ollama: '' },
+  providerModels: { openai: '', gemini: '', openrouter: '', deepseek: '', qwen: '', kimi: '', glm: '', minimax: '', custom: '', ollama: '' },
   /** Direct mode: addresses set in Options ('' = the provider's usual one): Ollama, and providers with other regions. */
-  providerUrls: { ollama: '', qwen: '', kimi: '', glm: '', minimax: '' },
+  providerUrls: { ollama: '', qwen: '', kimi: '', glm: '', minimax: '', custom: '' },
   /** Ollama: short prompts and tool descriptions, for models with a small context window (8K tokens or less). */
   ollamaCompact: false,
+  /**
+   * The models each provider lists (GET /models), remembered when Options checks a key and refreshed by the
+   * panel at most once a day: they fill the panel's model menu. @type {Record<string, { ids: string[], at: number }>}
+   */
+  modelLists: {},
   /** The card on the page has shown its one-time tip about the full version in DevTools. */
   cardTipSeen: false,
   /** The donation note on the setup page was closed. */
