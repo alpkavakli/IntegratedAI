@@ -168,8 +168,10 @@ panel, on the page itself, no DevTools needed. It floats at the bottom right and
 
 - **Move it** by its header. Drag it against the left or right edge (or use the dock button) to make it a
   full-height side panel; drag it away again to float. Edges and corners resize it. Its place is remembered.
-- **See-through** (the ◐ button: off / light / strong): it fades while the mouse is elsewhere, and is solid while you
-  point at it or type in it. **—** or **Esc** minimises it to a small pill; **✕** closes it.
+- **See-through** (the ◐ button: off / light / strong): floating, it fades whenever the mouse is elsewhere and is
+  solid while you point at it. Docked, it **pushes the page aside** instead of covering it: the page gets narrower
+  (fixed headers and buttons at that edge are narrowed or moved too), and gets its room back when the card floats,
+  is minimised or closes. **—** or **Esc** minimises it to a small pill; **✕** closes it.
 - It stays open on the tab's next pages (it comes back after each page load) until you close it.
 - **Pick element** chooses the element to ask about (hover outlines it, a click picks it, Esc cancels).
 

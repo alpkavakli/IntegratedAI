@@ -448,6 +448,14 @@ try {
   log(`card: dragged to the right edge → ${docked}`);
   if (docked !== 'right') violations.push(`card: dragging to the edge did not dock it (${docked})`);
   if ((await at(1270, 20)) !== 'integratedai-card' || (await at(1270, 790)) !== 'integratedai-card') violations.push('card: docked, but not full height');
+  // Docked, it pushes the page aside instead of covering it: the page's content ends where the panel starts.
+  const pageRight = await ev(cardPage.session, `Math.max(...[...document.querySelectorAll('.plan')].map((e) => e.getBoundingClientRect().right))`);
+  const panelLeft = 1280 - (await ev(sw, `chrome.storage.local.get('cardLayout').then((d) => Math.max(d.cardLayout.w, 320))`));
+  log(`card: docked; page content ends at ${Math.round(pageRight)}px, the panel starts at ${panelLeft}px`);
+  if (pageRight > panelLeft + 1) violations.push(`card: docked, but it covers the page (content to ${pageRight}px, panel from ${panelLeft}px)`);
+  // The Server button's request reaches the worker as "services.call" (an argument once replaced the command).
+  const services = await ev(cardSession, `import('./lib/bg.js').then((m) => m.bg('services.call', { action: 'status' })).catch((e) => ({ error: e.message }))`);
+  if (!services?.needsPermission) violations.push(`card: the Server button's request went wrong (${JSON.stringify(services)})`);
   await shot(cardShot, 'page-15-card-docked', 1280, 800);
   await cdp('Page.reload', {}, cardPage.session);
   await sleep(2500);
@@ -470,6 +478,9 @@ try {
   await sleep(400);
   if ((await at(1270, 400)) === 'integratedai-card') violations.push('card: it did not step aside for DevTools');
   else log('card: Esc minimises, the pill restores, and it steps aside for DevTools');
+  // Minimised (it stepped aside), the page has all its room back.
+  const margin = await ev(cardPage.session, `getComputedStyle(document.documentElement).marginRight`);
+  if (margin !== '0px') violations.push(`card: minimised, but the page is still pushed aside (margin ${margin})`);
   await ev(sw, `chrome.storage.session.set({ 'card:${cardTab}': { open: false } })`);
 
   // Nothing set up yet: the panel's first-run screen.

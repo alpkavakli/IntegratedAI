@@ -22,7 +22,7 @@
   const MIN_H = 360;
   const MARGIN = 16;
   const SNAP = 24; // dragging this close to the left/right edge docks the card there
-  const FADE = { off: 1, light: 0.85, strong: 0.6 };
+  const FADE = { off: 1, light: 0.7, strong: 0.45 };
   const FADE_NEXT = { off: 'light', light: 'strong', strong: 'off' };
   const FADE_TITLE = { off: 'See-through: off', light: 'See-through: light', strong: 'See-through: strong' };
 
@@ -38,7 +38,7 @@
   /** The DevTools panel took over this tab: reload the frame when the card comes back (fresh conversation state). */
   let staleFrame = false;
 
-  const ask = (cmd, extra = {}) => chrome.runtime.sendMessage({ cmd, ...extra }).then((r) => (r?.ok ? r.value : null)).catch(() => null);
+  const ask = (cmd, extra = {}) => chrome.runtime.sendMessage({ ...extra, cmd }).then((r) => (r?.ok ? r.value : null)).catch(() => null);
 
   // ── open / close
 
@@ -84,9 +84,6 @@
     pill.addEventListener('click', () => { setMinimized(false); ask('card.set', { minimized: false }); });
     card.addEventListener('pointerenter', () => { hovered = true; fade(); });
     card.addEventListener('pointerleave', () => { hovered = false; fade(); });
-    // Typing in the panel: the page's window loses focus to the frame; keep the card solid meanwhile.
-    addEventListener('blur', fade);
-    addEventListener('focus', fade);
     addEventListener('resize', place);
     root.querySelector('.bar').addEventListener('pointerdown', startDrag);
     for (const edge of root.querySelectorAll('.edge')) edge.addEventListener('pointerdown', startResize);
@@ -100,11 +97,10 @@
   }
 
   function remove() {
+    unpush();
     host?.remove();
     host = root = card = frame = pill = null;
     removeEventListener('resize', place);
-    removeEventListener('blur', fade);
-    removeEventListener('focus', fade);
   }
 
   /** @param {boolean} value */
@@ -114,6 +110,7 @@
     card.hidden = value;
     pill.hidden = !value;
     pill.querySelector('span').textContent = note || 'IntegratedAI';
+    place(); // docked: the page gets its room back while minimised, and loses it again after
     if (!value && staleFrame) {
       staleFrame = false;
       frame.src = frame.src; // the conversation went on in DevTools: load its current state
@@ -143,6 +140,7 @@
     } else {
       Object.assign(card.style, { left: layout.mode === 'left' ? '0px' : `${vw - w}px`, top: '0px', width: `${w}px`, height: `${vh}px` });
     }
+    push(layout.mode === 'float' || minimized ? 0 : w);
     const fadeButton = root.querySelector('[data-do=fade]');
     fadeButton.title = `${FADE_TITLE[layout.fade]} (when the mouse is elsewhere)`;
     fadeButton.setAttribute('aria-label', fadeButton.title);
@@ -153,11 +151,103 @@
     fade();
   }
 
-  /** Solid while in use (mouse over it, or typing in it); see-through otherwise, as chosen. */
+  /**
+   * Floating: solid while the mouse is over it, see-through otherwise (as chosen with ◐), also while
+   * its text box has focus, so the page shows through as soon as you look back at it. Docked, it
+   * pushes the page aside instead of covering it, so it stays solid.
+   */
   function fade() {
     if (!card) return;
-    const inUse = hovered || document.activeElement === host || dragging;
-    card.style.opacity = String(inUse ? 1 : FADE[layout.fade]);
+    const solid = hovered || dragging || layout.mode !== 'float';
+    card.style.opacity = String(solid ? 1 : FADE[layout.fade]);
+  }
+
+  // ── docked: the page moves aside
+
+  /**
+   * While docked, the page is made narrower by the panel's width instead of being covered: a margin on
+   * <html> moves its content, and fixed elements that reach that edge (headers, chat buttons, cookie
+   * bars), which a margin doesn't move, are narrowed or shifted. Everything changed is put back exactly
+   * when the card floats, is minimised or closes. (Chrome's own side panel can do this natively, but it
+   * can't be dragged out into a floating card again.)
+   */
+  let pushed = { side: '', width: 0, vw: 0 };
+  /** @type {Map<HTMLElement, Record<string, [string, string]>>} element → original inline values it had */
+  const moved = new Map();
+  let pushObserver = null;
+  let pushTimer = 0;
+
+  /** @param {number} width 0 = give the page all its room back */
+  function push(width) {
+    const side = width ? layout.mode : '';
+    // (Same place, same window size: nothing to do. A resized window needs the fixed bars measured again.)
+    if (side === pushed.side && width === pushed.width && (!width || innerWidth === pushed.vw)) return;
+    unpush();
+    if (!width) return;
+    pushed = { side, width, vw: innerWidth };
+    const html = document.documentElement;
+    remember(html, [`margin-${side}`]);
+    html.style.setProperty(`margin-${side}`, `${width}px`, 'important');
+    adjustFixed();
+    // Pages add fixed bars later (on scroll, after loading): look again shortly after changes.
+    pushObserver = new MutationObserver(() => {
+      clearTimeout(pushTimer);
+      pushTimer = setTimeout(adjustFixed, 500);
+    });
+    pushObserver.observe(document.body, { childList: true, subtree: true });
+  }
+
+  function unpush() {
+    pushObserver?.disconnect();
+    pushObserver = null;
+    clearTimeout(pushTimer);
+    for (const [el, props] of moved) {
+      for (const [prop, [value, priority]] of Object.entries(props)) {
+        if (value) el.style.setProperty(prop, value, priority);
+        else el.style.removeProperty(prop);
+      }
+    }
+    moved.clear();
+    pushed = { side: '', width: 0, vw: 0 };
+  }
+
+  /** Keep an element's original inline values (once) so unpush can restore them. */
+  function remember(el, props) {
+    const saved = moved.get(el) ?? {};
+    for (const prop of props) if (!(prop in saved)) saved[prop] = [el.style.getPropertyValue(prop), el.style.getPropertyPriority(prop)];
+    moved.set(el, saved);
+  }
+
+  /** Fixed elements touching the docked edge: full-width ones get narrower, small ones move inward. */
+  function adjustFixed() {
+    const { side, width } = pushed;
+    if (!side) return;
+    const vw = innerWidth;
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT);
+    for (let el = walker.nextNode(), seen = 0; el && seen < 8000; el = walker.nextNode(), seen++) {
+      if (moved.has(el) || el === host || getComputedStyle(el).position !== 'fixed') continue;
+      const r = el.getBoundingClientRect();
+      if (!r.width || !r.height) continue;
+      const touches = side === 'right' ? r.right >= vw - 2 : r.left <= 2;
+      if (!touches) continue;
+      if (r.width >= vw * 0.5) {
+        // A bar across the page: as wide as the page's remaining room.
+        remember(el, ['width', 'max-width', ...(side === 'left' ? ['left'] : [])]);
+        el.style.setProperty('width', `${Math.max(r.width - width, 0)}px`, 'important');
+        el.style.setProperty('max-width', `${vw - width}px`, 'important');
+        if (side === 'left') el.style.setProperty('left', `${r.left + width}px`, 'important');
+      } else {
+        // Something small at the edge (a chat button): move it inward by the panel's width.
+        remember(el, ['left', 'right']);
+        if (side === 'right') {
+          el.style.setProperty('right', `${vw - r.right + width}px`, 'important');
+          el.style.setProperty('left', 'auto', 'important');
+        } else {
+          el.style.setProperty('left', `${r.left + width}px`, 'important');
+          el.style.setProperty('right', 'auto', 'important');
+        }
+      }
+    }
   }
 
   // ── dragging and resizing

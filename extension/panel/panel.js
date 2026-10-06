@@ -983,7 +983,7 @@ export class App {
     this.showBanner(want === 'start' ? 'Starting the local server…' : 'Stopping the local server…');
     try {
       /** @type {any} */
-      const reply = await bg('services.call', { cmd: want });
+      const reply = await bg('services.call', { action: want });
       if (reply.needsPermission) {
         this.showBanner('Allow IntegratedAI to talk to its helper program first (click Server again).', true);
       } else if (reply.notInstalled) {

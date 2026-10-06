@@ -66,7 +66,7 @@ const handlers = {
   'options.open': async () => chrome.runtime.openOptionsPage(),
 
   // The panel's Server button: start / stop / check the local agent server through the native host.
-  'services.call': async ({ cmd }) => servicesCall(cmd),
+  'services.call': async ({ action }) => servicesCall(action),
 
   // The setup page's "Try it now": an article with the card open on it.
   'card.tryIt': async () => {
