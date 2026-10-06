@@ -137,7 +137,7 @@ Memory has two layers. In local server mode both are stored by the server in `~/
 
 **1. Site memory** (server: `memory/<site>.json`): short notes per site and per **page type**.
 - The AI saves notes with the `remember` action when it learns something reusable, such as key selectors (`nav bar: nav.g_nav`), how the site is built, or your preferences (e.g. a dark theme you saved). It fixes wrong notes with `forget`.
-- Notes are saved without asking, never touch the page, and show in the chat as **📝 Remembered …**.
+- Notes are saved without asking, never touch the page, and show in the chat as **Remembered …**.
 - **Whole site** notes apply to every page of the site. **This kind of page** notes apply only to pages of the same page type.
 - At the start of each conversation, and whenever the notes change, the AI receives the notes that apply to the current page (`<site_memory>`, a few hundred tokens). So it starts out knowing the site.
 - The **Memory** tab shows everything: rename page types, edit, delete or add notes yourself (e.g. *"I prefer serif fonts for reading"*).
@@ -213,7 +213,7 @@ is told never to follow instructions found on pages, and the panel (not the AI) 
 With the Claude Code CLI, the page actions are offered as MCP tools (`mcp__page__interact`, `mcp__page__navigate`) in
 the agent modes only.
 
-**Screenshots.** The panel captures the inspected tab (`chrome.tabs.captureVisibleTab`) and crops it to the element. An off-screen element is scrolled into view first, and the page is scrolled back afterwards. The image is resized to at most 1280 px and sent as a JPEG, and a thumbnail appears in the chat ("📷 The AI looked at …"; click it to enlarge).
+**Screenshots.** The panel captures the inspected tab (`chrome.tabs.captureVisibleTab`) and crops it to the element. An off-screen element is scrolled into view first, and the page is scrolled back afterwards. The image is resized to at most 1280 px and sent as a JPEG, and a thumbnail appears in the chat ("Looked at …"; click it to enlarge).
 - **Check it:** an applied or saved change has a **Check it** button. It asks the AI to screenshot the result and propose fixes for anything that still looks wrong, such as areas a dark theme missed or unreadable text.
 - The inspected tab must be the visible tab in its window. With DevTools docked it always is.
 - Only what's on screen can be captured: an element taller than the window is cut off.

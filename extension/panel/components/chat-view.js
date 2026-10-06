@@ -150,7 +150,7 @@ export class ChatView extends HTMLElement {
    * @param {any} record
    */
   renderLiveLine(call, record) {
-    const icon = { applied: '✓', rejected: '✋', failed: '⚠', invalid: '⚠' }[/** @type {string} */ (record.status)] ?? '…';
+    const icon = { applied: '✓', rejected: '×', failed: '!', invalid: '!' }[/** @type {string} */ (record.status)] ?? '…';
     const what = call.input?.description || ACTIONS[call.name]?.label || call.name;
     return h('div', { class: `activity ${record.status}`, 'data-action': call.id },
       `${icon} ${what}`, record.detail ? h('span', { class: 'detail' }, ` · ${record.detail}`) : null);
@@ -175,7 +175,7 @@ export class ChatView extends HTMLElement {
     return {
       done: (/** @type {string} */ result, ok = true) => {
         line.className = `activity ${ok ? 'applied' : 'failed'}`;
-        line.textContent = `${ok ? '✓' : '⚠'} ${result}`;
+        line.textContent = `${ok ? '✓' : '!'} ${result}`;
       },
     };
   }
@@ -272,7 +272,7 @@ export class ChatView extends HTMLElement {
       src, alt: `Screenshot of ${label}`, title: 'Click to enlarge',
       onclick: (/** @type {Event} */ e) => /** @type {HTMLElement} */ (e.currentTarget).classList.toggle('large'),
     });
-    this.insert(h('div', { class: 'screenshot' }, h('div', { class: 'caption' }, `📷 The AI looked at ${label}`), img));
+    this.insert(h('div', { class: 'screenshot' }, h('div', { class: 'caption' }, `Looked at ${label}`), img));
     if (stick) this.scrollToBottom();
   }
 

@@ -163,6 +163,13 @@ export function interactStep(h, selected, { actionId, step, dry = false, hold = 
       : target.matches('li, [role=listitem], [role=option], [role=row], [role=menuitem], [role=tab]') ? 'item' : 'element';
     return name ? `${role} ${quote(name)}` : `${role} ${h.label(target)}`;
   };
+  /** The visible text of the <select> option a step means (by value or text), for describing it. */
+  const optionText = (select) => {
+    if (!select || select.tagName !== 'SELECT') return '';
+    const want = norm(step.value);
+    const option = [...select.options].find((o) => norm(o.value) === want || norm(o.text) === want);
+    return option ? option.text.trim() : '';
+  };
   const VERBS = { click: 'click', type: 'type into', select: 'choose in', check: 'tick', uncheck: 'untick', submit: 'submit the form of', scroll: 'scroll', press: 'press', wait: 'wait for' };
 
   // Steps that don't need a target: scroll the page, press a key on what has focus, pause.
@@ -186,7 +193,7 @@ export function interactStep(h, selected, { actionId, step, dry = false, hold = 
     // Said the way a person would: 'type "NTU" into the "Search" field', 'press Enter in …', 'click button "Send"'.
     const value = String(step.value ?? '').slice(0, 40);
     const what = step.action === 'type' ? `type "${value}" into ${humanName(field(el))}`
-      : step.action === 'select' ? `choose "${value}" in ${humanName(field(el))}`
+      : step.action === 'select' ? `choose "${optionText(field(el)) || value}" in ${humanName(field(el))}`
         : step.action === 'press' ? `press ${step.value} in ${humanName(el)}`
           : step.action === 'scroll' ? (step.value ? `scroll ${humanName(el)} ${step.value}` : `scroll to ${humanName(el)}`)
             : `${VERBS[step.action] ?? step.action} ${humanName(el)}`;
@@ -287,7 +294,7 @@ export function interactStep(h, selected, { actionId, step, dry = false, hold = 
       const target = field(el);
       const isNative = target.matches('input[type=checkbox], input[type=radio]');
       const checked = isNative ? target.checked : el.getAttribute('aria-checked') === 'true';
-      if (checked === want) return { found: true, did: `${name} was already ${want ? 'checked' : 'unchecked'}`, undoable: true };
+      if (checked === want) return { found: true, did: `${humanName(target)} was already ${want ? 'ticked' : 'unticked'}`, undoable: true };
       if (isNative && target.type === 'radio') {
         if (!want) throw new Error('A radio button cannot be unchecked; check another option instead');
         const group = target.name ? [...document.querySelectorAll(`input[type=radio][name="${CSS.escape(target.name)}"]`)] : [];
