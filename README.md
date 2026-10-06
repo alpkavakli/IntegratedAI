@@ -555,7 +555,7 @@ once `DONATE_URL` in `extension/options/options.js` points to a donation page.)
 npm test
 ```
 
-126 unit tests cover:
+127 unit tests cover:
 - action validation and safety rules
 - auth (Origin, Host, token) and patch scopes
 - CLI argument building and output parsing, including session resume, cost differences, recovery from a lost session, decoding the streamed reply, enabling only the web tools and our MCP page tools, and the one-time correction when a model calls page actions as tools

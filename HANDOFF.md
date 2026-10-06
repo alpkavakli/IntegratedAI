@@ -15,7 +15,7 @@ two decisions (see "Open decisions").
 
 ## Where things stand
 
-- **Works and is tested:** 115 unit tests pass; `npm run ui-check` (real Chrome, no AI) finds no accessibility or
+- **Works and is tested:** 127 unit tests pass; `npm run ui-check` (real Chrome, no AI) finds no accessibility or
   layout problems; `npm run page-check` (the in-page code on a tricky test page in real Chrome) passes;
   `npm run package` builds the store zip (54 files, ~227 KB).
 - **Store kit is current:** privacy policy (live, describes the agent modes), listing texts, 5 screenshots and the
@@ -213,7 +213,7 @@ harness) or the owner's GitHub/Telegram test is the next thing to do.
 
 ```bash
 npm install
-npm test                                   # 115 unit tests (node:test)
+npm test                                   # 127 unit tests (node:test)
 npm start                                  # local agent server (Claude Code)
 npm run package                            # store checks + dist/integratedai-<version>.zip
 npm run site                               # docs/ (privacy page) from store/PRIVACY.md
