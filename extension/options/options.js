@@ -85,11 +85,16 @@ chrome.action.getUserSettings?.().then((user) => {
 $('try-card').addEventListener('click', () => chrome.runtime.sendMessage({ cmd: 'card.tryIt' }));
 
 // ── Donations: shown once there is a page to donate on (GitHub Sponsors, Ko-fi, …).
+// The × closes it for good (remembered in settings).
 const DONATE_URL = '';
-if (DONATE_URL) {
+if (DONATE_URL && !settings.donateDismissed) {
   /** @type {HTMLAnchorElement} */ ($('donate-link')).href = DONATE_URL;
   hide('donate', false);
 }
+$('donate-close').addEventListener('click', () => {
+  hide('donate', true);
+  saveSettings({ donateDismissed: true });
+});
 
 // ── Step 1: which AI. "server" means the local agent server; everything else is direct mode.
 

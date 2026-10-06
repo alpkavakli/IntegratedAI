@@ -30,6 +30,8 @@ export const DEFAULT_SETTINGS = {
   ollamaCompact: false,
   /** The card on the page has shown its one-time tip about the full version in DevTools. */
   cardTipSeen: false,
+  /** The donation note on the setup page was closed. */
+  donateDismissed: false,
   serverUrl: `ws://127.0.0.1:${DEFAULT_PORT}/ws`,
   token: '',
   /** Allow the model to propose arbitrary JavaScript (each run still needs approval). */

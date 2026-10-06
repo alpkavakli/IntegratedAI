@@ -48,6 +48,10 @@
       .use > svg { width: 20px; height: 20px; flex: none; color: var(--accent); margin-top: 1px; }
       .use .row-buttons { margin: 6px 0 0; }
       .donate, .license-note { color: var(--fg-muted); font-size: 12px; margin: 24px 0 0; }
+      .donate { display: flex; align-items: center; gap: 6px; }
+      .donate[hidden] { display: none; }
+      .donate .close { margin-left: auto; padding: 0 6px; border: 1px solid transparent; background: none; color: var(--fg-muted); font-size: 14px; line-height: 1.4; }
+      .donate .close:hover { border-color: var(--border); color: var(--fg); }
       .license-note { margin-top: 6px; }
       .key-row { display: flex; gap: 8px; }
       .key-row input { flex: 1; min-width: 0; }
@@ -264,6 +268,7 @@
     <p class="donate" id="donate" hidden>
       Wanna donate? We'll use the money to buy more AI credits, duh.
       <a id="donate-link" target="_blank" rel="noopener">Donate</a>
+      <button type="button" id="donate-close" class="close" title="Don't show this again" aria-label="Don't show the donation note again">×</button>
     </p>
     <p class="license-note">Free and open source (MIT license). <a href="https://github.com/alpkavakli/IntegratedAI" target="_blank" rel="noopener">Source code</a></p>
     </main>
