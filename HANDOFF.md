@@ -1,63 +1,110 @@
 # Handoff: IntegratedAI (Chrome DevTools AI panel)
 
-_State as of 2026-10-05 (evening). For whoever continues this project (a new chat or a person). The README has the full
-user-facing documentation; this file is the short "where are we and how do I work on it" version._
+_State as of 2026-10-06. For the next chat (or person) continuing this project. Start here; the README has the
+full user-facing documentation._
 
 ## What it is
 
-A Chrome extension that adds an **AI** tab to DevTools. You select an element and ask, for example, "why is this
-overflowing?", "add a dark-mode toggle to the nav", or "fill in this form". The AI inspects the page, then
-**proposes** changes as cards (CSS, element edits, clicks/typing, optional JS). Nothing runs until you approve.
+A Chrome extension that adds an **AI** tab to DevTools. You select an element and ask ("why is this overflowing?",
+"add a dark-mode toggle to the nav", "fill in this form"). The AI inspects the page and **proposes** changes as
+cards (CSS, element edits, clicks/typing, optional JS) that run when you approve them. In the **agent modes** it
+can also operate the page itself, step by step (see below).
 
-The goal is to **publish it on the Chrome Web Store**.
+The goal is to **publish it on the Chrome Web Store**. Everything for that is ready except the owner's upload and
+two decisions (see "Open decisions").
 
-## Two ways it runs (both use the same agent code)
+## Where things stand
+
+- **Works and is tested:** 112 unit tests pass; `npm run ui-check` (real Chrome, no AI) finds no accessibility or
+  layout problems; `npm run package` builds the store zip (54 files, ~218 KB).
+- **Store kit is current:** privacy policy (live, describes the agent modes), listing texts, 5 screenshots and the
+  promo tile in the current plain UI.
+- **Tried with a real model:** the Claude Code CLI (owner's login), including agent mode on the demo form,
+  Wikipedia (search → Enter → read the article) and Hacker News (follow "More" → read page 2).
+- **Never tried with a real model:** direct mode with a real API key (Anthropic, OpenAI, Gemini, OpenRouter), and
+  a real Ollama. Only recorded-style answers, a stand-in Ollama and real bad-key checks.
+
+## Two ways it runs (same agent code)
 
 | | Direct mode (default for new installs) | Local server mode (the owner's setup) |
 |---|---|---|
-| AI | User's own API key: Anthropic, OpenAI, Gemini, or OpenRouter; or Ollama (local, no key) | Claude Code CLI (Claude subscription), or an Anthropic key |
-| Where the agent runs | Inside the extension's DevTools panel | `npm start` → Node server on 127.0.0.1:7823 |
-| Conversations and memory | IndexedDB and `chrome.storage.local` | `~/.integratedai/` (versioned, with backups) |
-| Server-only extras | — | Apply to source; page tools as real MCP tools for Claude Code |
+| AI | User's own key: Anthropic, OpenAI, Gemini, OpenRouter; or Ollama (local, no key) | Claude Code CLI (Claude subscription), or an Anthropic key |
+| Agent runs | Inside the DevTools panel | `npm start` → Node server on 127.0.0.1:7823 |
+| Conversations, memory | IndexedDB, `chrome.storage.local` | `~/.integratedai/` (versioned, with backups) |
+| Extras | — | Apply to source; page tools as MCP tools for Claude Code |
 
-## Layout (the important parts)
+## Agent modes (the newest feature, most of the open work)
 
-```
-extension/                      ← loaded unpacked; no build step (plain ESM JS + JSDoc)
-  shared/                       ← used by BOTH extension and server
-    agent/orchestrator.js       turn loop, approval rules, memory modes (shared/private/off)
-    agent/requests.js           panel requests answered identically by server and direct mode
-    agent/memory.js             site memory and page groups (storage backend plugged in)
-    agent/session-model.js      conversation model and helpers
-    agent/system-prompt.js      the prompt (incl. "Who you work for")
-    providers/                  anthropic.js (official SDK), openai-compatible.js (OpenAI/Gemini/OpenRouter/Ollama), base.js
-    actions.js                  action catalog and validation (inspect_*, find_elements, screenshot, inject_css,
-                                modify_element, interact, execute_js, remember/forget/define_page_group)
-    css-boost.js                makes injected CSS win specificity ties (:not(#integratedai))
-  panel/                        panel UI (vanilla web components); panel/direct/ = direct mode client and stores
-  background/service-worker.js  insertCSS, patches, toggles, storage migrations, export/import
-  content/                      console capture (MAIN world) and patch toggle buttons
-  options/                      the setup page: choose an AI, paste a key (checked right away), open the AI tab;
-                                everything else under "Advanced settings"
-  vendor/anthropic-sdk.mjs      the only bundled file (npm run vendor:sdk)
-server/                         Node agent server (WebSocket, Claude Code CLI provider, MCP page tools,
-                                Apply to source, data versioning)
-store/                          Web Store kit: PRIVACY.md, SUBMISSION.md, screenshots/, demo-pages/
-docs/                           public site (privacy page), generated by npm run site
-scripts/                        package-extension.js, store-screenshots.mjs, ui-check.mjs, build-site.js, vendor-sdk.js
-```
+Chosen per conversation in the menu inside the input box; the default is set in Options → Advanced settings.
+
+| Mode | Behaviour |
+|---|---|
+| Suggest (default) | Every change is a card; nothing happens until the user clicks. |
+| Ask each step | `interact` and `navigate` run during the turn; the panel asks Allow / Allow all for this task / Deny before each step. |
+| Auto | Steps run on their own; the panel still asks before risky steps (submit, Enter, Send/Pay/Delete-like buttons, password fields, another site). |
+| Full auto | Never asks. Per conversation only, after a warning banner; never a default. |
+
+How it fits together:
+- `shared/actions.js`: `AGENT_MODES`, `pageAction: true` on `interact` and `navigate`, `runsLive(name, mode)`.
+  `interact` steps: click, type, select, check, uncheck, submit, scroll, press, wait.
+- `shared/agent/orchestrator.js`: live page actions are sent to the panel during the turn (`requestTool`), the result
+  goes back to the model, up to `maxAgentSteps` (40) model calls per message. Records get `live: true`.
+- `shared/agent/system-prompt.js`: the "Working on the page yourself" section (only in agent modes).
+- `server/src/agent/page-tools.js`: with Claude Code, the page actions are MCP tools in agent modes only.
+- `panel/lib/agent-runner.js`: per step: dry run (find, outline on the page, describe, classify risk) → ask if the
+  mode says so → short pause → do it → wait for page loads. Retries 2 s for elements that re-render.
+- `panel/lib/page-interact.js`: the steps inside the page, `humanName()` (plain-words names for the chat), risk
+  detection (`riskOf`), the outline (held while asking), and the "working… Stop" badge (closed shadow root).
+- **The panel enforces the mode itself** (never runs page actions in Suggest mode) and decides risk on the real
+  element, not from what the model says. Style changes, element edits and scripts stay cards in every mode.
+
+## Open decisions (ask the owner)
+
+1. **`execute_js` and store review.** It runs AI-written code in the page (off by default, only after the user ticks
+   "I reviewed this code"). Store policy forbids executing remotely hosted code; a reviewer may count model-generated
+   code as that. Recommended: leave it out of the store build (e.g. a flag the packaging script sets, so the
+   developer copy keeps it). The owner hasn't decided yet.
+2. **Trusted input for agent mode.** Synthetic events have `isTrusted = false`; most sites accept them, a few ignore
+   them. Real input needs the `debugger` permission, which shows users a scary warning and hurts store review. Only
+   worth it if real sites (Telegram Web etc.) turn out to ignore our events.
+
+## Next work, in order
+
+1. **Agent mode on real, logged-in apps** (the owner's wish: "let it browse Telegram"). Try Telegram Web and a shop
+   or two with Claude Code in Auto mode; fix what breaks. Likely areas: virtualised lists (the `scroll` step),
+   contenteditable composers (`type` sets textContent; Enter is sent as key events), risky-word list in `riskOf`,
+   the prompt section. How to test: see "Testing agent mode on a real site" below.
+2. **Better observation after each step.** Today the model gets only what was done plus URL and title, then calls
+   `find_elements` again. A compact page outline (headings, landmarks, focused element, visible buttons/inputs with
+   their `humanName`) in the step result would cut round trips. Build it in `page-scripts.js` and return it from
+   `AgentRunner.run`.
+3. **Real-key test of direct mode** (needs the owner's key): Anthropic first, then OpenAI/Gemini/OpenRouter, then a
+   real Ollama (`OLLAMA_ORIGINS=chrome-extension://*`). Model id suggestions are in
+   `shared/providers/openai-compatible.js` (`PRESETS`, checked 2026-10-05); Test key lists what a key can use.
+4. **Decide and implement** the `execute_js` store-build question above.
+5. **Later / ideas:** iframes (inspection, patches and agent steps are top-frame only); other providers in server
+   mode; persistent JS patches (deliberately left out for safety); patches applied earlier than navigation commit.
+
+## Known issues and limits
+
+- The panel only works while DevTools is open; the network log only covers requests since DevTools opened.
+- Top frame only (no iframes); closed shadow roots, canvas apps, file pickers, drag and drop and captchas are out of
+  reach for agent steps.
+- Saved patches can show the page's original style for a moment on fast pages.
+- Undo info is per page load. The full list is at the end of the README.
 
 ## Commands
 
 ```bash
 npm install
 npm test                                   # 112 unit tests (node:test)
-npm start                                  # local agent server
+npm start                                  # local agent server (Claude Code)
 npm run package                            # store checks + dist/integratedai-<version>.zip
-npm run site                               # docs/index.html and docs/privacy.html from store/PRIVACY.md
+npm run site                               # docs/ (privacy page) from store/PRIVACY.md
+npm run ui-check [-- <folder>]             # panel + setup page in headless Chrome: screenshots, axe-core, layout,
+                                           # an Auto-mode scenario and the page Stop; no AI, no key
+node scripts/store-screenshots.mjs [name]  # store screenshots (real Claude Code calls, ~$0.25; needs Chrome)
 npm run vendor:sdk                         # rebuild extension/vendor/anthropic-sdk.mjs after upgrading the SDK
-node scripts/store-screenshots.mjs [name]  # store screenshots (real Claude Code calls; needs Chrome)
-npm run ui-check [-- <folder>]             # UI screenshots + accessibility/layout audit (no AI, no key; needs Chrome)
 ```
 
 Load the extension from `chrome://extensions` → Developer mode → Load unpacked → `extension/`.
@@ -65,86 +112,53 @@ Load the extension from `chrome://extensions` → Developer mode → Load unpack
 
 ## How things are tested
 
-- **Unit tests:** `server/test/`, covering the shared agent, providers, memory, data versioning, CSS boost and more.
-- **Real browser:** headless Chrome over the DevTools protocol, with the unpacked extension loaded via
-  `Extensions.loadUnpacked` (needs `--enable-unsafe-extension-debugging`). The panel runs in a tab with a small
-  `chrome.devtools` stand-in that forwards `inspectedWindow.eval` to the real page.
-  `scripts/store-screenshots.mjs` is a complete, readable example.
-- **UI check:** `npm run ui-check` drives the panel and the setup page against a scripted stand-in for Ollama
-  (no key, no cost), saves a screenshot of each state, runs axe-core (WCAG 2 A/AA) and a few layout checks, and
-  exits with 1 on any problem. **Run it after every UI change and look at the screenshots.** It currently passes
-  with no problems.
-- **Live AI:** the Claude Code CLI provider was tested against the owner's real login (the store screenshots are
-  regenerated with it). **Direct mode has only been tested with recorded-style API responses (Anthropic, OpenAI),
-  a stand-in Ollama, and real bad-key checks against all four APIs. It still needs a run with a real key.**
+- **Unit tests** in `server/test/`: actions and validation, orchestrator (incl. agent modes), providers, memory,
+  export/import, data versioning, MCP page tools, approved scripts, CSS boost.
+- **Real Chrome without AI:** `npm run ui-check`. The AI panel runs in a tab with a small `chrome.devtools`
+  stand-in that forwards `inspectedWindow.eval` to the real page over the DevTools protocol; a scripted stand-in
+  Ollama answers. **Run it after every UI change and look at the screenshots** (it prints the folder): the axe
+  audit can't see layout, and a layout bug once slipped past it.
+- **Real Chrome with Claude Code:** `scripts/store-screenshots.mjs` drives the real server and CLI on the demo
+  pages in `store/demo-pages/`. Its `openScenario()` is the harness to copy.
 
-## The UI (as of this handoff)
+### Testing agent mode on a real site
 
-- **Setup page** (opens on install): 1. choose your AI on cards (Claude, GPT, Gemini, OpenRouter, Ollama, or Claude
-  Code via the local server), 2. paste the key (saved and checked as soon as it's pasted), 3. open the AI tab.
-  The goal is setup in about two minutes; keep it that simple. Everything else is under "Advanced settings".
-- **Look:** plain and native to DevTools, not "AI product": the DevTools greys with one blue accent, 1px borders,
-  small corners (4–6 px), no gradients, glows or emoji, line icons. The owner asked for this explicitly ("the UI
-  looks too much like AI"); keep it that way. The icon (`store/icon.svg`, rendered to `extension/icons/`) is the
-  DevTools "select an element" mark on a dark tile.
-- **Panel:** your messages in a light box on the right, the AI's answers as plain text. One input box at the bottom
-  with the context chips, the mode menu and a small square send/stop button. Two-row toolbar (tabs +
-  History/New/settings; provider/model/cost). With nothing set up, a setup screen instead of an error. Runs of page
-  inspections fold into one expandable line.
-- **New chat screen:** "Ask about this page", one line of help, four suggestion buttons and the Continue / memory
-  lines, left-aligned at the top like an empty DevTools panel.
-- **Agent modes** (the menu in the input box): Suggest (default) / Ask each step / Auto / Full auto. In the agent
-  modes `interact` and `navigate` run during the turn (orchestrator: `runsLive()`; panel: `lib/agent-runner.js`),
-  each step outlined on the page and listed in the chat, with a "working… Stop" badge on the page during the turn; the panel asks before steps as the mode says (risky steps
-  are detected on the real element in `page-interact.js`). `npm run ui-check` runs an Auto-mode scenario.
-- No accessibility violations (axe-core) in either; keep it that way with `npm run ui-check`.
+Copy `scripts/store-screenshots.mjs` to a scratch file and replace `SCENARIOS` with one scenario that: opens a
+real URL in `openScenario()` (let it accept a full URL; pick the newest tab with that URL, `findLast`), sets the
+mode with `#agent-mode` (value `auto`) and a `change` event, sends the task via `#prompt` + `requestSubmit()`, then
+loops: when `.ask-step` appears, log its text and click its "Allow" button; stop when `#send` no longer has the stop
+state and nothing is thinking; finally print `#chat`'s `innerText` and capture panel and page. Headless Chrome has no
+logins, so logged-in apps need the owner's own Chrome (load unpacked, try it by hand, send back the chat).
 
-## Rules the owner set (please keep them)
+## Rules the owner set (keep them)
 
-- **Simple for users:** setup in about two minutes, settings in plain words, the chat like the chat apps people know.
-- **Commits are authored only by the owner** (Alp Kavaklı). No `Co-Authored-By` or `Claude-Session` lines.
-  `git -c user.name="Alp Kavaklı" -c user.email="alpkavakli@gmail.com" commit …`. Don't push unless asked.
-- **Plain modern JavaScript** (ESM, JSDoc, `// @ts-check`). No TypeScript, no build step for the extension
-  (the vendored SDK is the one exception). Keep code readable and commented.
-- **Store-ready:** minimal permissions, no remote code, an accurate privacy policy (update `store/PRIVACY.md` and
-  run `npm run site` when data handling changes), and keep `npm run package` passing.
-- **Approval model:** changes never run without the user's click. Inspections and memory notes run on their own
-  (visible in chat).
+- **Simple for users:** setup in about two minutes, settings in plain words.
+- **Plain look, not "AI product":** the DevTools greys with one blue accent, 1px borders, small corners, no
+  gradients, glows, sparkles or emoji, line icons. The owner asked for this explicitly. Icon: `store/icon.svg`
+  (rendered to `extension/icons/`), the DevTools "select an element" mark.
+- **Commits are authored only by the owner** (Alp Kavaklı, alpkavakli@gmail.com). No `Co-Authored-By` or other
+  attribution lines: `git -c user.name="Alp Kavaklı" -c user.email="alpkavakli@gmail.com" commit …`.
+  **Commit, don't push**: the owner pushes and likes to run git commands themselves.
+- **Plain modern JavaScript** (ESM, JSDoc, `// @ts-check`), no TypeScript, no build step for the extension (the
+  vendored SDK is the one exception). Readable, commented code that matches the surrounding style.
+- **Store-ready:** minimal permissions (storage, scripting, webNavigation, `<all_urls>`), no remote code, an
+  accurate privacy policy (update `store/PRIVACY.md` and run `npm run site` whenever behaviour or data handling
+  changes), `npm run package` passing.
+- **Approval model:** in Suggest mode nothing changes the page without the user's click. Agent modes may run
+  `interact`/`navigate` within the mode's rules; style changes, element edits and scripts always wait for a click.
+  Inspections and memory notes run on their own (visible in the chat).
 
-Things the previous chat declined, and why: it would not change the prompt to make the AI do graded coursework,
-or to override its judgement about reproducing copyrighted text. The prompt instead tells the AI who it works
-for (the browser's owner, who approves every change). For copying text, the panel has a **Copy text** button
-that does it without the AI.
+Declined earlier, and why: changing the prompt to make the AI do graded coursework, or to override its judgement
+about reproducing copyrighted text. The prompt tells the AI who it works for; for copying text the panel has a
+**Copy text** button that works without the AI.
 
-## Branch and repo
+## Repo and working notes
 
-- Work happens on `main` (`origin` = github.com/alpkavakli/IntegratedAI, **public**). The owner pushes
-  themselves; commit, don't push.
-- GitHub Pages serves `/docs` from `main`: the privacy policy is live at
-  https://alpkavakli.github.io/IntegratedAI/privacy.html (after changing `store/PRIVACY.md`, run `npm run site`).
-- `backup/before-author-fix` is a local safety branch from the authorship rewrite and can be deleted.
-
-## Open items / next steps
-
-1. **Test direct mode with real keys** (Anthropic first, then OpenAI/Gemini/OpenRouter). Gemini and OpenRouter
-   have only unit tests, plus a real bad-key check for all four. **Ollama** was tested in real Chrome against a
-   stand-in server that copies its origin check (`OLLAMA_ORIGINS`), not against Ollama itself. The suggested model ids in `extension/shared/providers/openai-compatible.js` (`PRESETS`)
-   were checked against the vendors' model docs and OpenRouter's public model list on 2026-10-05 (gpt-6.1-sol,
-   gemini-3.8-flash, …); models change often, and checking a key in Options lists the ones it can really use.
-2. **Publish** (owner's task): the repo is public and the privacy page is live. Create the Web Store developer
-   account and upload `dist/integratedai-<version>.zip` with the texts and images in `store/SUBMISSION.md`
-   (the screenshots and the promo tile show the current UI; regenerate with `node scripts/store-screenshots.mjs`,
-   which needs the owner's Claude Code login). Bump `version` in `extension/manifest.json` for every upload.
-   Review risk to decide on before uploading: `execute_js` runs AI-written code in the page (off by default, only after
-   the user ticks "I reviewed this code"). The store forbids executing remotely hosted code; a reviewer may count
-   model-generated code as that. Leaving it out of the store build would remove the risk.
-3. **Possible next features:**
-   - Agent modes: tried with the real Claude Code CLI on the demo form, Wikipedia (search, Enter, read) and Hacker
-     News (follow "More", read page 2). Next: logged-in apps (Telegram Web, shops); tune the risky-step words in
-     `page-interact.js` and the "Working on the page yourself" prompt from what goes wrong. Ideas: an
-     accessibility-tree snapshot after each step instead of only URL/title; iframes; trusted input (synthetic
-     events have isTrusted = false, which a few sites ignore; real input would need the "debugger" permission).
-   - Persistent JS patches (deliberately left out for safety).
-   - Providers other than Claude Code in server mode.
-4. **Known limits:** listed at the end of the README (the panel only works while DevTools is open; the network log
-   only covers requests since DevTools opened; top frame only; etc.).
+- Work on `main` (`origin` = github.com/alpkavakli/IntegratedAI, **public**). Other (remote) chats have pushed
+  their work to their own `claude/…` branches; check `git branch -a` and fast-forward `main` if one is ahead.
+  `claude/gifted-einstein-uiuf7u` is fully merged and can be deleted; so can the local `backup/before-author-fix`.
+- GitHub Pages serves `/docs` from `main`: https://alpkavakli.github.io/IntegratedAI/privacy.html
+- This checkout uses **CRLF** in the working tree (the repo stores LF, `core.autocrlf=true`). Scripted edits that
+  assume LF silently miss; normalise line endings when editing by script, or use a plain editor.
+- Python isn't installed on the owner's machine; Node is. Chrome is at
+  `C:/Program Files/Google/Chrome/Application/chrome.exe` (override with `CHROME_PATH`).
