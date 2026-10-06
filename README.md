@@ -40,6 +40,14 @@ Choose in **Options → Connection**:
 | Where conversations and memory live | In the browser (IndexedDB, extension storage) | `~/.integratedai/` on your computer |
 | Extras | — | "Apply to source"; page tools as real Claude Code tools |
 
+**Models from China-based companies:** DeepSeek, Qwen (Alibaba Cloud Model Studio), Kimi (Moonshot AI), GLM (Z.ai)
+and MiniMax work like the other API-key providers, with tools and agent modes. They are thinking models that return
+their reasoning as `reasoning_content` and want it back with the next requests (DeepSeek refuses requests without
+it): the extension keeps it with each answer and sends it back to the same provider, without showing it. Qwen needs
+your own Model Studio address (it contains your workspace); Kimi, GLM and MiniMax accounts in mainland China use other
+addresses. The setup page has an **API address** field for these, with the address to use. Model ids checked
+2026-10-07 against each provider's documentation; **Check key** lists what your key can use.
+
 Both use the **same agent code** (`extension/shared/agent/`: orchestrator, prompts, memory, request handling). In direct mode it runs inside the extension: Anthropic through a vendored build of the official SDK (`extension/vendor/`, regenerate with `npm run vendor:sdk`); OpenAI, Gemini, OpenRouter and Ollama through their OpenAI-compatible Chat Completions API (`extension/shared/providers/openai-compatible.js`; another compatible service is one more preset there).
 
 **Ollama (free, local models).** Install [Ollama](https://ollama.com/download), download a model that supports tools

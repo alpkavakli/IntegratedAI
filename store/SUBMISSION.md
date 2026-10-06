@@ -31,8 +31,8 @@ AI panel in Chrome DevTools: explains layout and console errors, previews CSS fi
 >   each step, or only before risky ones (submitting, sending, paying, deleting); you choose.
 > - **Remembers each site:** key selectors and your preferences, so the next conversation starts informed.
 > - **Explains console errors** and jumps to the source.
-> - **Your key, your choice:** paste an API key for Anthropic (Claude), OpenAI, Google Gemini or OpenRouter and go,
->   or use free local models with Ollama.
+> - **Your key, your choice:** paste an API key for Anthropic (Claude), OpenAI, Google Gemini, OpenRouter, DeepSeek,
+>   Qwen, Kimi, GLM or MiniMax and go, or use free local models with Ollama.
 >   It talks straight to that provider; conversations and site memory stay in your browser. No account with us,
 >   no tracking.
 > - **Separate memories:** keep a conversation's notes private to it, or share them across the site.
@@ -77,7 +77,8 @@ AI calls), or a single one with e.g. `node scripts/store-screenshots.mjs 03-form
 
 **Data usage disclosures** (check these in the form):
 - Website content: **yes**, only on pages the user inspects, sent to the AI provider the user chose (Anthropic,
-  OpenAI, Google or OpenRouter) with the user's own key (direct mode), to Ollama on the user's own computer, or to
+  OpenAI, Google, OpenRouter, DeepSeek, Alibaba Cloud, Moonshot AI, Z.ai or MiniMax) with the user's own key
+  (direct mode), to Ollama on the user's own computer, or to
   the user's local server.
 - Authentication info: the user's own API keys are stored locally and each is sent only to its own provider
   to authenticate their requests (declare it if the form asks; never sent to the developer).

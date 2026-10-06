@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { OLLAMA_ORIGINS_HELP, PRESETS, httpError, openAICompatibleProvider, readEvents, toOpenAIMessages } from '../../extension/shared/providers/openai-compatible.js';
+import { OLLAMA_ORIGINS_HELP, PRESETS, baseUrlFor, httpError, openAICompatibleProvider, readEvents, toOpenAIMessages } from '../../extension/shared/providers/openai-compatible.js';
 import { DirectRegistry, directConfig } from '../../extension/panel/direct/direct-client.js';
 import { collect } from './helpers.js';
 
@@ -125,7 +125,8 @@ test('direct registry: every provider with a key is available; the preferred one
   const base = { anthropicApiKey: '', directModel: '', directProvider: 'gemini', providerKeys: { openai: 'o', gemini: '', openrouter: 'r' }, providerModels: { openai: 'gpt-x', gemini: '', openrouter: '' } };
   const registry = new DirectRegistry(directConfig(/** @type {any} */ (base)));
   const list = await registry.list();
-  assert.deepEqual(list.map((p) => [p.id, p.available]), [['anthropic', false], ['openai', true], ['gemini', false], ['openrouter', true], ['ollama', false]]);
+  assert.deepEqual(list.map((p) => [p.id, p.available]), [['anthropic', false], ['openai', true], ['gemini', false], ['openrouter', true],
+    ['deepseek', false], ['qwen', false], ['kimi', false], ['glm', false], ['minimax', false], ['ollama', false]]);
   assert.equal(list.find((p) => p.id === 'openai').defaultModel, 'gpt-x');
   assert.equal(list.find((p) => p.id === 'openrouter').defaultModel, PRESETS.openrouter.models[0]);
   assert.equal(await registry.pickDefault(), 'openai', 'preferred Gemini has no key, so the first provider with a key');
@@ -203,4 +204,47 @@ test('compact mode: older tool results are shortened, only the newest page conte
   assert.ok(!users[0].includes('a.example/1') && users[0].includes('first'), 'old context dropped, text kept');
   assert.ok(users[1].includes('a.example/2'));
   assert.ok(tools(toOpenAIMessages('S', messages)).every((n) => n === 2000), 'unchanged without compact');
+});
+
+test('thinking models: the reasoning is kept with the answer and sent back to the same provider only', async () => {
+  let sent;
+  const DeepSeek = openAICompatibleProvider('deepseek');
+  const provider = new DeepSeek(directConfig(/** @type {any} */ ({ providerKeys: { deepseek: 'k' }, providerModels: {} })), {
+    fetch: async (_url, init) => {
+      sent = JSON.parse(init.body);
+      return sseResponse(sse([
+        { choices: [{ delta: { reasoning_content: 'Look up ' } }] },
+        { choices: [{ delta: { reasoning_content: 'the button.' } }] },
+        { choices: [{ delta: { tool_calls: [{ index: 0, id: 'c1', function: { name: 'find_elements', arguments: '{"text":"Go"}' } }] } }] },
+        { choices: [{ delta: {}, finish_reason: 'tool_calls' }] },
+      ]));
+    },
+  });
+  const events = await collect(provider.turn({ messages: [{ role: 'user', ts: 0, content: [{ type: 'text', text: 'click go' }] }], system: 'S', actionNames: ['find_elements'], model: 'deepseek-flash', state: {}, signal: new AbortController().signal }));
+  assert.deepEqual(events.find((e) => e.type === 'raw')?.content, { reasoning: 'Look up the button.' });
+  assert.equal(events.some((e) => e.type === 'text_delta' && /Look up/.test(e.text)), false, 'never shown in the chat');
+
+  const history = /** @type {any[]} */ ([
+    { role: 'user', ts: 0, content: [{ type: 'text', text: 'click go' }] },
+    { role: 'assistant', ts: 0, raw: { provider: 'deepseek', content: { reasoning: 'Look up the button.' } }, content: [{ type: 'tool_call', id: 'c1', name: 'find_elements', input: { text: 'Go' } }] },
+    { role: 'user', ts: 0, content: [{ type: 'tool_result', toolCallId: 'c1', content: '[]' }] },
+    { role: 'assistant', ts: 0, raw: { provider: 'ollama', content: { reasoning: 'other model' } }, content: [{ type: 'tool_call', id: 'c2', name: 'find_elements', input: {} }] },
+    { role: 'user', ts: 0, content: [{ type: 'tool_result', toolCallId: 'c2', content: '[]' }] },
+    { role: 'assistant', ts: 0, content: [{ type: 'text', text: 'done' }] },
+  ]);
+  const assistants = (/** @type {any[]} */ out) => out.filter((m) => m.role === 'assistant');
+  const toDeepSeek = assistants(toOpenAIMessages('S', history, { reasoningFor: 'deepseek' }));
+  assert.equal(toDeepSeek[0].reasoning_content, 'Look up the button.', 'sent back unchanged');
+  assert.equal(toDeepSeek[1].reasoning_content, '', 'another provider\'s tool call: an empty one, not a missing one');
+  assert.equal('reasoning_content' in toDeepSeek[2], false, 'plain answers from others: nothing');
+  assert.ok(assistants(toOpenAIMessages('S', history)).every((m) => !('reasoning_content' in m)), 'OpenAI etc. never get it');
+  assert.equal(PRESETS.openai.sendReasoning, undefined);
+  for (const id of ['deepseek', 'qwen', 'kimi', 'glm', 'minimax']) assert.equal(PRESETS[id].sendReasoning, true, id);
+});
+
+test('providers with other regions or per-account addresses use the address from Options; others never do', () => {
+  assert.equal(baseUrlFor('kimi', { baseUrl: '' }), 'https://api.moonshot.ai/v1');
+  assert.equal(baseUrlFor('kimi', { baseUrl: 'https://api.moonshot.cn/v1/' }), 'https://api.moonshot.cn/v1');
+  assert.equal(baseUrlFor('qwen', { baseUrl: 'https://ws1.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1' }), 'https://ws1.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1');
+  assert.equal(baseUrlFor('openai', { baseUrl: 'https://evil.example/v1' }), 'https://api.openai.com/v1', 'fixed address');
 });

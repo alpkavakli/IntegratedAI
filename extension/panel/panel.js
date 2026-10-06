@@ -40,7 +40,7 @@ import { saveTask, updateTask } from './lib/tasks.js';
 import { ServerClient } from './lib/ws-client.js';
 import { DirectClient } from './direct/direct-client.js';
 import { boostCss } from '../shared/css-boost.js';
-import { baseUrlFor } from '../shared/providers/openai-compatible.js';
+import { PRESETS, baseUrlFor } from '../shared/providers/openai-compatible.js';
 
 const $ = (/** @type {string} */ id) => /** @type {any} */ (document.getElementById(id));
 
@@ -913,13 +913,11 @@ export class App {
       option.title = s.token ? 'Use your Claude subscription through the local server' : 'Set it up in Options';
       group.append(option);
     } else {
-      const labels = { anthropic: 'Claude (API key)', openai: 'OpenAI', gemini: 'Google Gemini', openrouter: 'OpenRouter', ollama: 'Ollama' };
-      const ready = {
-        anthropic: Boolean(s.anthropicApiKey),
-        openai: Boolean(s.providerKeys?.openai), gemini: Boolean(s.providerKeys?.gemini), openrouter: Boolean(s.providerKeys?.openrouter),
-        ollama: Boolean(s.providerModels?.ollama),
-      };
-      for (const [id, label] of Object.entries(labels)) if (ready[/** @type {keyof typeof ready} */ (id)]) group.append(new Option(label, `@direct:${id}`));
+      // Claude with an API key, then every preset that is set up (a key; Ollama: a chosen model).
+      if (s.anthropicApiKey) group.append(new Option('Claude (API key)', '@direct:anthropic'));
+      for (const [id, preset] of Object.entries(PRESETS)) {
+        if (preset.local ? s.providerModels?.[id] : s.providerKeys?.[id]) group.append(new Option(preset.label, `@direct:${id}`));
+      }
     }
     return group.children.length ? [group] : [];
   }

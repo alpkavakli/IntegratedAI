@@ -1,9 +1,15 @@
 // @ts-check
 /**
  * Providers that speak the OpenAI Chat Completions API:
- *   OpenAI, Google Gemini (its OpenAI-compatible endpoint), OpenRouter, and
- *   Ollama (models running on the user's own computer, no key).
+ *   OpenAI, Google Gemini (its OpenAI-compatible endpoint), OpenRouter,
+ *   DeepSeek, Qwen (Alibaba Cloud Model Studio), Kimi (Moonshot AI), GLM (Z.ai), MiniMax,
+ *   and Ollama (models running on the user's own computer, no key).
  * Adding another (Groq, Mistral, LM Studio, …) is one more entry in PRESETS.
+ *
+ * Thinking models: DeepSeek, Qwen, Kimi, GLM and MiniMax return the model's reasoning as
+ * `reasoning_content` next to the answer, and want it back unchanged in the history of the following
+ * requests (DeepSeek answers 400 without it). It is kept with each assistant message (its `raw`) and
+ * sent back to the same provider (presets with sendReasoning); it is never shown in the chat.
  *
  * Used in direct mode with the user's own key. Actions are offered as function
  * tools; the orchestrator does validation, approval and page inspection exactly
@@ -30,6 +36,8 @@ const COMPACT_FULL_RESULTS = 3;
  * @property {string} [keyCheckUrl]   where Test key checks the key, when the model list doesn't need one
  * @property {Record<string, string>} [headers]
  * @property {boolean} [local]        runs on the user's computer: no key, and the address can be changed in Options
+ * @property {string} [addressHint]   the address can be changed in Options (other regions, own workspace): what to put there
+ * @property {boolean} [sendReasoning] send each assistant message's reasoning_content back (thinking models that require it)
  */
 
 /**
@@ -67,6 +75,51 @@ export const PRESETS = {
     // OpenRouter's optional app attribution.
     headers: { 'HTTP-Referer': 'https://github.com/alpkavakli/IntegratedAI', 'X-Title': 'IntegratedAI DevTools' },
   },
+  // ── Models from China-based companies (checked 2026-10-07 against each provider's own documentation).
+  deepseek: {
+    label: 'DeepSeek',
+    baseUrl: 'https://api.deepseek.com',
+    models: ['deepseek-flash', 'deepseek-v4-pro'],
+    keyUrl: 'https://platform.deepseek.com/api_keys',
+    includeUsage: true,
+    sendReasoning: true,
+  },
+  qwen: {
+    label: 'Qwen',
+    baseUrl: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
+    models: ['qwen3.8-max', 'qwen3.7-plus', 'qwen3.7-flash'],
+    keyUrl: 'https://modelstudio.console.alibabacloud.com/model/settings/api-key',
+    includeUsage: false,
+    sendReasoning: true,
+    addressHint: 'Your Model Studio address, e.g. https://<workspace id>.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1 (keys only work in their own region)',
+  },
+  kimi: {
+    label: 'Kimi',
+    baseUrl: 'https://api.moonshot.ai/v1',
+    models: ['kimi-k3'],
+    keyUrl: 'https://platform.kimi.ai/console/api-keys',
+    includeUsage: false,
+    sendReasoning: true,
+    addressHint: 'Accounts in mainland China: https://api.moonshot.cn/v1',
+  },
+  glm: {
+    label: 'GLM',
+    baseUrl: 'https://api.z.ai/api/paas/v4',
+    models: ['glm-5.3', 'glm-5.2'],
+    keyUrl: 'https://z.ai/manage-apikey/apikey-list',
+    includeUsage: false,
+    sendReasoning: true,
+    addressHint: 'Accounts on the Chinese site (bigmodel.cn): https://open.bigmodel.cn/api/paas/v4',
+  },
+  minimax: {
+    label: 'MiniMax',
+    baseUrl: 'https://api.minimax.io/v1',
+    models: ['MiniMax-M3', 'MiniMax-M3.1-Flash-Preview'],
+    keyUrl: 'https://platform.minimax.io',
+    includeUsage: false,
+    sendReasoning: true,
+    addressHint: 'Accounts in mainland China: https://api.minimaxi.com/v1',
+  },
   ollama: {
     label: 'Ollama',
     baseUrl: 'http://localhost:11434/v1',
@@ -79,13 +132,15 @@ export const PRESETS = {
 };
 
 /**
- * The API address for a provider: the preset's, or for a local one the address set in Options.
+ * The API address for a provider: the preset's, or the address set in Options (local ones, and
+ * providers with other regions or per-account addresses).
  * @param {string} id
  * @param {{ baseUrl?: string } | undefined} providerConfig
  */
 export function baseUrlFor(id, providerConfig) {
   const preset = PRESETS[id];
-  return (preset.local && providerConfig?.baseUrl?.trim().replace(/\/+$/, '')) || preset.baseUrl;
+  const own = (preset.local || preset.addressHint) && providerConfig?.baseUrl?.trim().replace(/\/+$/, '');
+  return own || preset.baseUrl;
 }
 
 /**
@@ -169,7 +224,7 @@ export function openAICompatibleProvider(id) {
     async *turn({ messages, system, actionNames, model, signal, compact = false }) {
       const body = {
         model,
-        messages: toOpenAIMessages(system, messages, { compact }),
+        messages: toOpenAIMessages(system, messages, { compact, reasoningFor: preset.sendReasoning ? id : undefined }),
         tools: actionNames.map((name) => {
           const spec = toolSpec(name, compact);
           return { type: 'function', function: { name, description: spec.description, parameters: spec.inputSchema } };
@@ -194,6 +249,8 @@ export function openAICompatibleProvider(id) {
       let finishReason = 'stop';
       /** @type {any} */
       let usage = null;
+      // The model's thinking (reasoning_content; "reasoning" on some endpoints): kept, not shown.
+      let reasoning = '';
       for await (const chunk of readEvents(/** @type {ReadableStream<Uint8Array>} */ (res.body))) {
         if (chunk.error) throw new Error(`${preset.label}: ${chunk.error.message ?? JSON.stringify(chunk.error)}`);
         if (chunk.usage) usage = chunk.usage;
@@ -201,6 +258,8 @@ export function openAICompatibleProvider(id) {
         if (!choice) continue;
         const delta = choice.delta ?? {};
         if (typeof delta.content === 'string' && delta.content) yield { type: 'text_delta', text: delta.content };
+        if (typeof delta.reasoning_content === 'string') reasoning += delta.reasoning_content;
+        else if (typeof delta.reasoning === 'string') reasoning += delta.reasoning;
         // Tool calls arrive in pieces: an index, then the id and name, then the arguments bit by bit.
         for (const piece of delta.tool_calls ?? []) {
           const index = piece.index ?? calls.length;
@@ -212,6 +271,8 @@ export function openAICompatibleProvider(id) {
         if (choice.finish_reason) finishReason = choice.finish_reason;
       }
 
+      // Kept with the assistant message, so it can go back with the next request (sendReasoning presets).
+      if (reasoning) yield { type: 'raw', content: { reasoning } };
       yield {
         type: 'usage',
         inputTokens: usage?.prompt_tokens ?? 0,
@@ -247,11 +308,14 @@ export function openAICompatibleProvider(id) {
  *   only the last MAX_IMAGES_SENT are attached (each costs ~1–1.5k tokens on every call), as for Anthropic
  * - compact mode (local models): only the last COMPACT_FULL_RESULTS tool results are sent in full (older ones are
  *   shortened), and only the newest page context (the selected element etc.); site memory is always kept
+ * - reasoningFor (thinking models): assistant messages carry the reasoning_content this provider returned with them;
+ *   one with tool calls but no stored reasoning (written by another provider) gets an empty one, which these
+ *   providers accept, where a missing one can be refused
  * @param {string} system
  * @param {NeutralMessage[]} messages
- * @param {{ compact?: boolean }} [opts]
+ * @param {{ compact?: boolean, reasoningFor?: string }} [opts]
  */
-export function toOpenAIMessages(system, messages, { compact = false } = {}) {
+export function toOpenAIMessages(system, messages, { compact = false, reasoningFor = undefined } = {}) {
   /** @type {Set<unknown>} tool_result blocks whose images are still sent */
   const keepImages = new Set();
   let imagesLeft = MAX_IMAGES_SENT;
@@ -288,7 +352,16 @@ export function toOpenAIMessages(system, messages, { compact = false } = {}) {
         const c = /** @type {any} */ (b);
         return { id: c.id, type: 'function', function: { name: c.name, arguments: JSON.stringify(c.input ?? {}) } };
       });
-      out.push({ role: 'assistant', content: text || null, ...(toolCalls.length ? { tool_calls: toolCalls } : {}) });
+      /** @type {any} */
+      const raw = m.raw;
+      const reasoning = reasoningFor
+        ? (raw?.provider === reasoningFor && typeof raw.content?.reasoning === 'string' ? raw.content.reasoning : (toolCalls.length ? '' : undefined))
+        : undefined;
+      out.push({
+        role: 'assistant', content: text || null,
+        ...(toolCalls.length ? { tool_calls: toolCalls } : {}),
+        ...(reasoning !== undefined ? { reasoning_content: reasoning } : {}),
+      });
       continue;
     }
     /** @type {any[]} */

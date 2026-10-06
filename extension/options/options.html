@@ -105,6 +105,19 @@
         <label class="provider-card"><input type="radio" name="provider" value="openrouter">
           <strong>OpenRouter</strong><span>many models, one key · some free</span></label>
       </div>
+      <div class="choice-group">More models with an API key, from China-based AI companies.</div>
+      <div class="providers" role="radiogroup" aria-label="More AI providers">
+        <label class="provider-card"><input type="radio" name="provider" value="deepseek">
+          <strong>DeepSeek</strong><span>DeepSeek · API key · low prices</span></label>
+        <label class="provider-card"><input type="radio" name="provider" value="qwen">
+          <strong>Qwen</strong><span>Alibaba Cloud Model Studio · API key</span></label>
+        <label class="provider-card"><input type="radio" name="provider" value="kimi">
+          <strong>Kimi</strong><span>Moonshot AI · API key</span></label>
+        <label class="provider-card"><input type="radio" name="provider" value="glm">
+          <strong>GLM</strong><span>Z.ai (Zhipu) · API key</span></label>
+        <label class="provider-card"><input type="radio" name="provider" value="minimax">
+          <strong>MiniMax</strong><span>MiniMax · API key</span></label>
+      </div>
       <div class="choice-group">Free and private, on your computer. Needs a few setup steps.</div>
       <div class="providers" role="radiogroup" aria-label="Local AI">
         <label class="provider-card"><input type="radio" name="provider" value="ollama">
@@ -127,6 +140,9 @@
           <input type="password" id="apiKey" spellcheck="false" autocomplete="off" placeholder="Paste your API key" aria-label="API key">
         </div>
         <div class="hint">Your key stays in this browser and is only sent to <span id="key-host"></span>. Usage is billed to your account there.</div>
+        <label class="small-field" id="address-field" hidden>API address
+          <input type="text" id="providerUrl" spellcheck="false" autocomplete="off"></label>
+        <div class="hint" id="address-hint" hidden></div>
       </div>
 
       <div id="ollama-setup" hidden>

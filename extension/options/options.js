@@ -140,8 +140,17 @@ function showChoice() {
     const page = KEY_PAGES[/** @type {'anthropic'} */ (choice)] ?? preset.keyUrl;
     /** @type {HTMLAnchorElement} */ ($('key-link')).href = page;
     $('key-link').textContent = new URL(page).host;
-    $('key-host').textContent = choice === 'anthropic' ? 'api.anthropic.com' : new URL(preset.baseUrl).host;
+    $('key-host').textContent = choice === 'anthropic' ? 'api.anthropic.com' : new URL(baseUrlFor(choice, { baseUrl: settings.providerUrls?.[choice] })).host;
     $('apiKey').value = savedKey(choice);
+  }
+  // Providers with other regions or per-account addresses: an address field (empty = the usual one).
+  const address = Boolean(keyBased && preset?.addressHint);
+  hide('address-field', !address);
+  hide('address-hint', !address);
+  if (address) {
+    $('providerUrl').value = settings.providerUrls?.[choice] ?? '';
+    $('providerUrl').placeholder = preset.baseUrl;
+    $('address-hint').textContent = `Leave empty for ${preset.baseUrl}. ${preset.addressHint}.`;
   }
 
   // Model: a list of Claude models, or any model id for the others (suggestions from the preset or the key).
@@ -235,6 +244,12 @@ $('compatUrl').addEventListener('change', async () => {
   await saveSettings({ providerUrls: settings.providerUrls });
 });
 $('serverUrl').addEventListener('change', () => saveSettings({ serverUrl: $('serverUrl').value.trim() }));
+$('providerUrl').addEventListener('change', async () => {
+  settings.providerUrls = { ...settings.providerUrls, [choice]: $('providerUrl').value.trim() };
+  await saveSettings({ providerUrls: settings.providerUrls });
+  $('key-host').textContent = new URL(baseUrlFor(choice, { baseUrl: settings.providerUrls[choice] })).host;
+  if (savedKey(choice)) check();
+});
 $('test-key').addEventListener('click', async () => {
   if (choice !== 'server' && choice !== 'ollama') await saveKey();
   check();
@@ -280,7 +295,18 @@ async function checkProvider(provider) {
   if (!preset.local && !savedKey(provider)) return { ok: false, text: 'Paste your API key first.' };
   const auth = { ...(preset.local ? {} : { authorization: `Bearer ${savedKey(provider)}` }), ...preset.headers };
   if (preset.keyCheckUrl) await presetFetch(provider, fetch, preset.keyCheckUrl, { headers: auth });
-  const res = await presetFetch(provider, fetch, `${baseUrlFor(provider, { baseUrl: $('compatUrl').value })}/models`, { headers: auth });
+  const base = baseUrlFor(provider, { baseUrl: preset.local ? $('compatUrl').value : settings.providerUrls?.[provider] });
+  const listed = await fetch(`${base}/models`, { headers: auth }).catch(() => null);
+  if (!preset.local && listed?.status === 404) {
+    // No model list at this address: check the key with a tiny request to the chosen model instead.
+    const chosen = $('compatModel').value.trim() || preset.models[0];
+    await presetFetch(provider, fetch, `${base}/chat/completions`, {
+      method: 'POST', headers: { ...auth, 'content-type': 'application/json' },
+      body: JSON.stringify({ model: chosen, messages: [{ role: 'user', content: 'Hi' }], max_tokens: 16 }),
+    });
+    return { ok: true, text: `Your key works (${chosen}).` };
+  }
+  const res = await presetFetch(provider, fetch, `${base}/models`, { headers: auth });
   const ids = ((await res.json()).data ?? []).map((/** @type {any} */ m) => String(m.id).replace(/^models\//, '')).sort();
   $('compatModels').replaceChildren(...ids.map((id) => new Option(id, id)));
   if (preset.local) {

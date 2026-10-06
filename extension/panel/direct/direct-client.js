@@ -31,6 +31,11 @@ export const DIRECT_PROVIDERS = [
   openAICompatibleProvider('openai'),
   openAICompatibleProvider('gemini'),
   openAICompatibleProvider('openrouter'),
+  openAICompatibleProvider('deepseek'),
+  openAICompatibleProvider('qwen'),
+  openAICompatibleProvider('kimi'),
+  openAICompatibleProvider('glm'),
+  openAICompatibleProvider('minimax'),
   openAICompatibleProvider('ollama'),
 ];
 

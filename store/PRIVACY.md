@@ -34,6 +34,13 @@ Only when you use the AI panel, and only from the tab you are inspecting:
   - OpenAI, `api.openai.com` ([privacy policy](https://openai.com/policies/privacy-policy/))
   - Google Gemini, `generativelanguage.googleapis.com` ([privacy policy](https://policies.google.com/privacy))
   - OpenRouter, `openrouter.ai`, which forwards to the model you choose ([privacy policy](https://openrouter.ai/privacy))
+  - From China-based AI companies (their policies are on their websites, and say where your data is processed):
+    DeepSeek, `api.deepseek.com` ([deepseek.com](https://www.deepseek.com));
+    Qwen through Alibaba Cloud Model Studio, `dashscope-intl.aliyuncs.com` or the Model Studio address you enter
+    ([alibabacloud.com](https://www.alibabacloud.com));
+    Kimi by Moonshot AI, `api.moonshot.ai` (or `api.moonshot.cn`) ([kimi.ai](https://www.kimi.ai));
+    GLM by Z.ai, `api.z.ai` (or `open.bigmodel.cn`) ([z.ai](https://z.ai));
+    MiniMax, `api.minimax.io` (or `api.minimaxi.com`) ([minimax.io](https://www.minimax.io))
   - Ollama, which runs models on your own computer (by default `localhost:11434`, or the address you enter
     in Options). No key is used and nothing leaves your computer, unless you enter the address of another machine.
 - **Local server mode:**
