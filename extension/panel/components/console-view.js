@@ -5,7 +5,9 @@
  * "Open source" (jumps to the location in the Sources panel).
  */
 
-import { callInPage, evalInPage } from '../lib/inspected.js';
+import { callInPage } from '../lib/inspected.js';
+import { clearConsole } from '../lib/page-scripts.js';
+import { IN_CARD } from '../lib/surface.js';
 import { h, setChildren } from '../lib/dom.js';
 import { readConsole } from '../lib/page-scripts.js';
 
@@ -63,7 +65,7 @@ export class ConsoleView extends HTMLElement {
         h('button', {
           type: 'button',
           onclick: async () => {
-            await evalInPage('window[Symbol.for("integratedai.console")]?.clear()');
+            await callInPage(clearConsole);
             this.refresh(true);
           },
         }, 'Clear')),
@@ -80,7 +82,7 @@ export class ConsoleView extends HTMLElement {
       h('div', { class: 'row' },
         h('span', { class: 'meta' }, `${entry.level}${entry.count > 1 ? ` ×${entry.count}` : ''} · ${new Date(entry.time).toLocaleTimeString()}`),
         h('span', { class: 'spacer' }),
-        location
+        location && !IN_CARD // (opening a source file needs DevTools)
           ? h('button', {
             type: 'button',
             title: `${location.url}:${location.line}`,

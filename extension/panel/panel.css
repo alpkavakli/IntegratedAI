@@ -254,6 +254,11 @@ ai-patches, ai-tasks, ai-console { display: block; flex: 1; overflow-y: auto; pa
 .save-task input { flex: 1; min-width: 160px; }
 ai-tasks details { margin-top: 4px; }
 ai-tasks .item .row input { flex: 1; min-width: 0; }
+/* The same panel runs in DevTools and as the card on the page (body[data-surface=card]); each shows only its own parts. */
+body:not([data-surface="card"]) .card-only,
+body[data-surface="card"] .devtools-only { display: none !important; }
+#to-devtools { font-size: 12px; }
+#pick-element.active { border-color: var(--accent); color: var(--accent); }
 .list-heading { font-weight: 600; margin: 8px 0 4px; color: var(--fg-muted); }
 .item { border: 1px solid var(--border); border-radius: 4px; padding: 6px 8px; margin-bottom: 6px; }
 .item .row { display: flex; align-items: center; gap: 6px; }

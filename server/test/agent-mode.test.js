@@ -181,3 +181,14 @@ test('an invalid inspection is reported to the panel as not run, with the reason
   assert.equal(live?.record.status, 'invalid');
   assert.match(live.record.detail, /^Not run: .*color/);
 });
+
+test('the card on the page: only the basic actions, never page actions, and the prompt says where the rest is', async () => {
+  const { orchestrator, seen, toolRequests, sent } = setup([[{ type: 'tool_call', id: 'c1', name: 'interact', input: click }]]);
+  const session = await orchestrator.openSession({});
+  orchestrator.configure(session, { agentMode: 'full' });
+  await orchestrator.chat(session, { text: 'open chats', settings: { surface: 'card', executeJs: true } });
+  assert.equal(toolRequests.length, 0, 'nothing ran');
+  assert.match(seen[0].system, /The card on the page[\s\S]*Continue in DevTools/);
+  assert.doesNotMatch(seen[0].system, /Working on the page yourself/, 'never an agent mode in the card');
+  assert.match(JSON.stringify(sent), /Invalid action|invalid/, 'interact is refused');
+});

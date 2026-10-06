@@ -6,7 +6,7 @@
 
 import { bg } from './bg.js';
 import { callInPage } from './inspected.js';
-import { findElements, inspectElement, pageOutline, prepareScreenshot, readConsole, readText, restoreScroll } from './page-scripts.js';
+import { findElements, inspectElement, pageOutline, prepareScreenshot, readConsole, readText, restoreScroll, setCardHidden } from './page-scripts.js';
 
 // Headers that must never be sent to the AI.
 const SENSITIVE_HEADERS = /^(cookie|set-cookie|authorization|proxy-authorization|x-api-key|api-key|x-auth-token|x-csrf-token|x-xsrf-token|x-amz-security-token)$/i;
@@ -76,7 +76,14 @@ async function takeScreenshot(input, ctx) {
     const wait = Math.max(target.scrolled ? 150 : 0, lastCaptureAt + CAPTURE_INTERVAL_MS - Date.now()); // repaint, rate limit
     if (wait > 0) await new Promise((r) => setTimeout(r, wait));
     lastCaptureAt = Date.now();
-    dataUrl = await bg('tab.capture', { tabId: ctx.tabId });
+    // The card on the page (if open) is hidden for the capture, so it isn't in the picture.
+    const cardShown = await callInPage(setCardHidden, { hidden: true }).catch(() => false);
+    if (cardShown) await new Promise((r) => setTimeout(r, 60)); // let it repaint
+    try {
+      dataUrl = await bg('tab.capture', { tabId: ctx.tabId });
+    } finally {
+      if (cardShown) await callInPage(setCardHidden, { hidden: false }).catch(() => {});
+    }
   } finally {
     if (target.scrolled) await callInPage(restoreScroll, target.scroll).catch(() => {});
   }

@@ -139,6 +139,41 @@ Defaults can be changed in Options.
 
 **History** in the toolbar lists earlier conversations on the site.
 
+### The card on the page (toolbar button)
+
+Click the extension's toolbar button (or press **Alt+Shift+A**) to open the **card**: the basic version of the
+panel, on the page itself, no DevTools needed. It floats at the bottom right and leaves the rest of the page usable.
+
+- **Move it** by its header. Drag it against the left or right edge (or use the dock button) to make it a
+  full-height side panel; drag it away again to float. Edges and corners resize it. Its place is remembered.
+- **See-through** (the ◐ button: off / light / strong): it fades while the mouse is elsewhere, and is solid while you
+  point at it or type in it. **—** or **Esc** minimises it to a small pill; **✕** closes it.
+- It stays open on the tab's next pages (it comes back after each page load) until you close it.
+- **Pick element** chooses the element to ask about (hover outlines it, a click picks it, Esc cancels).
+
+What the card does, and what is DevTools only:
+
+| | Card | DevTools (AI tab) |
+|---|---|---|
+| Chat, explain, read the page to you, choose provider and model | yes | yes |
+| Page outline, text, search, screenshots, console errors | yes | yes (plus "Open source") |
+| CSS changes: preview, apply, undo, save as site patch | yes | yes |
+| Selecting an element | Pick element | the Elements panel |
+| Element edits, forms, agent modes, saved tasks, scripts | **Continue in DevTools** | yes |
+| Network log, page resources, iframes | no | yes |
+
+The AI knows it is in the card: asked for something DevTools-only, it says so and points to **Continue in DevTools**.
+The card and DevTools share the tab's conversation, so pressing F12 and opening the AI tab continues where the card
+was; the card then steps aside ("continued in DevTools"). The orchestrator only offers the card's actions to the
+model (`CARD_ACTIONS`) and refuses any other call, and the panel refuses them too.
+
+How it works: the service worker injects `content/card-host.js` into the tab. It builds the card's frame (header,
+drag, docking, resizing, fading, the pill) in a closed shadow root, so page CSS can't reach it and the AI's page tools
+never see it, and shows `panel/panel.html?card=1` inside, the same panel as in DevTools. Without DevTools, page
+functions run through `chrome.scripting` in the extension's isolated world (`callInPage` in `inspected.js`); the
+console buffer is read in the page's own world. Chrome's own pages and the Web Store don't allow extensions: there the
+toolbar button shows a "!" note instead.
+
 ### Memory: what it remembers between conversations
 
 Memory has two layers. In local server mode both are stored by the server in `~/.integratedai/`; in direct mode, in the extension's storage in the browser. Either way they survive browser restarts.
@@ -378,6 +413,8 @@ extension/                      ← load this folder in chrome://extensions (no 
     url-scope.js, page-groups.js  patch scopes (origin / prefix / glob / page type), URL categorisation
     css-boost.js                makes injected CSS win specificity ties with page rules
     data-transfer.js            Options → Export / Import
+  content/card-host.js          the card on the page: its frame, dragging, docking, fading (panel.html?card=1 inside)
+  panel/lib/surface.js          DevTools panel or card (IN_CARD, TAB_ID)
     agent/
       orchestrator.js           the turn loop and approval rules (memory modes too)
       requests.js               panel requests, answered the same way by server and direct mode
@@ -517,6 +554,7 @@ These were also checked against real Chrome and the real `claude` CLI during dev
 - Each Claude Code CLI call starts a new `claude` process, so the first words take a few seconds to appear (about 4–6 s). The reply then streams live. The streamed text is a preview; the stored reply is the schema-validated `structured_output`.
 - Patches are inserted when navigation commits, so a very fast page may show its original style for a moment.
 - Injected CSS beats ordinary page rules: before inserting, every selector gets `:not(#integratedai)` added, which matches everything but counts as one more ID (`extension/shared/css-boost.js`). Cards and patches still show the CSS as the AI wrote it. Page rules with `!important`, inline styles and selectors with two or more IDs can still win; the AI uses `!important` for those.
+- The card on the page can't open on Chrome's own pages or the Web Store, and has no iframe, network or resource tools.
 - CSS patches, `modify_element`, screenshots and the selected-element context are top-frame only. The AI can look into
   and operate iframes (`find_elements`, `page_outline`, `read_text`, `inspect_element`, `interact` with `frame`).
 - Console capture starts when the page loads; tabs opened before installing the extension need a reload.

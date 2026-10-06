@@ -459,6 +459,16 @@ const BRIEF = {
   execute_js: 'Last resort: propose JavaScript (body of an async function) for the user to run; give undoCode if possible.',
 };
 
+/**
+ * What the card on the page (the basic panel, opened from the toolbar button) can do: read and look
+ * at the page, change CSS, and use site memory. Element edits, page actions (clicks, typing, going to
+ * pages), scripts and the network/resource tools stay in the DevTools panel ("Continue in DevTools").
+ */
+export const CARD_ACTIONS = [
+  'find_elements', 'page_outline', 'read_text', 'inspect_element', 'inspect_console', 'screenshot',
+  'remember', 'forget', 'define_page_group', 'inject_css',
+];
+
 /** Actions left out in compact mode: rarely needed, and every tool costs context. */
 const COMPACT_LEAVE_OUT = new Set(['inspect_network', 'inspect_resources', 'define_page_group', 'forget']);
 

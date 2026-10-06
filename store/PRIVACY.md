@@ -66,6 +66,9 @@ All storage is local to your computer:
 
 ## What the extension does on pages
 
+- When you click its toolbar button, shows the AI card on that page (and on the tab's next pages until you close
+  it). The card reads and sends the same page data as the DevTools panel (above), only when you use it.
+
 - Captures console messages on pages you visit (kept in the page's memory only, never sent anywhere
   unless you use the AI panel on that tab).
 - Applies CSS patches you saved, and shows on/off buttons for patches you created with a toggle.

@@ -6,6 +6,7 @@
 
 import { ACTIONS, isPageAction, isReadOnly, isServerSide, runsLive, validateAction } from '../../shared/actions.js';
 import { h, setChildren } from '../lib/dom.js';
+import { IN_CARD } from '../lib/surface.js';
 import { renderMarkdown } from '../lib/markdown.js';
 import { ActionCard } from './action-card.js';
 
@@ -55,7 +56,7 @@ export class ChatView extends HTMLElement {
   renderEmpty() {
     this.append(h('div', { class: 'empty' },
       h('div', { class: 'empty-title' }, 'Ask about this page'),
-      h('div', null, 'Select an element in the Elements panel, or ask about the whole page.'),
+      h('div', null, IN_CARD ? 'Pick an element on the page, or ask about the whole page.' : 'Select an element in the Elements panel, or ask about the whole page.'),
       h('div', { class: 'suggestions' },
         SUGGESTIONS.map((text) => h('button', { type: 'button', onclick: () => this.app?.sendFromUi(text) }, text))),
       h('div', { class: 'welcome' })));
@@ -272,7 +273,7 @@ export class ChatView extends HTMLElement {
     const parts = [];
     if (memory?.notes?.length) parts.push(`site memory (${memory.notes.length} note${memory.notes.length === 1 ? '' : 's'})`);
     if (!context) return parts.length ? h('div', { class: 'caption' }, `with ${parts.join(' · ')}`) : null;
-    if (context.selected?.selector) parts.push(`$0 ${context.selected.selector}`);
+    if (context.selected?.selector) parts.push(IN_CARD ? context.selected.selector : `$0 ${context.selected.selector}`); // "$0" means nothing outside DevTools
     if (context.console) parts.push('console');
     if (context.network) parts.push('network');
     if (context.consoleError) parts.push(`error: ${String(context.consoleError.message).slice(0, 80)}`);

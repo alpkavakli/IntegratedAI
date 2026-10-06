@@ -79,6 +79,8 @@ export function createRequestHandler({ orchestrator, store, registry, memory, on
             webTools: msg.settings?.webTools === true,
             // The default mode for this conversation; "full" can only be chosen per conversation.
             agentMode: ['suggest', 'ask', 'auto'].includes(msg.settings?.agentMode) ? msg.settings.agentMode : 'suggest',
+            // The basic card on the page (opened from the toolbar button) instead of the DevTools panel.
+            ...(msg.settings?.surface === 'card' ? { surface: /** @type {const} */ ('card') } : {}),
           },
         });
         return null;

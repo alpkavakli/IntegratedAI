@@ -9,6 +9,8 @@
  *   - store per-tab undo information
  *   - manage persistent CSS patches and reapply them when a matching page loads
  *   - keep stored data in the current format after updates, export/import it
+ *   - open the card on the page (the basic panel) from the toolbar button, and keep it
+ *     open on the tab's next pages
  *
  * Messages: { cmd: string, ...args } → response { ok: true, value } | { ok: false, error }
  */
@@ -63,6 +65,11 @@ const handlers = {
 
   'options.open': async () => chrome.runtime.openOptionsPage(),
 
+  // The DevTools panel opened on this tab: the card there steps aside (the conversation continues in DevTools).
+  'card.devtoolsOpened': async ({ tabId }) => {
+    if ((await sessionGet(`card:${tabId}`))?.open) chrome.tabs.sendMessage(tabId, { type: 'card.devtools' }).catch(() => {});
+  },
+
   // Options → Your data
   'data.summary': async () => ({
     patches: (await getPatches()).length,
@@ -93,6 +100,15 @@ const handlers = {
  * @type {Record<string, (msg: any, tab: chrome.tabs.Tab) => Promise<any>>}
  */
 const contentHandlers = {
+  // The card on the page (content/card-host.js): its tab, and whether it is open / minimised there.
+  'card.get': async (_msg, tab) => ({ tabId: tab.id, ...((await sessionGet(`card:${tab.id}`)) ?? { open: false }) }),
+  'card.set': async ({ open, minimized }, tab) => {
+    const now = (await sessionGet(`card:${tab.id}`)) ?? { open: true };
+    await sessionSet(`card:${tab.id}`, {
+      open: typeof open === 'boolean' ? open : now.open,
+      minimized: typeof minimized === 'boolean' ? minimized : Boolean(now.minimized),
+    });
+  },
   'toggles.forTab': async (_msg, tab) =>
     (await getPatches())
       .filter((p) => p.toggle && tab.url && scopeMatches(p.scope, tab.url))
@@ -106,6 +122,7 @@ const contentHandlers = {
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (sender.id !== chrome.runtime.id) return false;
+  if (typeof msg?.cmd !== 'string') return false; // notes between the page and the panel (card.picked), not commands
   const fromExtensionPage = sender.url?.startsWith(`chrome-extension://${chrome.runtime.id}/`);
   if (!fromExtensionPage) {
     const handler = sender.tab ? contentHandlers[msg?.cmd] : undefined;
@@ -255,6 +272,52 @@ chrome.webNavigation.onCommitted.addListener(async ({ tabId, frameId, url }) => 
     insertCss(tabId, patchCss(patch)).catch((err) => console.warn('Patch injection failed', patch.name, err));
   }
 });
+
+// ─────────────────────────────────────────────────────────── the card on the page
+
+/** Pages no extension may run on (Chrome's own pages, the Web Store). */
+const CARD_BLOCKED = /^(chrome|chrome-extension|chrome-untrusted|devtools|edge|about|view-source|data|file):|^https:\/\/(chromewebstore\.google\.com|chrome\.google\.com\/webstore)/;
+
+// The toolbar button (and its shortcut, Alt+Shift+A): open the card on this page, or close it.
+chrome.action.onClicked.addListener(async (tab) => {
+  if (tab.id === undefined) return;
+  if (!tab.url || CARD_BLOCKED.test(tab.url)) {
+    await flashNote(tab.id, "IntegratedAI can't open on this page (Chrome doesn't let extensions run here)");
+    return;
+  }
+  const now = await sessionGet(`card:${tab.id}`);
+  // Closed → open; open but minimised → shown again; open → closed.
+  const next = !now?.open ? { open: true, minimized: false } : now.minimized ? { open: true, minimized: false } : { open: false, minimized: false };
+  await sessionSet(`card:${tab.id}`, next);
+  try {
+    await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content/card-host.js'] });
+  } catch {
+    await sessionSet(`card:${tab.id}`, { open: false, minimized: false });
+    await flashNote(tab.id, "IntegratedAI can't open on this page");
+  }
+});
+
+// The card stays open on the tab's next pages: put it back once each new page has its DOM.
+chrome.webNavigation.onDOMContentLoaded.addListener(async ({ tabId, frameId }) => {
+  if (frameId !== 0 || !(await sessionGet(`card:${tabId}`))?.open) return;
+  chrome.scripting.executeScript({ target: { tabId }, files: ['content/card-host.js'] }).catch(() => {});
+});
+
+chrome.tabs.onRemoved.addListener((tabId) => { chrome.storage.session.remove(`card:${tabId}`).catch(() => {}); });
+
+/**
+ * Say something on the toolbar button for a few seconds (its tooltip, and a "!" badge).
+ * @param {number} tabId
+ * @param {string} text
+ */
+async function flashNote(tabId, text) {
+  await chrome.action.setBadgeText({ tabId, text: '!' });
+  await chrome.action.setTitle({ tabId, title: text });
+  setTimeout(() => {
+    chrome.action.setBadgeText({ tabId, text: '' }).catch(() => {});
+    chrome.action.setTitle({ tabId, title: chrome.runtime.getManifest().action?.default_title ?? 'IntegratedAI' }).catch(() => {});
+  }, 4000);
+}
 
 // ─────────────────────────────────────────────────────────── stored data: versions, migrations, export/import
 

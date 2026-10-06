@@ -10,6 +10,20 @@
     "type": "module"
   },
   "options_page": "options/options.html",
+  "action": {
+    "default_title": "IntegratedAI: open the AI card on this page (Alt+Shift+A)",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png"
+    }
+  },
+  "commands": {
+    "_execute_action": {
+      "suggested_key": { "default": "Alt+Shift+A" },
+      "description": "Open or close the AI card on this page"
+    }
+  },
   "permissions": ["storage", "scripting", "webNavigation"],
   "host_permissions": ["<all_urls>"],
   "content_scripts": [
@@ -23,6 +37,12 @@
       "matches": ["<all_urls>"],
       "js": ["content/patch-toggles.js"],
       "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["panel/panel.html", "panel/lib/page-scripts.js", "panel/lib/page-interact.js"],
+      "matches": ["<all_urls>"]
     }
   ],
   "icons": {

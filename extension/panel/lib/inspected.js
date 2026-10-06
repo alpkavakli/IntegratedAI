@@ -13,6 +13,7 @@
  */
 
 import { pageHelpers } from './page-scripts.js';
+import { IN_CARD, TAB_ID } from './surface.js';
 
 /**
  * Evaluate an expression in the inspected page, or in one of its frames.
@@ -21,6 +22,7 @@ import { pageHelpers } from './page-scripts.js';
  * @returns {Promise<any>}
  */
 export function evalInPage(expression, frame) {
+  if (IN_CARD) return Promise.reject(new Error('Not available in the card on the page: continue in DevTools for this.'));
   return new Promise((resolve, reject) => {
     chrome.devtools.inspectedWindow.eval(expression, frame ? { frameURL: frame } : {}, (result, exceptionInfo) => {
       // The message only: page exceptions arrive as "Error: …" plus a stack trace nobody needs in the chat.
@@ -47,8 +49,64 @@ export function evalInPage(expression, frame) {
  * @param {string} [frame] run it in this iframe (URL) instead of the page itself
  */
 export function callInPage(fn, args = {}, frame = undefined) {
+  if (IN_CARD) return callInCard(fn, args, frame);
   const expression = `(${fn.toString()})((${pageHelpers.toString()})(), typeof $0 === 'undefined' ? undefined : $0, ${JSON.stringify(args)})`;
   return evalInPage(expression, frame);
+}
+
+/**
+ * Page functions that read what console-capture.js keeps in the page's own JavaScript world. They
+ * don't use the helpers, so in the card they run there directly.
+ */
+const MAIN_WORLD = new Set(['readConsole', 'clearConsole']);
+
+/**
+ * The card on the page has no DevTools, so page functions run through chrome.scripting instead: in
+ * the extension's isolated world, where the page can't tamper with them (it shares the DOM, so
+ * events still reach the page's own code), with the same helpers and the element picked with
+ * Pick element as the selected one. The functions are imported there from the extension's files.
+ * @param {Function} fn
+ * @param {unknown} args
+ * @param {string} [frame]
+ */
+async function callInCard(fn, args, frame) {
+  if (frame) throw new Error('Frames can only be used from DevTools: continue in DevTools for this.');
+  if (MAIN_WORLD.has(fn.name)) {
+    const [main] = await chrome.scripting.executeScript({ target: { tabId: TAB_ID }, world: 'MAIN', func: /** @type {any} */ (fn), args: [null, null, args] });
+    return main?.result;
+  }
+  const [injection] = await chrome.scripting.executeScript({
+    target: { tabId: TAB_ID },
+    world: 'ISOLATED',
+    func: runInCard,
+    args: [fn.name, /** @type {any} */ (args)],
+  });
+  const reply = /** @type {{ ok: boolean, value?: any, error?: string } | undefined} */ (injection?.result);
+  if (!reply) throw new Error('The page did not answer (it may be loading)');
+  if (!reply.ok) throw new Error(reply.error);
+  return reply.value;
+}
+
+/**
+ * Runs in the page (isolated world): load the page functions and call one by name.
+ * Self-contained: it is sent to the page as source text.
+ * @param {string} name
+ * @param {any} args
+ */
+async function runInCard(name, args) {
+  try {
+    const [scripts, interact] = await Promise.all([
+      import(chrome.runtime.getURL('panel/lib/page-scripts.js')),
+      import(chrome.runtime.getURL('panel/lib/page-interact.js')),
+    ]);
+    const fn = scripts[name] ?? interact[name];
+    if (typeof fn !== 'function') throw new Error(`Unknown page function ${name}`);
+    const h = scripts.pageHelpers();
+    const picked = h.state().picked;
+    return { ok: true, value: await fn(h, picked && picked.isConnected ? picked : undefined, args) };
+  } catch (err) {
+    return { ok: false, error: String(err && err.message ? err.message : err) };
+  }
 }
 
 /** How long runApprovedScript waits for a script's result (it keeps running in the page after that). */

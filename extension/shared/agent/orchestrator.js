@@ -21,7 +21,7 @@
  */
 
 import { ACTION_STATUS } from '../protocol.js';
-import { AGENT_MODES, compactActionNames, enabledActionNames, isKnownAction, isReadOnly, isServerSide, normalizeInput, runsLive, validateAction } from '../actions.js';
+import { AGENT_MODES, CARD_ACTIONS, compactActionNames, enabledActionNames, isKnownAction, isReadOnly, isServerSide, normalizeInput, runsLive, validateAction } from '../actions.js';
 import { siteKey } from '../page-groups.js';
 import { formatResult } from './format-result.js';
 import { fingerprint, forPanel, snapshot } from './session-model.js';
@@ -61,9 +61,28 @@ import { buildSystemPrompt } from './system-prompt.js';
 
 /**
  * Settings the panel sends with each message. agentMode: the user's default for
- * conversations that haven't chosen one (never "full", see requests.js).
- * @typedef {{ executeJs?: boolean, webTools?: boolean, agentMode?: string }} TurnSettings
+ * conversations that haven't chosen one (never "full", see requests.js). surface "card": the message
+ * comes from the basic card on the page, which offers only CARD_ACTIONS and never runs page actions.
+ * @typedef {{ executeJs?: boolean, webTools?: boolean, agentMode?: string, surface?: 'card' }} TurnSettings
  */
+
+/**
+ * Errors for one tool call: the action's own checks, and whether it was offered this turn at all (a
+ * model can call a tool it wasn't given; in the card, e.g. interact, which must not even become a card).
+ * @param {{ name: string, input: unknown }} call
+ * @param {TurnSettings} settings
+ * @param {string[] | undefined} offered
+ * @param {boolean} card
+ */
+function checkCall(call, settings, offered, card) {
+  const errors = validateAction(call.name, call.input, settings);
+  if (!errors.length && offered && !offered.includes(call.name)) {
+    errors.push(card
+      ? `"${call.name}" is not available in the card on the page: tell the user to click "Continue in DevTools" for it`
+      : `"${call.name}" is not available in this conversation`);
+  }
+  return errors;
+}
 
 /** Model calls per turn in the agent modes, where each page step is one call (config.maxAgentSteps overrides). */
 const AGENT_STEPS = 40;
@@ -210,11 +229,13 @@ export class Orchestrator {
       // Compact mode (local models with a small context window): a short prompt, short tool descriptions,
       // fewer tools, and older tool results shortened in the history.
       const compact = /** @type {any} */ (provider).compact === true;
-      const actionNames = compact ? compactActionNames(enabledActionNames(settings)) : enabledActionNames(settings);
+      const card = settings.surface === 'card';
+      const enabled = enabledActionNames(settings).filter((name) => !card || CARD_ACTIONS.includes(name));
+      const actionNames = compact ? compactActionNames(enabled) : enabled;
       const webTools = settings.webTools === true;
       const pageTools = Boolean(this.pageTools && P.pageToolsViaMcp);
       const agentMode = this.agentModeFor(session, settings);
-      const system = buildSystemPrompt({ actionNames, webTools, pageTools, structuredEnvelope: Boolean(P.structuredEnvelope), agentMode, compact });
+      const system = buildSystemPrompt({ actionNames, webTools, pageTools, structuredEnvelope: Boolean(P.structuredEnvelope), agentMode, compact, card });
       // Working through a task on the page takes one model call per step.
       const maxSteps = agentMode === 'suggest' ? this.config.maxStepsPerTurn : (this.config.maxAgentSteps ?? AGENT_STEPS);
 
@@ -237,8 +258,8 @@ export class Orchestrator {
         for (const call of toolCalls) call.input = normalizeInput(call.name, call.input);
         // Until results are recorded, these calls are "open" (keeps history valid if we stop early).
         session.openToolCalls = toolCalls.map((c) => c.id);
-        const allInvalid = toolCalls.every((c) => validateAction(c.name, c.input, settings).length > 0);
-        const continueLoop = await this.handleToolCalls(session, toolCalls, settings, abort.signal, agentMode);
+        const allInvalid = toolCalls.every((c) => checkCall(c, settings, actionNames, card).length > 0);
+        const continueLoop = await this.handleToolCalls(session, toolCalls, settings, abort.signal, agentMode, actionNames);
         invalidStreak = allInvalid ? invalidStreak + 1 : 0;
         if (invalidStreak >= MAX_INVALID_STREAK) {
           stopReason = 'invalid_calls';
@@ -272,6 +293,7 @@ export class Orchestrator {
    * @param {TurnSettings} settings
    */
   agentModeFor(session, settings) {
+    if (settings.surface === 'card') return 'suggest'; // the card never operates the page
     if (session.agentMode) return session.agentMode;
     return ['ask', 'auto'].includes(/** @type {any} */ (settings.agentMode)) ? /** @type {any} */ (settings.agentMode) : 'suggest';
   }
@@ -357,9 +379,10 @@ export class Orchestrator {
    * @param {TurnSettings} settings
    * @param {AbortSignal} signal
    * @param {string} [agentMode]
+   * @param {string[]} [offered] the actions offered to the model this turn; others are refused
    * @returns {Promise<boolean>} true if the model should be called again with results
    */
-  async handleToolCalls(session, calls, settings, signal, agentMode = 'suggest') {
+  async handleToolCalls(session, calls, settings, signal, agentMode = 'suggest', offered = undefined) {
     /** @type {ContentBlock[]} */
     const results = [];
     /** @type {string[]} */
@@ -369,7 +392,7 @@ export class Orchestrator {
     let needsResults = false;
 
     for (const call of calls) {
-      const errors = validateAction(call.name, call.input, settings);
+      const errors = checkCall(call, settings, offered, settings.surface === 'card');
       if (errors.length) {
         needsResults = true;
         // Live steps and inspections show as lines in the chat: mark those as not run (with why),

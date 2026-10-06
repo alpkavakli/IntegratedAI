@@ -112,7 +112,33 @@ harness) or the owner's GitHub/Telegram test is the next thing to do.
   targets and no password values; `validateTaskSteps` checks saved/imported steps; export format v3 includes tasks.
   ui-check saves and replays a task.
 
+## Done in the fourth session (2026-10-06): the card on the page
+
+- Toolbar button / Alt+Shift+A opens the **card**: the same panel.html in card mode (`panel/lib/surface.js`
+  IN_CARD), in a frame built by `content/card-host.js` (closed shadow root). Floats bottom-right; drag the header,
+  drop at the left/right edge = full-height side panel; resize edges/corners; ◐ see-through off/light/strong;
+  minimise to a pill (also Esc); close. Layout in storage.local `cardLayout`; open/minimised per tab in
+  storage.session `card:<tabId>`; re-injected on each page load (webNavigation.onDOMContentLoaded).
+- Basic feature set (owner's decision): `CARD_ACTIONS` in shared/actions.js, enforced by the orchestrator
+  (`surface: 'card'`, always Suggest, prompt section "The card on the page") and the panel. The orchestrator now
+  refuses any tool call that wasn't offered this turn (`checkCall`).
+- Page access without DevTools: `callInPage` → chrome.scripting in the isolated world (page-scripts.js and
+  page-interact.js are web_accessible_resources, dynamically imported there); console functions in MAIN.
+  Pick element (`pickElement`) replaces $0. Screenshots hide the card for the capture.
+- "Continue in DevTools" explains F12 → AI tab (extensions can't open DevTools); the DevTools panel tells the card
+  to step aside (`card.devtoolsOpened`), and the card reloads its frame when brought back.
+- Tested: ui-check (float position, page stays usable, Pick element with real mouse input, CSS preview, drag to dock,
+  back after reload, Esc, pill, DevTools handoff, axe), page-check (the card is invisible to page tools), and the card
+  on the real GitHub and Wikipedia pages (strict CSP) in headless Chrome.
+
 ## Next work, in order
+
+0. **Chinese models (owner's next request):** providers like DeepSeek, Qwen (DashScope / Alibaba Cloud Model Studio),
+   Kimi (Moonshot), GLM (Zhipu) and MiniMax that use the same tools and can navigate. Most offer OpenAI-compatible
+   Chat Completions with tool calls, so they can be presets in `shared/providers/openai-compatible.js` (base URL,
+   models, key page) plus a privacy-policy line for each endpoint. Check each one's tool-calling quality with the
+   real-model harness (the Ollama runs this session show how), and whether compact mode helps.
+
 
 1. **Agent mode on real, logged-in apps** (the owner's wish: "let it browse Telegram"). Try Telegram Web and a shop
    or two with Claude Code in Auto mode; fix what breaks. Likely areas: virtualised lists (the `scroll` step),

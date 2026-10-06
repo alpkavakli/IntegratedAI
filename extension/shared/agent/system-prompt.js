@@ -15,16 +15,36 @@ const MODE_TEXT = {
 };
 
 /**
- * @param {{ actionNames: string[], webTools?: boolean, structuredEnvelope?: boolean, pageTools?: boolean, agentMode?: string, compact?: boolean }} opts
+ * @param {{ actionNames: string[], webTools?: boolean, structuredEnvelope?: boolean, pageTools?: boolean, agentMode?: string, compact?: boolean, card?: boolean }} opts
  *   compact: the short prompt for local models (buildCompactPrompt).
+ *   card: the user is in the basic card on the page (CARD_TEXT).
  *   structuredEnvelope: true for providers that answer with { reply, actions } JSON
  *   instead of native tool calls (Claude Code CLI).
  *   pageTools: with structuredEnvelope, the inspections are also real (MCP) tools.
  *   webTools: the provider's web search / fetch tools are available.
  *   agentMode: "suggest" (default) or an agent mode, where interact/navigate run during the turn.
  */
-export function buildSystemPrompt({ actionNames, webTools = false, structuredEnvelope = false, pageTools = false, agentMode = 'suggest', compact = false }) {
-  if (compact && !structuredEnvelope) return buildCompactPrompt({ actionNames, agentMode });
+export function buildSystemPrompt({ actionNames, webTools = false, structuredEnvelope = false, pageTools = false, agentMode = 'suggest', compact = false, card = false }) {
+  if (compact && !structuredEnvelope) return buildCompactPrompt({ actionNames, agentMode }) + (card ? CARD_TEXT : '');
+  return buildFullPrompt({ actionNames, webTools, structuredEnvelope, pageTools, agentMode }) + (card ? CARD_TEXT : '');
+}
+
+/**
+ * Added when the user talks to the basic card on the page instead of the DevTools panel: what it
+ * can't do there, and where to do it.
+ */
+const CARD_TEXT = `
+
+## The card on the page
+The user is talking to you in the small card on the page (opened from the toolbar button), not in DevTools. Here you
+can read and look at the page, explain it, change its CSS and use site memory. There is no Elements panel: "this" is
+the element the user picked with Pick element, when the context shows one. Filling in forms, clicking or typing on
+the page, going to other pages, element edits, scripts and the network log are only available in DevTools: when the
+user asks for one of those, say so in a sentence and tell them to click "Continue in DevTools" (the conversation
+continues there).`;
+
+/** @param {{ actionNames: string[], webTools?: boolean, structuredEnvelope?: boolean, pageTools?: boolean, agentMode?: string }} opts */
+function buildFullPrompt({ actionNames, webTools = false, structuredEnvelope = false, pageTools = false, agentMode = 'suggest' }) {
   const jsEnabled = actionNames.includes('execute_js');
   const agent = agentMode !== 'suggest' && Object.hasOwn(MODE_TEXT, agentMode);
   const liveTools = ['interact', 'navigate'].filter((n) => actionNames.includes(n));

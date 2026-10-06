@@ -372,6 +372,106 @@ try {
   log(`agent: Stop on the page ${stopped ? 'stopped the turn' : 'did NOT stop the turn'}`);
   if (!stopped) violations.push('agent: Stop on the page did not stop the turn');
 
+  // The card on the page (the toolbar button): the basic panel in a frame on the page itself.
+  const cardUrl = `http://127.0.0.1:${PORTS.pages}/pricing.html`;
+  const cardPage = await attach(cardUrl);
+  await viewport(cardPage.session, 1280, 800);
+  await sleep(1200);
+  const cardTab = await ev(sw, `chrome.tabs.query({}).then(t => t.findLast(x => x.url === ${JSON.stringify(cardUrl)}).id)`);
+  // What the toolbar button does (headless Chrome has no toolbar to click).
+  await ev(sw, `chrome.storage.session.set({ 'card:${cardTab}': { open: true, minimized: false } })
+    .then(() => chrome.scripting.executeScript({ target: { tabId: ${cardTab} }, files: ['content/card-host.js'] }))`);
+  /** The card's frame (an extension page inside the web page). */
+  const cardFrame = async () => {
+    for (let i = 0; i < 40; i++) {
+      const target = (await cdp('Target.getTargets')).result.targetInfos.find((/** @type {any} */ t) => t.url.includes('panel.html?card=1'));
+      if (target) {
+        const session = (await cdp('Target.attachToTarget', { targetId: target.targetId, flatten: true })).result.sessionId;
+        await cdp('Runtime.enable', {}, session);
+        return session;
+      }
+      await sleep(250);
+    }
+    throw new Error('the card did not open');
+  };
+  let cardSession = await cardFrame();
+  const cardUi = (/** @type {string} */ expr) => ev(cardSession, expr);
+  for (let i = 0; i < 40 && !(await cardUi(`!document.getElementById('session-row').hidden`)); i++) await sleep(250);
+  // Where is it? Bottom right, and the rest of the page stays the page's.
+  const at = (/** @type {number} */ x, /** @type {number} */ y) => ev(cardPage.session, `document.elementFromPoint(${x}, ${y})?.id || document.elementFromPoint(${x}, ${y})?.localName`);
+  if ((await at(1100, 600)) !== 'integratedai-card') violations.push('card: not at the bottom right');
+  if ((await at(300, 300)) === 'integratedai-card') violations.push('card: it covers the page');
+  const hiddenParts = await cardUi(`['agent-mode', 'tab-tasks'].filter((id) => getComputedStyle(document.getElementById(id)).display !== 'none').join(', ')`);
+  if (hiddenParts) violations.push(`card: shows DevTools-only controls (${hiddenParts})`);
+
+  // Pick element: a real click on the page chooses the element to ask about.
+  await cardUi(`document.getElementById('pick-element').click()`);
+  await sleep(400);
+  const badge = await ev(cardPage.session, `(() => { const r = document.querySelector('.plan .badge').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
+  await cdp('Input.dispatchMouseEvent', { type: 'mouseMoved', x: badge.x, y: badge.y }, cardPage.session);
+  await sleep(150);
+  await cdp('Input.dispatchMouseEvent', { type: 'mousePressed', x: badge.x, y: badge.y, button: 'left', clickCount: 1 }, cardPage.session);
+  await cdp('Input.dispatchMouseEvent', { type: 'mouseReleased', x: badge.x, y: badge.y, button: 'left', clickCount: 1 }, cardPage.session);
+  await sleep(800);
+  const picked = await cardUi(`document.getElementById('selected-label').textContent`);
+  log(`card: picked "${picked}"`);
+  if (!/badge/.test(picked)) violations.push(`card: Pick element did not pick the badge (${picked})`);
+
+  // Ask, and preview the CSS fix the stand-in AI proposes.
+  await cardUi(`document.getElementById('prompt').value = 'Why is this badge cut off?'; document.getElementById('composer').requestSubmit()`);
+  for (let i = 0; i < 60 && !(await cardUi(`!!document.querySelector('ai-action-card') && !document.querySelector('.thinking')`)); i++) await sleep(500);
+  await cardUi(`[...document.querySelector('ai-action-card').querySelectorAll('button')].find((b) => b.textContent.trim().startsWith('Preview'))?.click()`);
+  await sleep(1000);
+  const wraps = await ev(cardPage.session, `getComputedStyle(document.querySelector('.plan .badge')).whiteSpace`);
+  log(`card: CSS preview → badge white-space ${wraps}`);
+  if (wraps !== 'normal') violations.push(`card: the CSS preview did not reach the page (${wraps})`);
+  const cardShot = { targetId: cardPage.targetId, session: cardPage.session };
+  await shot(cardShot, 'page-14-card-float', 1280, 800);
+  await audit(cardSession, 'card on the page (light)');
+
+  // Drag it by its header against the right edge: it becomes a full-height side panel, and stays one after a reload.
+  const drag = async (/** @type {number[][]} */ points) => {
+    const [first, ...rest] = points;
+    await cdp('Input.dispatchMouseEvent', { type: 'mouseMoved', x: first[0], y: first[1] }, cardPage.session);
+    await cdp('Input.dispatchMouseEvent', { type: 'mousePressed', x: first[0], y: first[1], button: 'left', buttons: 1, clickCount: 1 }, cardPage.session);
+    for (const [x, y] of rest) {
+      await cdp('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y, button: 'left', buttons: 1 }, cardPage.session);
+      await sleep(30);
+    }
+    const last = points.at(-1) ?? first;
+    await cdp('Input.dispatchMouseEvent', { type: 'mouseReleased', x: last[0], y: last[1], button: 'left', clickCount: 1 }, cardPage.session);
+    await sleep(400);
+  };
+  // The header is the top 28px of the card (bottom right: x 864–1264, y 144–784).
+  await drag([[1000, 158], [1100, 200], [1200, 250], [1279, 300]]);
+  const docked = await ev(sw, `chrome.storage.local.get('cardLayout').then((d) => d.cardLayout?.mode)`);
+  log(`card: dragged to the right edge → ${docked}`);
+  if (docked !== 'right') violations.push(`card: dragging to the edge did not dock it (${docked})`);
+  if ((await at(1270, 20)) !== 'integratedai-card' || (await at(1270, 790)) !== 'integratedai-card') violations.push('card: docked, but not full height');
+  await shot(cardShot, 'page-15-card-docked', 1280, 800);
+  await cdp('Page.reload', {}, cardPage.session);
+  await sleep(2500);
+  if ((await at(1270, 400)) !== 'integratedai-card') violations.push('card: it did not come back after the page reloaded');
+  else log('card: back after a reload, still docked');
+  cardSession = await cardFrame();
+
+  // Esc in the card minimises it to the pill; the pill brings it back.
+  for (let i = 0; i < 40 && !(await ev(cardSession, `!document.getElementById('session-row').hidden`)); i++) await sleep(250);
+  await cdp('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 }, cardSession);
+  await cdp('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 }, cardSession);
+  await sleep(400);
+  if ((await at(1270, 400)) === 'integratedai-card' || (await at(1240, 772)) !== 'integratedai-card') violations.push('card: Esc did not minimise it to the pill');
+  await cdp('Input.dispatchMouseEvent', { type: 'mousePressed', x: 1240, y: 772, button: 'left', clickCount: 1 }, cardPage.session);
+  await cdp('Input.dispatchMouseEvent', { type: 'mouseReleased', x: 1240, y: 772, button: 'left', clickCount: 1 }, cardPage.session);
+  await sleep(400);
+  if ((await at(1270, 400)) !== 'integratedai-card') violations.push('card: the pill did not bring it back');
+  // The AI tab in DevTools opens on this tab: the card steps aside (the conversation continues there).
+  await ev(sw, `chrome.tabs.sendMessage(${cardTab}, { type: 'card.devtools' })`);
+  await sleep(400);
+  if ((await at(1270, 400)) === 'integratedai-card') violations.push('card: it did not step aside for DevTools');
+  else log('card: Esc minimises, the pill restores, and it steps aside for DevTools');
+  await ev(sw, `chrome.storage.session.set({ 'card:${cardTab}': { open: false } })`);
+
   // Nothing set up yet: the panel's first-run screen.
   await ev(sw, `chrome.storage.local.set({ settings: { mode: 'direct', directProvider: 'anthropic' } })`);
   const none = await openPanel('blog.html', 'article p', 'dark');

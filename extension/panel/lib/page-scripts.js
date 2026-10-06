@@ -201,12 +201,13 @@ export function pageHelpers() {
     return out;
   }
 
-  /** Our own outline and badge are not part of the page. */
-  const OWN_IDS = new Set(['integratedai-highlight', 'integratedai-working']);
+  /** Our own outline, badge, card and element picker are not part of the page. */
+  const OWN_IDS = new Set(['integratedai-highlight', 'integratedai-working', 'integratedai-card', 'integratedai-picker']);
+  const OWN_SELECTOR = [...OWN_IDS].map((id) => `#${id}`).join(', ');
 
   /** Is the element rendered with a size (it may still be scrolled out of view)? */
   function visible(el) {
-    if (OWN_IDS.has(el.id)) return false;
+    if (OWN_IDS.has(el.id) || el.closest(OWN_SELECTOR)) return false;
     const r = el.getBoundingClientRect();
     if (!r.width || !r.height) return false;
     const cs = getComputedStyle(el);
@@ -492,7 +493,7 @@ export function findElements(h, selected, input) {
     candidates = candidates.filter((el) => own(el).toLowerCase().includes(needle));
   }
   const skip = new Set(['script', 'style', 'noscript', 'template', 'meta', 'link']);
-  candidates = candidates.filter((el) => !skip.has(el.localName) && !el.closest('#integratedai-highlight, #integratedai-working'));
+  candidates = candidates.filter((el) => !skip.has(el.localName) && !el.closest('#integratedai-highlight, #integratedai-working, #integratedai-card, #integratedai-picker'));
   // Visible matches first: those are the ones a person (and the interact steps) can use.
   const shown = candidates.filter((el) => h.visible(el));
   const ordered = [...shown, ...candidates.filter((el) => !shown.includes(el))];
@@ -608,6 +609,67 @@ export function pageOutline(h, selected, input = {}) {
   };
 }
 
+/** Empty the console buffer filled by content/console-capture.js (the Console tab's Clear). */
+export function clearConsole() {
+  window[Symbol.for('integratedai.console')]?.clear();
+  return true;
+}
+
+/**
+ * The card's "Pick element" (it has no Elements panel): outline the element under the mouse, and on
+ * a click make it the selected element (kept in the hidden state; callInPage passes it as $0) and tell
+ * the card. Esc, or a second call with stop: true, cancels. Runs in the extension's isolated world.
+ */
+export function pickElement(h, selected, { stop = false } = {}) {
+  const state = h.state();
+  state.stopPicker?.();
+  if (stop) return false;
+  const box = document.createElement('div');
+  box.id = 'integratedai-picker';
+  box.style.cssText = 'position:fixed;z-index:2147483647;pointer-events:none;border:2px solid #1a73e8;'
+    + 'background:rgba(26,115,232,.12);border-radius:2px;display:none';
+  const tag = document.createElement('div');
+  tag.style.cssText = 'position:absolute;left:-2px;top:-22px;background:#1a73e8;color:#fff;font:12px/1.6 system-ui,sans-serif;'
+    + 'padding:0 6px;border-radius:2px;white-space:nowrap';
+  box.append(tag);
+  document.documentElement.append(box);
+  let current = null;
+  const ours = (el) => !el || el === box || el.id === 'integratedai-card' || el === document.documentElement;
+  const move = (e) => {
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    if (ours(el)) { box.style.display = 'none'; current = null; return; }
+    current = el;
+    const r = el.getBoundingClientRect();
+    Object.assign(box.style, { display: 'block', left: `${r.left - 2}px`, top: `${r.top - 2}px`, width: `${r.width + 4}px`, height: `${r.height + 4}px` });
+    tag.textContent = h.label(el);
+    tag.style.top = r.top < 24 ? `${r.height + 4}px` : '-22px';
+  };
+  const done = (el) => {
+    state.stopPicker();
+    if (el) state.picked = el;
+    globalThis.chrome?.runtime?.sendMessage({ type: 'card.picked', picked: Boolean(el) }).catch?.(() => {});
+  };
+  // Capture phase, and swallowed: picking must not click the page's links and buttons.
+  const swallow = (e) => {
+    if (ours(e.target)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === 'click') done(current);
+  };
+  const key = (e) => { if (e.key === 'Escape') { e.preventDefault(); done(null); } };
+  addEventListener('mousemove', move, true);
+  for (const type of ['click', 'mousedown', 'mouseup', 'pointerdown', 'pointerup']) addEventListener(type, swallow, true);
+  addEventListener('keydown', key, true);
+  state.stopPicker = () => {
+    removeEventListener('mousemove', move, true);
+    for (const type of ['click', 'mousedown', 'mouseup', 'pointerdown', 'pointerup']) removeEventListener(type, swallow, true);
+    removeEventListener('keydown', key, true);
+    box.remove();
+    state.stopPicker = undefined;
+  };
+  return true;
+}
+
 /** inspect_console: read the buffer filled by content/console-capture.js. */
 export function readConsole(h, selected, input) {
   const buffer = window[Symbol.for('integratedai.console')];
@@ -646,6 +708,16 @@ export function prepareScreenshot(h, selected, input) {
     selector: h.cssPath(el),
     label: h.label(el),
   };
+}
+
+/**
+ * screenshot: hide the card on the page (if it's open) for the moment of the capture, so it isn't
+ * in the picture, and show it again afterwards.
+ */
+export function setCardHidden(h, selected, { hidden }) {
+  const card = document.getElementById('integratedai-card');
+  if (card) card.style.visibility = hidden ? 'hidden' : '';
+  return Boolean(card);
 }
 
 /** screenshot, step 3: undo the scroll from prepareScreenshot. */

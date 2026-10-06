@@ -10,9 +10,14 @@
  * Conversation per tab: the service worker remembers tabId → conversationId for
  * the browser session, so the conversation survives closing DevTools, reloads
  * and navigation in the same tab.
+ *
+ * The same panel also runs as the basic card on the page (lib/surface.js): there it has no
+ * DevTools APIs, picks elements with Pick element, offers only the card's actions, and points to
+ * DevTools for the rest. Both share the tab's conversation, so DevTools continues where the card was.
  */
 
-import { ACTIONS, isPageAction, validateAction } from '../shared/actions.js';
+import { ACTIONS, CARD_ACTIONS, isPageAction, validateAction } from '../shared/actions.js';
+import { IN_CARD, TAB_ID } from './lib/surface.js';
 import { AgentRunner } from './lib/agent-runner.js';
 import { hideWorkingBadge, showWorkingBadge, takeStopRequest } from './lib/page-interact.js';
 import './components/action-card.js';
@@ -29,7 +34,7 @@ import { ChangeManager } from './lib/changes.js';
 import { collectContext } from './lib/context.js';
 import { callInPage, selectInElementsPanel } from './lib/inspected.js';
 import { runInspection } from './lib/inspections.js';
-import { highlight, pageInfo, selectedLabel, selectedText } from './lib/page-scripts.js';
+import { highlight, pageInfo, pickElement, selectedLabel, selectedText } from './lib/page-scripts.js';
 import { loadSettings, onSettingsChanged } from './lib/settings.js';
 import { saveTask, updateTask } from './lib/tasks.js';
 import { ServerClient } from './lib/ws-client.js';
@@ -40,7 +45,7 @@ const $ = (/** @type {string} */ id) => /** @type {any} */ (document.getElementB
 
 export class App {
   constructor() {
-    this.tabId = chrome.devtools.inspectedWindow.tabId;
+    this.tabId = TAB_ID;
     /** @type {import('./lib/settings.js').Settings} */
     this.settings = /** @type {any} */ (null);
     /** @type {import('../shared/protocol.js').SessionSnapshot | null} */
@@ -78,7 +83,11 @@ export class App {
   }
 
   async start() {
-    if (chrome.devtools.panels.themeName === 'dark') document.documentElement.classList.add('dark');
+    const dark = IN_CARD ? matchMedia('(prefers-color-scheme: dark)').matches : chrome.devtools.panels.themeName === 'dark';
+    if (dark) document.documentElement.classList.add('dark');
+    if (IN_CARD) document.body.dataset.surface = 'card';
+    // The DevTools panel takes over from the card on this tab (it minimises itself and says so).
+    else bg('card.devtoolsOpened', { tabId: this.tabId }).catch(() => {});
 
     this.settings = await loadSettings();
     this.client = this.settings.mode === 'direct' ? new DirectClient(() => loadSettings()) : new ServerClient(() => loadSettings());
@@ -159,6 +168,17 @@ export class App {
 
     $('new-chat').addEventListener('click', () => this.newConversation());
     $('copy-text').addEventListener('click', () => this.copySelectedText());
+    if (IN_CARD) {
+      $('pick-element').addEventListener('click', () => this.startPicking());
+      // Esc minimises the card (the page around this frame can't see the key, so tell it).
+      addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !document.querySelector('.ask-step')) parent.postMessage({ integratedai: 'minimize' }, '*');
+      });
+      $('to-devtools').addEventListener('click', () => this.showBanner(
+        `Press ${/Mac/.test(navigator.platform) ? '⌥⌘I' : 'F12 (or Ctrl+Shift+I)'} and open the AI tab. This conversation continues there, with every tool: `
+        + 'filling in forms, working on the page step by step, element edits, scripts and the network log.',
+      ));
+    }
     $('history-button').addEventListener('click', () => this.historyView.toggle());
     $('open-options').addEventListener('click', () => bg('options.open'));
     $('provider-select').addEventListener('change', () => this.configure({ provider: $('provider-select').value }));
@@ -198,6 +218,10 @@ export class App {
   }
 
   wireDevtoolsEvents() {
+    if (IN_CARD) {
+      this.wireCardEvents();
+      return;
+    }
     chrome.devtools.panels.elements.onSelectionChanged.addListener(() => this.refreshSelectedChip());
 
     // Reload or navigation: the page is fresh, so nothing we applied is active any more.
@@ -226,10 +250,46 @@ export class App {
   async refreshSelectedChip() {
     try {
       const sel = await callInPage(selectedLabel);
-      $('selected-label').textContent = sel ? `$0 ${sel.label}` : '$0 (nothing selected)';
+      $('selected-label').textContent = IN_CARD
+        ? (sel ? sel.label : 'No element picked')
+        : (sel ? `$0 ${sel.label}` : '$0 (nothing selected)');
       $('selected-label').title = sel?.selector ?? '';
     } catch {
-      $('selected-label').textContent = '$0';
+      $('selected-label').textContent = IN_CARD ? 'No element picked' : '$0';
+    }
+  }
+
+  /**
+   * The card has no DevTools events: it hears from the element picker, and follows the tab's
+   * address when an app changes it without loading a new page (a new page reloads the card).
+   */
+  wireCardEvents() {
+    chrome.runtime.onMessage.addListener((msg, sender) => {
+      if (msg?.type !== 'card.picked' || sender.tab?.id !== this.tabId) return;
+      $('pick-element').classList.remove('active');
+      if (msg.picked) $('ctx-selected').checked = true;
+      this.refreshSelectedChip();
+      $('prompt').focus();
+    });
+    chrome.tabs.onUpdated.addListener((tabId, change) => {
+      if (tabId !== this.tabId || !change.url) return;
+      this.pageUrl = change.url;
+      this.patchesView.refresh();
+      this.refreshMemory();
+    });
+    $('ctx-selected').closest('label').title = 'Send a short description of the element you picked';
+  }
+
+  /** Pick element (card): the next click on the page chooses the element to ask about. Clicking again cancels. */
+  async startPicking() {
+    const button = $('pick-element');
+    const stop = button.classList.contains('active');
+    button.classList.toggle('active', !stop);
+    try {
+      await callInPage(pickElement, { stop });
+    } catch (err) {
+      button.classList.remove('active');
+      this.showError(`Can't pick on this page: ${/** @type {any} */ (err).message}`);
     }
   }
 
@@ -323,8 +383,9 @@ export class App {
     callInPage(hideWorkingBadge).catch(() => {});
   }
 
-  /** How the AI may operate the page in this conversation (its own choice, else the user's default). */
+  /** How the AI may operate the page in this conversation (its own choice, else the user's default; the card only suggests). */
   agentMode() {
+    if (IN_CARD) return 'suggest';
     return this.session?.agentMode ?? this.settings.defaultAgentMode ?? 'suggest';
   }
 
@@ -419,6 +480,7 @@ export class App {
         return;
       }
       if (ACTIONS[name]?.readOnly !== true) throw new Error('Not an inspection');
+      if (IN_CARD && !CARD_ACTIONS.includes(name)) throw new Error(`${ACTIONS[name].label} is only available in DevTools`);
       if (this.settings.askBeforeInspections) {
         const allowed = await this.chat.askPermission(`${ACTIONS[name].label} ${JSON.stringify(input)}`);
         if (!allowed) throw new Error('The user denied this inspection');
@@ -452,7 +514,10 @@ export class App {
         conversationId: this.session.id,
         text,
         context,
-        settings: { executeJs: this.settings.executeJs, webTools: this.settings.webTools, agentMode: this.settings.defaultAgentMode },
+        settings: {
+          executeJs: this.settings.executeJs, webTools: this.settings.webTools, agentMode: this.settings.defaultAgentMode,
+          ...(IN_CARD ? { surface: 'card' } : {}),
+        },
       });
     } catch (err) {
       $('prompt').value = text;
@@ -564,7 +629,7 @@ export class App {
     const button = $('copy-text');
     try {
       const text = await callInPage(selectedText);
-      if (text === null) throw new Error('Select an element in the Elements panel first.');
+      if (text === null) throw new Error(IN_CARD ? 'Pick an element on the page first.' : 'Select an element in the Elements panel first.');
       await copyToClipboard(text);
       button.textContent = `Copied ${text.length.toLocaleString()} characters`;
     } catch (err) {
@@ -736,7 +801,9 @@ export class App {
 
   /** @param {string} selector */
   selectInElements(selector) {
-    selectInElementsPanel(selector).catch(() => {});
+    // The card has no Elements panel: outline it on the page instead.
+    if (IN_CARD) this.highlight(selector);
+    else selectInElementsPanel(selector).catch(() => {});
   }
 
   // ───────────────────────────────────────────────────────── small UI bits

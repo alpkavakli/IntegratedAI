@@ -19,6 +19,9 @@ AI panel in Chrome DevTools: explains layout and console errors, previews CSS fi
 > An AI assistant inside Chrome DevTools. Select an element in the Elements panel, switch to the **AI** tab and
 > ask: "why is this overflowing?", "make this look better", "add a dark-mode toggle to the nav bar".
 >
+> No DevTools needed for quick questions: click the toolbar button for the **AI card on the page**. Ask about the
+> page, have it read or explain things, and preview CSS fixes. Drag it anywhere, or against the side as a panel.
+>
 > - **Understands the page you're inspecting:** the selected element, its styles, matching CSS rules, console
 >   errors, network requests and screenshots.
 > - **Proposes, you approve:** every change is a card you preview, apply or undo. Nothing runs on its own.
@@ -67,6 +70,7 @@ AI calls), or a single one with e.g. `node scripts/store-screenshots.mjs 03-form
 | `scripting` | Inserts and removes the CSS changes the user approved (`insertCSS` / `removeCSS`), including saved per-site patches. |
 | `webNavigation` | Detects when a page the user saved a patch for starts loading, to reapply that patch. |
 | Host permission `<all_urls>` | The tool works on whatever page the user is inspecting in DevTools, so it must be able to read that page (on request), capture its console errors, take screenshots, and apply approved CSS on any site. |
+| Toolbar button (`action`), `web_accessible_resources` | The toolbar button opens the AI card on the current page. The card is the extension's own panel page shown in a frame on the page; the two page-helper files are loaded into the extension's isolated world to read the page for it. Nothing is loaded from outside the package. |
 | Content scripts on `<all_urls>` | `console-capture.js` records console errors on the page so the AI can explain them; `patch-toggles.js` shows on/off buttons for patches the user saved with a toggle. Neither sends data anywhere. |
 | Remote code | See "Remote code" below: answer **Yes** and paste the justification. |
 

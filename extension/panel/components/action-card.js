@@ -10,6 +10,7 @@
 import { ACTIONS, validateAction } from '../../shared/actions.js';
 import { defaultScopeFor } from '../../shared/url-scope.js';
 import { h, setChildren } from '../lib/dom.js';
+import { IN_CARD } from '../lib/surface.js';
 
 const STATUS_LABEL = {
   proposed: 'Awaiting your approval',
@@ -80,7 +81,7 @@ export class ActionCard extends HTMLElement {
     const { name, input } = this;
     const target = this.app.targetFor(this.actionId, input);
     const targetLine = name === 'inject_css' ? null : h('div', { class: 'target' },
-      'Target: ', target ? h('code', null, target) : '(element selected in Elements panel)', ' ',
+      'Target: ', target ? h('code', null, target) : (IN_CARD ? '(the element you picked)' : '(element selected in Elements panel)'), ' ',
       target ? h('button', { class: 'link', type: 'button', onclick: () => this.app.selectInElements(target) }, 'select') : null);
 
     if (name === 'inject_css') {

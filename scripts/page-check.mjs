@@ -54,6 +54,7 @@ const PAGE = `<!doctype html><html><head><title>Agent test page</title><style>
 <iframe src="/frame.html" title="Embedded form" style="width:300px;height:80px"></iframe>
 <dialog id="dlg"><p>Delete this file?</p><button>Cancel</button><button>Delete</button></dialog>
 <button id="covered">Covered button</button><div id="banner">Cookie banner</div>
+<div id="integratedai-card" style="position:fixed;right:0;bottom:0"><button>Card button</button> Card text</div>
 <div style="height:1500px"></div>
 <script>
   window.log = [];
@@ -165,6 +166,10 @@ try {
   const modal = await call(pageOutline, {});
   check('page_outline: an open modal is all that is listed', !!modal.dialog && modal.elements.length === 2 && /Delete this file/.test(modal.text), modal);
   await ev('document.getElementById("dlg").close()');
+
+  // The card on the page is ours: no page tool sees it.
+  const all = JSON.stringify([await call(readText, {}), await call(pageOutline, { all: true }), await call(findElements, { text: 'Card' })]);
+  check('the card on the page is invisible to the page tools', !/Card (button|text)/.test(all), all.match(/.{40}Card.{40}/)?.[0]);
 
   // Typing: a plain field and a chat composer both get trusted input events.
   await step({ action: 'type', text: 'Name', value: 'Sam Rivera' });
