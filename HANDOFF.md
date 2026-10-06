@@ -71,8 +71,9 @@ How it fits together:
 
 1. **`execute_js` and store review.** It runs AI-written code in the page (off by default, only after the user ticks
    "I reviewed this code"). Store policy forbids executing remotely hosted code; a reviewer may count model-generated
-   code as that. Recommended: leave it out of the store build (e.g. a flag the packaging script sets, so the
-   developer copy keeps it). The owner hasn't decided yet.
+   code as that. **Decided (2026-10-06): keep it in the store version.** The policy exempts code run in contexts isolated
+   from extension APIs, and `inspectedWindow.eval` runs in the page's own context; store/SUBMISSION.md has the
+   "Remote code: Yes" justification to paste. Fallback only if review rejects it: a store build without it.
 2. **Trusted input for agent mode.** Synthetic events have `isTrusted = false`; most sites accept them, a few ignore
    them. Real input needs the `debugger` permission, which shows users a scary warning and hurts store review. Only
    worth it if real sites (Telegram Web etc.) turn out to ignore our events.
@@ -113,7 +114,7 @@ harness) or the owner's GitHub/Telegram test is the next thing to do.
    owner's PC has no page file (commit limit = RAM), so loading the model failed until Chrome tabs were closed;
    "unable to allocate CUDA_Host buffer" from Ollama means that. Model id suggestions are in
    `shared/providers/openai-compatible.js` (`PRESETS`, checked 2026-10-05); Test key lists what a key can use.
-4. **Decide and implement** the `execute_js` store-build question above.
+4. **Upload** (owner): developer account, then store/SUBMISSION.md step by step.
 5. **Owner's new feature idea, NOT to be built yet (discussion pending):** make the agent "untraceable and human-like"
    and "hidden on normal screen shares". Talk it through with the owner first. Open points raised so far:
    - What it is for decides the design. Human-like pacing so fragile sites keep up is fine; hiding automation from
