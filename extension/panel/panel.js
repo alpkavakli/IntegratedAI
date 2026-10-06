@@ -55,6 +55,10 @@ export class App {
     this.providers = [];
     /** A saved task is running (Tasks tab → Run). */
     this.replaying = false;
+    /** Ollama is the provider: checks whether it's running (watchOllama). @type {ReturnType<typeof setInterval> | undefined} */
+    this.ollamaTimer = undefined;
+    /** The last check found Ollama not running (the warning banner is ours). */
+    this.ollamaDown = false;
     this.changes = new ChangeManager(this.tabId);
     /** The AI backend: the local agent server, or direct mode inside the extension (same interface). Set in start(). */
     this.client = /** @type {ServerClient | DirectClient} */ (/** @type {any} */ (null));
@@ -877,6 +881,7 @@ export class App {
     const current = this.providers.find((p) => p.id === this.session?.provider);
     providerSelect.value = this.session?.provider ?? '';
     document.body.dataset.provider = this.session?.provider ?? '';
+    this.watchOllama(this.session?.provider === 'ollama');
     // The conversation's model may be one typed in Options (e.g. "qwen3:latest"), not a suggestion.
     const models = [...(current?.models ?? [])];
     if (this.session?.model && !models.includes(this.session.model)) models.unshift(this.session.model);
@@ -1041,6 +1046,50 @@ export class App {
     }
   }
 
+  /** The local Ollama's address without "/v1" (its own API). */
+  ollamaRoot() {
+    return baseUrlFor('ollama', { baseUrl: this.settings.providerUrls?.ollama ?? '' }).replace(/\/v1\/?$/, '');
+  }
+
+  /**
+   * While Ollama is the provider: check it's running (now, then every 10 s while the panel is visible),
+   * so a stopped Ollama shows up before a message fails. The dot turns red and a banner says how to start it.
+   * @param {boolean} on
+   */
+  watchOllama(on) {
+    clearInterval(this.ollamaTimer);
+    this.ollamaTimer = undefined;
+    if (!on) {
+      if (this.ollamaDown) this.setOllamaDown(false);
+      return;
+    }
+    this.checkOllama();
+    this.ollamaTimer = setInterval(() => { if (document.visibilityState === 'visible') this.checkOllama(); }, 10_000);
+  }
+
+  async checkOllama() {
+    let up = false;
+    try {
+      up = (await fetch(`${this.ollamaRoot()}/api/version`, { signal: AbortSignal.timeout(3000) })).ok;
+    } catch { /* not running (or not reachable) */ }
+    // Running and known to be: nothing to do. Not running: (re)show it, in case a reconnect hid the banner.
+    if (up && !this.ollamaDown) return;
+    this.setOllamaDown(!up);
+  }
+
+  /** @param {boolean} down */
+  setOllamaDown(down) {
+    this.ollamaDown = down;
+    $('status-dot').className = `dot ${down ? 'disconnected' : this.connected ? 'connected' : 'disconnected'}`;
+    $('status-dot').title = down ? "Ollama isn't running" : (this.connected ? 'connected' : 'disconnected');
+    if (down) {
+      const start = /Mac/.test(navigator.platform) ? 'open it from Applications' : /Win/.test(navigator.platform) ? 'start it from the Start menu' : 'start it (ollama serve)';
+      this.showBanner(`Ollama isn't running: ${start}, then send your message.`, true, 'Check again', () => this.checkOllama());
+    } else {
+      this.hideBanner();
+    }
+  }
+
   /**
    * Ollama keeps the model in memory (graphics card, fans) for 5 minutes after the last message. This
    * unloads it now; the next message loads it again. Quitting Ollama itself is done from its own icon.
@@ -1048,7 +1097,7 @@ export class App {
   async unloadOllama() {
     const model = this.session?.model;
     if (!model) return;
-    const root = baseUrlFor('ollama', { baseUrl: this.settings.providerUrls?.ollama ?? '' }).replace(/\/v1\/?$/, '');
+    const root = this.ollamaRoot();
     try {
       const res = await fetch(`${root}/api/generate`, {
         method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ model, keep_alive: 0 }),

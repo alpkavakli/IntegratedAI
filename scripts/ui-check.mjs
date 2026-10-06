@@ -71,6 +71,7 @@ const ollama = http.createServer((req, res) => {
   req.on('end', () => {
     const json = (/** @type {unknown} */ value) => res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(value));
     if (req.url?.endsWith('/models')) return json({ data: [{ id: 'qwen3:latest' }] });
+    if (req.url?.endsWith('/api/version')) return json({ version: '0.0.0-stand-in' });
     if (req.url?.endsWith('/api/show')) return json({ capabilities: ['completion', 'tools', 'vision'] });
     if (!req.url?.endsWith('/chat/completions')) return res.writeHead(404).end();
     const send = (/** @type {unknown} */ chunk) => res.write(`data: ${JSON.stringify(chunk)}\n\n`);

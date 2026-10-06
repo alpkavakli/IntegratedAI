@@ -61,6 +61,8 @@ The setup page shows these steps for Windows, macOS or Linux (it picks your syst
 **Freeing your graphics card:** Ollama keeps a model loaded for 5 minutes after the last message (that's the fans).
 The panel's **Unload** button (the chip icon, shown while Ollama is the provider) unloads it right away; the next
 message loads it again. To quit Ollama itself, use its own icon by the clock or in the menu bar.
+While Ollama is the provider, the panel checks that it is running (every 10 s while visible): if not, the dot
+turns red and a banner says how to start it, before a message fails.
 
 **Switching between connections:** the provider menu ends with the other connection: "Claude Code (local server)"
 while you use an API key or Ollama, and the direct providers you set up while you use the server. Each keeps its own
