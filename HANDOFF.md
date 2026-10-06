@@ -133,13 +133,17 @@ that does it without the AI.
    gemini-3.8-flash, …); models change often, and checking a key in Options lists the ones it can really use.
 2. **Publish** (owner's task): the repo is public and the privacy page is live. Create the Web Store developer
    account and upload `dist/integratedai-<version>.zip` with the texts and images in `store/SUBMISSION.md`
-   (screenshots 01–05 still show the earlier look: regenerate them with `node scripts/store-screenshots.mjs`, which needs
-   the owner's Claude Code login; the promo tile is current). Bump `version` in `extension/manifest.json` for every upload.
+   (the screenshots and the promo tile show the current UI; regenerate with `node scripts/store-screenshots.mjs`,
+   which needs the owner's Claude Code login). Bump `version` in `extension/manifest.json` for every upload.
+   Review risk to decide on before uploading: `execute_js` runs AI-written code in the page (off by default, only after
+   the user ticks "I reviewed this code"). The store forbids executing remotely hosted code; a reviewer may count
+   model-generated code as that. Leaving it out of the store build would remove the risk.
 3. **Possible next features:**
-   - Agent modes: try them on real sites with a real model (Telegram Web, forms, shops); tune the risky-step
-     words in `page-interact.js` and the "Working on the page yourself" prompt from what goes wrong. Ideas: a
-     Stop button on the page itself, an accessibility-tree snapshot after each step instead of only URL/title,
-     cross-frame support (iframes).
+   - Agent modes: tried with the real Claude Code CLI on the demo form, Wikipedia (search, Enter, read) and Hacker
+     News (follow "More", read page 2). Next: logged-in apps (Telegram Web, shops); tune the risky-step words in
+     `page-interact.js` and the "Working on the page yourself" prompt from what goes wrong. Ideas: an
+     accessibility-tree snapshot after each step instead of only URL/title; iframes; trusted input (synthetic
+     events have isTrusted = false, which a few sites ignore; real input would need the "debugger" permission).
    - Persistent JS patches (deliberately left out for safety).
    - Providers other than Claude Code in server mode.
 4. **Known limits:** listed at the end of the README (the panel only works while DevTools is open; the network log

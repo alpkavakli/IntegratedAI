@@ -490,3 +490,4 @@ These were also checked against real Chrome and the real `claude` CLI during dev
 - `execute_js` results are awaited for up to 30 seconds; a script that takes longer keeps running in the page, but its result isn't reported.
 - Undo info is tied to one page load: after a reload or navigation the page is fresh, so earlier cards show as no longer active.
 - The page controls its own JS environment and could tamper with data returned to the panel. That only affects what the AI sees, never what gets executed without your click.
+- Agent modes act through the page's DOM with synthetic events (`isTrusted` is false): most sites accept them, a few ignore them. They can't use iframes, closed shadow roots, canvas-drawn apps, file pickers, drag and drop, or captchas. After each step the AI gets the URL and title back and looks again with its inspection tools.

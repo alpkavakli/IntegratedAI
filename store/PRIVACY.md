@@ -1,6 +1,6 @@
 # IntegratedAI DevTools: Privacy Policy
 
-_Last updated: 2026-10-05_
+_Last updated: 2026-10-06_
 
 IntegratedAI DevTools ("the extension") adds an AI panel to Chrome DevTools. This policy explains what data
 the extension handles and where it goes. In short: **the developer does not collect, receive or sell any of
@@ -64,7 +64,15 @@ All storage is local to your computer:
 - Captures console messages on pages you visit (kept in the page's memory only, never sent anywhere
   unless you use the AI panel on that tab).
 - Applies CSS patches you saved, and shows on/off buttons for patches you created with a toggle.
-- Makes changes on a page (CSS, element edits, clicks/typing, scripts) **only after you approve them**.
+- Makes changes on a page (CSS, element edits, clicks/typing, scripts) **only after you approve them**, unless you
+  choose an agent mode for a conversation:
+  - *Ask each step*: the AI clicks, types and opens pages in that tab, asking you before each step.
+  - *Auto*: it does so without asking, except before risky steps (submitting forms, sending, paying, deleting,
+    password fields, going to another site).
+  - *Full auto*: it does so without asking. You switch this on per conversation, after a warning.
+
+  Style changes, element edits and scripts still wait for your approval in every mode. Agent modes don't change
+  what data is read or where it goes (above); a "working… Stop" badge on the page lets you stop the AI at any time.
 
 ## Children
 

@@ -20,7 +20,7 @@
 </head>
 <body><main>
 <h1>IntegratedAI DevTools: Privacy Policy</h1>
-<p><em>Last updated: 2026-10-05</em></p>
+<p><em>Last updated: 2026-10-06</em></p>
 <p>IntegratedAI DevTools (&quot;the extension&quot;) adds an AI panel to Chrome DevTools. This policy explains what data the extension handles and where it goes. In short: <strong>the developer does not collect, receive or sell any of your data.</strong> Depending on the connection you choose in Options, the extension talks either directly to the AI provider you choose (Anthropic, OpenAI, Google Gemini or OpenRouter) with your own API key, or to Ollama running on your own computer (&quot;direct mode&quot;), or to an agent server that runs on your own computer, which talks to the AI provider you choose.</p>
 <h2>What the extension reads</h2>
 <p>Only when you use the AI panel, and only from the tab you are inspecting:</p>
@@ -63,8 +63,14 @@
 <ul>
 <li>Captures console messages on pages you visit (kept in the page's memory only, never sent anywhere unless you use the AI panel on that tab).</li>
 <li>Applies CSS patches you saved, and shows on/off buttons for patches you created with a toggle.</li>
-<li>Makes changes on a page (CSS, element edits, clicks/typing, scripts) <strong>only after you approve them</strong>.</li>
+<li>Makes changes on a page (CSS, element edits, clicks/typing, scripts) <strong>only after you approve them</strong>, unless you choose an agent mode for a conversation:</li>
+<ul>
+<li><em>Ask each step</em>: the AI clicks, types and opens pages in that tab, asking you before each step.</li>
+<li><em>Auto</em>: it does so without asking, except before risky steps (submitting forms, sending, paying, deleting, password fields, going to another site).</li>
+<li><em>Full auto</em>: it does so without asking. You switch this on per conversation, after a warning.</li>
 </ul>
+</ul>
+<p>Style changes, element edits and scripts still wait for your approval in every mode. Agent modes don't change what data is read or where it goes (above); a &quot;working… Stop&quot; badge on the page lets you stop the AI at any time.</p>
 <h2>Children</h2>
 <p>The extension is not directed at children under 13.</p>
 <h2>Changes</h2>
