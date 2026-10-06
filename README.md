@@ -514,9 +514,19 @@ tool calling can reuse `envelopeSchema()` like the CLI provider does.
 
 ## License, and supporting it
 
-IntegratedAI is free and open source under the [MIT license](LICENSE): use it, change it, share it, sell it, as long
-as the copyright notice stays. The vendored Anthropic SDK is MIT too; its license ships with the extension
-(`extension/vendor/anthropic-sdk-LICENSE.txt`).
+Copyright (C) 2026 Alp Kavaklı
+
+IntegratedAI is free software: you can redistribute it and/or modify it under the terms of the
+[GNU Affero General Public License](LICENSE) as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version. It is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the license for
+more details.
+
+In plain words: use it, change it, share it, even sell it; but whoever publishes a copy or a changed version (an
+extension, or the agent server run as an online service for others) must share its full source under the same license.
+
+Bundled third-party code keeps its own license: the vendored Anthropic SDK is MIT
+(`extension/vendor/anthropic-sdk-LICENSE.txt` ships with the extension), as is the `ws` package the server uses.
 
 Wanna donate? We'll use the money to buy more AI credits, duh. (A Donate link appears at the bottom of the setup page
 once `DONATE_URL` in `extension/options/options.js` points to a donation page.)

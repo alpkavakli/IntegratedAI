@@ -153,9 +153,10 @@ harness) or the owner's GitHub/Telegram test is the next thing to do.
   service-worker `card.tryIt`), F12 → AI, pinned or not (action.getUserSettings).
 - Card: one-time tip about the DevTools version (setting `cardTipSeen`); icon-only toolbar below 480px.
 - Saved tasks name form fields by their label (readable steps, sturdier replay).
-- MIT LICENSE (also in the package), the SDK's license file shipped next to it (vendor-sdk.js copies it),
-  "license": "MIT" in package.json. Donation line at the bottom of the setup page, hidden until `DONATE_URL` is set
-  (owner hasn't chosen GitHub Sponsors / Ko-fi / … yet).
+- License: **AGPL-3.0-or-later** (owner's choice, after MIT and GPL; the MIT version was never pushed). LICENSE is the
+  official text (also in the package as extension/LICENSE.txt); the SDK's MIT license file ships next to it
+  (vendor-sdk.js copies it); "license": "AGPL-3.0-or-later" in package.json. Donation line at the bottom of the setup page, hidden until `DONATE_URL` is set
+  (owner hasn't chosen GitHub Sponsors / Ko-fi / … yet); its × hides it for good (setting `donateDismissed`).
 - Store screenshots now: 01-card, 02-theme-toggle, 03-forms, 04-tasks, 05-options (real Claude Code answers).
 
 ## Next work, in order
