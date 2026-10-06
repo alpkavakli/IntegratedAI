@@ -22,8 +22,21 @@ const manifest = JSON.parse(readFileSync(join(extDir, 'manifest.json'), 'utf8'))
 
 const problems = [];
 if (manifest.manifest_version !== 3) problems.push('manifest_version must be 3');
-if (!manifest.name || manifest.name.length > 75) problems.push('name must be 1–75 characters');
-if (!manifest.description || manifest.description.length > 132) problems.push(`description must be ≤ 132 characters (now ${manifest.description?.length})`);
+// Name and description may be "__MSG_key__": then check them in every language (_locales/<lang>/messages.json).
+const localesDir = join(extDir, '_locales');
+const locales = existsSync(localesDir) ? readdirSync(localesDir) : [];
+const texts = (/** @type {string} */ value) => {
+  const key = /^__MSG_(\w+)__$/.exec(value ?? '')?.[1];
+  if (!key) return [['', value]];
+  return locales.map((lang) => [lang, JSON.parse(readFileSync(join(localesDir, lang, 'messages.json'), 'utf8'))[key]?.message]);
+};
+if (/^__MSG_/.test(manifest.name) && !manifest.default_locale) problems.push('default_locale is needed with __MSG_ texts');
+for (const [lang, name] of texts(manifest.name)) {
+  if (!name || name.length > 75) problems.push(`name${lang ? ` (${lang})` : ''} must be 1–75 characters`);
+}
+for (const [lang, description] of texts(manifest.description)) {
+  if (!description || description.length > 132) problems.push(`description${lang ? ` (${lang})` : ''} must be ≤ 132 characters (now ${description?.length})`);
+}
 if (!/^\d+(\.\d+){0,3}$/.test(manifest.version)) problems.push(`version "${manifest.version}" must be 1–4 dot-separated numbers`);
 for (const [size, file] of Object.entries(manifest.icons ?? {})) {
   if (!existsSync(join(extDir, file))) problems.push(`icon ${size} missing: ${file}`);

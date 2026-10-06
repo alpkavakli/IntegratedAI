@@ -1,0 +1,314 @@
+{
+  "actionTitle": {
+    "message": "IntegratedAI: open the AI card on this page (Alt+Shift+A)"
+  },
+  "agentModeTitle": {
+    "message": "What the AI may do on the page"
+  },
+  "aiProvider": {
+    "message": "AI provider"
+  },
+  "cardTip": {
+    "message": "This is the quick version. For filling in forms, working through pages, saved tasks and more, press <kbd>F12</kbd> and open the <strong>AI</strong> tab. Don't see it? Click <strong>»</strong> in the DevTools tab bar."
+  },
+  "checkAgain": {
+    "message": "Check again"
+  },
+  "chipConsole": {
+    "message": "Console"
+  },
+  "chipConsoleTitle": {
+    "message": "Send recent console errors and warnings"
+  },
+  "chipNetwork": {
+    "message": "Network"
+  },
+  "chipNetworkTitle": {
+    "message": "Send failed and recent network requests (sensitive headers removed)"
+  },
+  "chipPickedTitle": {
+    "message": "Send a short description of the element you picked"
+  },
+  "chipSelectedTitle": {
+    "message": "Send a short description of the element selected in the Elements panel"
+  },
+  "claudeCodeServer": {
+    "message": "Claude Code (local server)"
+  },
+  "claudeCodeServerNotSetUp": {
+    "message": "Claude Code (local server, not set up)"
+  },
+  "claudeCodeServerTitle": {
+    "message": "Use your Claude subscription through the local server"
+  },
+  "commandToggleCard": {
+    "message": "Open or close the AI card on this page"
+  },
+  "composerHint": {
+    "message": "Enter to send · Shift+Enter for a new line"
+  },
+  "connected": {
+    "message": "connected"
+  },
+  "copiedChars": {
+    "message": "Copied $1 characters"
+  },
+  "copyCommand": {
+    "message": "Copy command"
+  },
+  "copyFailed": {
+    "message": "Copy failed"
+  },
+  "copyText": {
+    "message": "Copy text"
+  },
+  "copyTextTitle": {
+    "message": "Copy the text of the selected element to the clipboard (no AI involved)"
+  },
+  "costApi": {
+    "message": "Estimated API cost of this conversation"
+  },
+  "costClaudeCode": {
+    "message": "Estimated cost reported by Claude Code. With a subscription this is usage against your plan, not a separate bill."
+  },
+  "couldNotOpen": {
+    "message": "Could not open the conversation: $1"
+  },
+  "disconnected": {
+    "message": "disconnected"
+  },
+  "extDescription": {
+    "message": "AI panel in Chrome DevTools: explains layout and console errors, previews CSS fixes, fills forms, saves per-site patches."
+  },
+  "extName": {
+    "message": "IntegratedAI DevTools"
+  },
+  "f12OrCtrl": {
+    "message": "F12 (or Ctrl+Shift+I)"
+  },
+  "fullAutoWarning": {
+    "message": "Full auto: the AI clicks, types, submits forms and moves between pages without asking you. Use it for tasks you would trust someone else with, and watch it; ■ stops it."
+  },
+  "gotIt": {
+    "message": "Got it"
+  },
+  "history": {
+    "message": "History"
+  },
+  "historyTitle": {
+    "message": "Earlier conversations on this site"
+  },
+  "message": {
+    "message": "Message"
+  },
+  "modeAsk": {
+    "message": "Ask each step"
+  },
+  "modeAskTitle": {
+    "message": "It works on the page itself and asks before each step"
+  },
+  "modeAuto": {
+    "message": "Auto"
+  },
+  "modeAutoTitle": {
+    "message": "It works on the page itself and only asks before risky steps"
+  },
+  "modeFull": {
+    "message": "Full auto"
+  },
+  "modeFullTitle": {
+    "message": "It works on the page itself and never asks"
+  },
+  "modeSuggest": {
+    "message": "Suggest"
+  },
+  "modeSuggestTitle": {
+    "message": "It suggests changes; nothing happens until you click"
+  },
+  "model": {
+    "message": "Model"
+  },
+  "newChat": {
+    "message": "New"
+  },
+  "newChatLabel": {
+    "message": "New conversation"
+  },
+  "newChatTitle": {
+    "message": "New conversation for this tab"
+  },
+  "noElementPicked": {
+    "message": "No element picked"
+  },
+  "notSetUp": {
+    "message": "$1 (not set up)"
+  },
+  "nothingSelected": {
+    "message": "$0 (nothing selected)"
+  },
+  "nothingToSave": {
+    "message": "Nothing to save yet: this conversation is empty."
+  },
+  "ollamaNotRunning": {
+    "message": "Ollama isn't running: $1, then send your message."
+  },
+  "ollamaNotRunningShort": {
+    "message": "Ollama isn't running"
+  },
+  "ollamaStartLinux": {
+    "message": "start it (ollama serve)"
+  },
+  "ollamaStartMac": {
+    "message": "open it from Applications"
+  },
+  "ollamaStartWin": {
+    "message": "start it from the Start menu"
+  },
+  "openSettings": {
+    "message": "Open settings"
+  },
+  "orPickOther": {
+    "message": "Or pick \"$1\" in the provider menu."
+  },
+  "panelFailed": {
+    "message": "The AI panel failed to start: $1"
+  },
+  "pickElement": {
+    "message": "Pick element"
+  },
+  "pickElementTitle": {
+    "message": "Click an element on the page to ask about it (Esc cancels)"
+  },
+  "promptPlaceholder": {
+    "message": "Ask about this page or the selected element"
+  },
+  "providerNotSetUp": {
+    "message": "$1 isn't set up: $2"
+  },
+  "saveMarkdownLabel": {
+    "message": "Save this conversation as Markdown"
+  },
+  "saveMarkdownTitle": {
+    "message": "Save this conversation as a Markdown file"
+  },
+  "send": {
+    "message": "Send"
+  },
+  "sendEnter": {
+    "message": "Send (Enter)"
+  },
+  "server": {
+    "message": "Server"
+  },
+  "serverAllowFirst": {
+    "message": "Allow IntegratedAI to talk to its helper program first (click Server again)."
+  },
+  "serverNotRunning": {
+    "message": "The local server isn't running."
+  },
+  "serverPermission": {
+    "message": "To start the server from here, IntegratedAI needs your OK to talk to its helper program on this computer. Click Server again and allow it, or allow it in the settings."
+  },
+  "serverRunningTitle": {
+    "message": "The local server is running. Click to stop it"
+  },
+  "serverSetup": {
+    "message": "One-time setup: in the IntegratedAI folder, run  $1  then click Server again."
+  },
+  "serverSetupCopied": {
+    "message": "Copied. Run it in a terminal in the IntegratedAI folder, then click Server again."
+  },
+  "serverStarting": {
+    "message": "Starting the local server…"
+  },
+  "serverStopped": {
+    "message": "The local server is stopped. Click Server to start it again."
+  },
+  "serverStopping": {
+    "message": "Stopping the local server…"
+  },
+  "setUpInOptions": {
+    "message": "Set it up in Options"
+  },
+  "settings": {
+    "message": "Settings"
+  },
+  "startServer": {
+    "message": "Start server"
+  },
+  "startServerTitle": {
+    "message": "Start the local server"
+  },
+  "stop": {
+    "message": "Stop"
+  },
+  "stopServerTitle": {
+    "message": "Stop the local server"
+  },
+  "switchConnection": {
+    "message": "Switch connection"
+  },
+  "tabChat": {
+    "message": "Chat"
+  },
+  "tabConsole": {
+    "message": "Console"
+  },
+  "tabMemory": {
+    "message": "Memory"
+  },
+  "tabPatches": {
+    "message": "Patches"
+  },
+  "tabTasks": {
+    "message": "Tasks"
+  },
+  "taskRan": {
+    "message": "Ran the saved task \"$1\" ($2 steps)"
+  },
+  "taskRanOne": {
+    "message": "Ran the saved task \"$1\" (1 step)"
+  },
+  "taskRunning": {
+    "message": "Running the saved task \"$1\""
+  },
+  "taskStopped": {
+    "message": "The saved task \"$1\" stopped: $2"
+  },
+  "toDevtools": {
+    "message": "Continue in DevTools"
+  },
+  "toDevtoolsHelp": {
+    "message": "Press $1 and open the AI tab. This conversation continues there, with every tool: filling in forms, working on the page step by step, element edits, scripts and the network log."
+  },
+  "toDevtoolsTitle": {
+    "message": "Form filling, page steps, element edits, scripts and the network log are in the DevTools panel"
+  },
+  "translated": {
+    "message": "Translated."
+  },
+  "translatingPart": {
+    "message": "Translating the page… part $1 of $2"
+  },
+  "turnOnFullAuto": {
+    "message": "Turn on Full auto"
+  },
+  "unload": {
+    "message": "Unload"
+  },
+  "unloadFailed": {
+    "message": "Couldn't unload the model: $1"
+  },
+  "unloadLabel": {
+    "message": "Unload the Ollama model"
+  },
+  "unloadNotRunning": {
+    "message": "Ollama isn't running, so no model is loaded: your graphics card is already free. Start Ollama again before your next message."
+  },
+  "unloadTitle": {
+    "message": "Free your graphics card: unload the model now (Ollama otherwise keeps it loaded for 5 minutes after the last message; your next message loads it again)"
+  },
+  "unloaded": {
+    "message": "Unloaded $1: your graphics card is free. Your next message loads it again (a few seconds). To quit Ollama completely, use its own icon (by the clock, or in the menu bar)."
+  }
+}

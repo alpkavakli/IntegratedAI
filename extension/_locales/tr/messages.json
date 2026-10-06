@@ -1,0 +1,314 @@
+{
+  "actionTitle": {
+    "message": "IntegratedAI: bu sayfada yapay zekâ kartını aç (Alt+Shift+A)"
+  },
+  "agentModeTitle": {
+    "message": "Yapay zekânın sayfada neler yapabileceği"
+  },
+  "aiProvider": {
+    "message": "Yapay zekâ sağlayıcısı"
+  },
+  "cardTip": {
+    "message": "Bu hızlı sürüm. Form doldurma, sayfalarda adım adım çalışma, kayıtlı görevler ve daha fazlası için <kbd>F12</kbd>'ye bas ve <strong>AI</strong> sekmesini aç. Göremiyor musun? DevTools sekme çubuğundaki <strong>»</strong> işaretine tıkla."
+  },
+  "checkAgain": {
+    "message": "Tekrar kontrol et"
+  },
+  "chipConsole": {
+    "message": "Konsol"
+  },
+  "chipConsoleTitle": {
+    "message": "Son konsol hatalarını ve uyarılarını gönder"
+  },
+  "chipNetwork": {
+    "message": "Ağ"
+  },
+  "chipNetworkTitle": {
+    "message": "Başarısız ve son ağ isteklerini gönder (hassas başlıklar çıkarılır)"
+  },
+  "chipPickedTitle": {
+    "message": "Seçtiğin öğenin kısa bir tanımını gönder"
+  },
+  "chipSelectedTitle": {
+    "message": "Elements panelinde seçili öğenin kısa bir tanımını gönder"
+  },
+  "claudeCodeServer": {
+    "message": "Claude Code (yerel sunucu)"
+  },
+  "claudeCodeServerNotSetUp": {
+    "message": "Claude Code (yerel sunucu, kurulmadı)"
+  },
+  "claudeCodeServerTitle": {
+    "message": "Claude aboneliğini yerel sunucu üzerinden kullan"
+  },
+  "commandToggleCard": {
+    "message": "Bu sayfadaki yapay zekâ kartını aç veya kapat"
+  },
+  "composerHint": {
+    "message": "Göndermek için Enter · Yeni satır için Shift+Enter"
+  },
+  "connected": {
+    "message": "bağlı"
+  },
+  "copiedChars": {
+    "message": "$1 karakter kopyalandı"
+  },
+  "copyCommand": {
+    "message": "Komutu kopyala"
+  },
+  "copyFailed": {
+    "message": "Kopyalanamadı"
+  },
+  "copyText": {
+    "message": "Metni kopyala"
+  },
+  "copyTextTitle": {
+    "message": "Seçili öğenin metnini panoya kopyala (yapay zekâ kullanılmaz)"
+  },
+  "costApi": {
+    "message": "Bu sohbetin tahmini API maliyeti"
+  },
+  "costClaudeCode": {
+    "message": "Claude Code'un bildirdiği tahmini maliyet. Abonelikte bu ayrı bir fatura değil, planından düşen kullanımdır."
+  },
+  "couldNotOpen": {
+    "message": "Sohbet açılamadı: $1"
+  },
+  "disconnected": {
+    "message": "bağlı değil"
+  },
+  "extDescription": {
+    "message": "Chrome DevTools için yapay zekâ paneli: düzeni ve konsol hatalarını açıklar, CSS düzeltmelerini önizler, form doldurur."
+  },
+  "extName": {
+    "message": "IntegratedAI DevTools"
+  },
+  "f12OrCtrl": {
+    "message": "F12 (ya da Ctrl+Shift+I)"
+  },
+  "fullAutoWarning": {
+    "message": "Tam otomatik: yapay zekâ sana sormadan tıklar, yazar, form gönderir ve sayfalar arasında gezer. Başka birine güvenip bırakabileceğin işler için kullan ve izle; ■ onu durdurur."
+  },
+  "gotIt": {
+    "message": "Anladım"
+  },
+  "history": {
+    "message": "Geçmiş"
+  },
+  "historyTitle": {
+    "message": "Bu sitedeki önceki sohbetler"
+  },
+  "message": {
+    "message": "Mesaj"
+  },
+  "modeAsk": {
+    "message": "Her adımda sor"
+  },
+  "modeAskTitle": {
+    "message": "Sayfada kendisi çalışır ve her adımdan önce sorar"
+  },
+  "modeAuto": {
+    "message": "Otomatik"
+  },
+  "modeAutoTitle": {
+    "message": "Sayfada kendisi çalışır, yalnızca riskli adımlardan önce sorar"
+  },
+  "modeFull": {
+    "message": "Tam otomatik"
+  },
+  "modeFullTitle": {
+    "message": "Sayfada kendisi çalışır ve hiç sormaz"
+  },
+  "modeSuggest": {
+    "message": "Öner"
+  },
+  "modeSuggestTitle": {
+    "message": "Değişiklik önerir; sen tıklayana kadar hiçbir şey olmaz"
+  },
+  "model": {
+    "message": "Model"
+  },
+  "newChat": {
+    "message": "Yeni"
+  },
+  "newChatLabel": {
+    "message": "Yeni sohbet"
+  },
+  "newChatTitle": {
+    "message": "Bu sekme için yeni sohbet"
+  },
+  "noElementPicked": {
+    "message": "Öğe seçilmedi"
+  },
+  "notSetUp": {
+    "message": "$1 (kurulmadı)"
+  },
+  "nothingSelected": {
+    "message": "$0 (hiçbir şey seçili değil)"
+  },
+  "nothingToSave": {
+    "message": "Henüz kaydedilecek bir şey yok: bu sohbet boş."
+  },
+  "ollamaNotRunning": {
+    "message": "Ollama çalışmıyor: $1, sonra mesajını gönder."
+  },
+  "ollamaNotRunningShort": {
+    "message": "Ollama çalışmıyor"
+  },
+  "ollamaStartLinux": {
+    "message": "başlat (ollama serve)"
+  },
+  "ollamaStartMac": {
+    "message": "Uygulamalar'dan aç"
+  },
+  "ollamaStartWin": {
+    "message": "Başlat menüsünden başlat"
+  },
+  "openSettings": {
+    "message": "Ayarları aç"
+  },
+  "orPickOther": {
+    "message": "Ya da sağlayıcı menüsünden \"$1\" seç."
+  },
+  "panelFailed": {
+    "message": "Yapay zekâ paneli başlatılamadı: $1"
+  },
+  "pickElement": {
+    "message": "Öğe seç"
+  },
+  "pickElementTitle": {
+    "message": "Hakkında soru sormak için sayfada bir öğeye tıkla (Esc iptal eder)"
+  },
+  "promptPlaceholder": {
+    "message": "Bu sayfa ya da seçili öğe hakkında sor"
+  },
+  "providerNotSetUp": {
+    "message": "$1 kurulmamış: $2"
+  },
+  "saveMarkdownLabel": {
+    "message": "Bu sohbeti Markdown olarak kaydet"
+  },
+  "saveMarkdownTitle": {
+    "message": "Bu sohbeti Markdown dosyası olarak kaydet"
+  },
+  "send": {
+    "message": "Gönder"
+  },
+  "sendEnter": {
+    "message": "Gönder (Enter)"
+  },
+  "server": {
+    "message": "Sunucu"
+  },
+  "serverAllowFirst": {
+    "message": "Önce IntegratedAI'nin yardımcı programıyla konuşmasına izin ver (Sunucu'ya tekrar tıkla)."
+  },
+  "serverNotRunning": {
+    "message": "Yerel sunucu çalışmıyor."
+  },
+  "serverPermission": {
+    "message": "Sunucuyu buradan başlatmak için IntegratedAI'nin bu bilgisayardaki yardımcı programıyla konuşmasına izin vermen gerekiyor. Sunucu'ya tekrar tıklayıp izin ver ya da ayarlardan izin ver."
+  },
+  "serverRunningTitle": {
+    "message": "Yerel sunucu çalışıyor. Durdurmak için tıkla"
+  },
+  "serverSetup": {
+    "message": "Tek seferlik kurulum: IntegratedAI klasöründe  $1  komutunu çalıştır, sonra Sunucu'ya tekrar tıkla."
+  },
+  "serverSetupCopied": {
+    "message": "Kopyalandı. IntegratedAI klasöründe bir terminalde çalıştır, sonra Sunucu'ya tekrar tıkla."
+  },
+  "serverStarting": {
+    "message": "Yerel sunucu başlatılıyor…"
+  },
+  "serverStopped": {
+    "message": "Yerel sunucu durdu. Yeniden başlatmak için Sunucu'ya tıkla."
+  },
+  "serverStopping": {
+    "message": "Yerel sunucu durduruluyor…"
+  },
+  "setUpInOptions": {
+    "message": "Ayarlardan kur"
+  },
+  "settings": {
+    "message": "Ayarlar"
+  },
+  "startServer": {
+    "message": "Sunucuyu başlat"
+  },
+  "startServerTitle": {
+    "message": "Yerel sunucuyu başlat"
+  },
+  "stop": {
+    "message": "Durdur"
+  },
+  "stopServerTitle": {
+    "message": "Yerel sunucuyu durdur"
+  },
+  "switchConnection": {
+    "message": "Bağlantıyı değiştir"
+  },
+  "tabChat": {
+    "message": "Sohbet"
+  },
+  "tabConsole": {
+    "message": "Konsol"
+  },
+  "tabMemory": {
+    "message": "Hafıza"
+  },
+  "tabPatches": {
+    "message": "Yamalar"
+  },
+  "tabTasks": {
+    "message": "Görevler"
+  },
+  "taskRan": {
+    "message": "Kayıtlı görev çalıştı: \"$1\" ($2 adım)"
+  },
+  "taskRanOne": {
+    "message": "Kayıtlı görev çalıştı: \"$1\" (1 adım)"
+  },
+  "taskRunning": {
+    "message": "Kayıtlı görev çalışıyor: \"$1\""
+  },
+  "taskStopped": {
+    "message": "Kayıtlı görev durdu: \"$1\": $2"
+  },
+  "toDevtools": {
+    "message": "DevTools'ta devam et"
+  },
+  "toDevtoolsHelp": {
+    "message": "$1 tuşlarına bas ve AI sekmesini aç. Bu sohbet orada tüm araçlarla devam eder: form doldurma, sayfada adım adım çalışma, öğe düzenleme, betikler ve ağ kaydı."
+  },
+  "toDevtoolsTitle": {
+    "message": "Form doldurma, sayfada adım adım çalışma, öğe düzenleme, betikler ve ağ kaydı DevTools panelinde"
+  },
+  "translated": {
+    "message": "Çevrildi."
+  },
+  "translatingPart": {
+    "message": "Sayfa çevriliyor… bölüm $1 / $2"
+  },
+  "turnOnFullAuto": {
+    "message": "Tam otomatiği aç"
+  },
+  "unload": {
+    "message": "Boşalt"
+  },
+  "unloadFailed": {
+    "message": "Model bellekten çıkarılamadı: $1"
+  },
+  "unloadLabel": {
+    "message": "Ollama modelini bellekten çıkar"
+  },
+  "unloadNotRunning": {
+    "message": "Ollama çalışmıyor, yani yüklü model yok: ekran kartın zaten boş. Sonraki mesajından önce Ollama'yı yeniden başlat."
+  },
+  "unloadTitle": {
+    "message": "Ekran kartını boşalt: modeli şimdi bellekten çıkar (Ollama onu son mesajdan sonra 5 dakika tutar; sonraki mesajın onu yeniden yükler)"
+  },
+  "unloaded": {
+    "message": "$1 bellekten çıkarıldı: ekran kartın boş. Sonraki mesajın onu yeniden yükler (birkaç saniye). Ollama'yı tamamen kapatmak için kendi simgesini kullan (saatin yanında ya da menü çubuğunda)."
+  }
+}

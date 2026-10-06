@@ -41,6 +41,7 @@ import { ServerClient } from './lib/ws-client.js';
 import { DirectClient } from './direct/direct-client.js';
 import { boostCss } from '../shared/css-boost.js';
 import { conversationToMarkdown } from '../shared/conversation-markdown.js';
+import { localize, t } from '../shared/i18n.js';
 import { PRESETS, baseUrlFor } from '../shared/providers/openai-compatible.js';
 
 const $ = (/** @type {string} */ id) => /** @type {any} */ (document.getElementById(id));
@@ -89,6 +90,7 @@ export class App {
   }
 
   async start() {
+    localize(document);
     const dark = IN_CARD ? matchMedia('(prefers-color-scheme: dark)').matches : chrome.devtools.panels.themeName === 'dark';
     if (dark) document.documentElement.classList.add('dark');
     if (IN_CARD) document.body.dataset.surface = 'card';
@@ -131,7 +133,7 @@ export class App {
     this.changes.translator = async (/** @type {any[]} */ pieces, /** @type {string} */ language) =>
       (await this.client.request({ type: 'translate.batch', conversationId: this.session?.id, language, pieces }, 180_000)).items ?? [];
     this.changes.onTranslateProgress = (/** @type {number} */ done, /** @type {number} */ total) =>
-      this.showBanner(done < total ? `Translating the page… part ${done + 1} of ${total}` : 'Translated.');
+      this.showBanner(done < total ? t('translatingPart', 'Translating the page… part $1 of $2', done + 1, total) : t('translated', 'Translated.'));
     this.patchesView = $('patches').bind(this);
     this.tasksView = $('tasks').bind(this);
     this.consoleView = $('console').bind(this);
@@ -198,8 +200,8 @@ export class App {
         if (e.key === 'Escape' && !document.querySelector('.ask-step')) parent.postMessage({ integratedai: 'minimize' }, '*');
       });
       $('to-devtools').addEventListener('click', () => this.showBanner(
-        `Press ${/Mac/.test(navigator.platform) ? '⌥⌘I' : 'F12 (or Ctrl+Shift+I)'} and open the AI tab. This conversation continues there, with every tool: `
-        + 'filling in forms, working on the page step by step, element edits, scripts and the network log.',
+        t('toDevtoolsHelp', 'Press $1 and open the AI tab. This conversation continues there, with every tool: filling in forms, working on the page step by step, element edits, scripts and the network log.',
+          /Mac/.test(navigator.platform) ? '⌥⌘I' : t('f12OrCtrl', 'F12 (or Ctrl+Shift+I)')),
       ));
     }
     $('history-button').addEventListener('click', () => this.historyView.toggle());
@@ -215,8 +217,8 @@ export class App {
       const mode = $('agent-mode').value;
       if (mode !== 'full') { this.hideBanner(); this.configure({ agentMode: mode }); return; }
       $('agent-mode').value = this.agentMode(); // not yet: confirm first
-      this.showBanner('Full auto: the AI clicks, types, submits forms and moves between pages without asking you. '
-        + 'Use it for tasks you would trust someone else with, and watch it; ■ stops it.', false, 'Turn on Full auto', () => {
+      this.showBanner(t('fullAutoWarning', 'Full auto: the AI clicks, types, submits forms and moves between pages without asking you. Use it for tasks you would trust someone else with, and watch it; ■ stops it.'),
+        false, t('turnOnFullAuto', 'Turn on Full auto'), () => {
         this.hideBanner();
         this.configure({ agentMode: 'full' });
       });
@@ -280,11 +282,11 @@ export class App {
     try {
       const sel = await callInPage(selectedLabel);
       $('selected-label').textContent = IN_CARD
-        ? (sel ? sel.label : 'No element picked')
-        : (sel ? `$0 ${sel.label}` : '$0 (nothing selected)');
+        ? (sel ? sel.label : t('noElementPicked', 'No element picked'))
+        : (sel ? `$0 ${sel.label}` : t('nothingSelected', '$0 (nothing selected)'));
       $('selected-label').title = sel?.selector ?? '';
     } catch {
-      $('selected-label').textContent = IN_CARD ? 'No element picked' : '$0';
+      $('selected-label').textContent = IN_CARD ? t('noElementPicked', 'No element picked') : '$0';
     }
   }
 
@@ -306,7 +308,7 @@ export class App {
       this.patchesView.refresh();
       this.refreshMemory();
     });
-    $('ctx-selected').closest('label').title = 'Send a short description of the element you picked';
+    $('ctx-selected').closest('label').title = t('chipPickedTitle', 'Send a short description of the element you picked');
   }
 
   /** Pick element (card): the next click on the page chooses the element to ask about. Clicking again cancels. */
@@ -339,11 +341,11 @@ export class App {
         $('session-row').hidden = true;
         this.chat.renderSetup(() => bg('options.open'));
       } else if (status === 'unauthorized') {
-        this.showBanner(error, true, 'Open settings', () => bg('options.open'));
+        this.showBanner(error, true, t('openSettings', 'Open settings'), () => bg('options.open'));
       } else if (status === 'disconnected') {
-        if (this.settings.mode === 'direct') this.showBanner(error, true, 'Open settings', () => bg('options.open'));
+        if (this.settings.mode === 'direct') this.showBanner(error, true, t('openSettings', 'Open settings'), () => bg('options.open'));
         // (error is the client's own wording, which says to run npm start: the button does that now.)
-        else this.showBanner("The local server isn't running.", true, 'Start server', () => this.toggleServer('start'));
+        else this.showBanner(t('serverNotRunning', "The local server isn't running."), true, t('startServer', 'Start server'), () => this.toggleServer('start'));
       }
       this.renderServerToggle();
       this.updateComposer();
@@ -363,7 +365,7 @@ export class App {
       this.renderProviderPicker();
       this.refreshModelList(this.session?.provider);
     } catch (err) {
-      this.showBanner(`Could not open the conversation: ${/** @type {any} */ (err).message}`, true);
+      this.showBanner(t('couldNotOpen', 'Could not open the conversation: $1', /** @type {any} */ (err).message), true);
     }
   }
 
@@ -663,12 +665,12 @@ export class App {
       const text = await callInPage(selectedText);
       if (text === null) throw new Error(IN_CARD ? 'Pick an element on the page first.' : 'Select an element in the Elements panel first.');
       await copyToClipboard(text);
-      button.textContent = `Copied ${text.length.toLocaleString()} characters`;
+      button.textContent = t('copiedChars', 'Copied $1 characters', text.length.toLocaleString());
     } catch (err) {
-      button.textContent = 'Copy failed';
+      button.textContent = t('copyFailed', 'Copy failed');
       this.showError(String(/** @type {any} */ (err)?.message ?? err));
     }
-    setTimeout(() => { button.textContent = 'Copy text'; }, 2000);
+    setTimeout(() => { button.textContent = t('copyText', 'Copy text'); }, 2000);
   }
 
   /** "Explain" button in the Console tab. @param {any} entry */
@@ -872,8 +874,8 @@ export class App {
     const busy = Boolean(this.session?.busy || this.replaying);
     // Like other chat apps: an arrow to send, a square to stop (both icons are in panel.html).
     $('send').classList.toggle('busy', busy);
-    $('send').title = busy ? 'Stop' : 'Send (Enter)';
-    $('send').setAttribute('aria-label', busy ? 'Stop' : 'Send');
+    $('send').title = busy ? t('stop', 'Stop') : t('sendEnter', 'Send (Enter)');
+    $('send').setAttribute('aria-label', busy ? t('stop', 'Stop') : t('send', 'Send'));
     $('send').disabled = !this.connected || !this.session;
     $('new-chat').disabled = !this.connected || busy;
     $('provider-select').disabled = busy;
@@ -886,7 +888,7 @@ export class App {
     const modelSelect = $('model-select');
     providerSelect.replaceChildren(...this.providers.map((p) => {
       // Providers that aren't set up stay visible (so people know they exist) but say what's missing.
-      const option = new Option(p.available ? p.label : `${p.label} (not set up)`, p.id);
+      const option = new Option(p.available ? p.label : t('notSetUp', '$1 (not set up)', p.label), p.id);
       option.disabled = !p.available;
       option.title = p.reason ?? '';
       return option;
@@ -906,7 +908,7 @@ export class App {
 
     if (current && !current.available) {
       const other = this.providers.find((p) => p.available);
-      this.showBanner(`${current.label} isn't set up: ${current.reason}${other ? ` Or pick "${other.label}" in the provider menu.` : ''}`, true);
+      this.showBanner(t('providerNotSetUp', "$1 isn't set up: $2", current.label, current.reason) + (other ? ` ${t('orPickOther', 'Or pick "$1" in the provider menu.', other.label)}` : ''), true);
     }
   }
 
@@ -918,12 +920,12 @@ export class App {
    */
   otherConnection() {
     const group = document.createElement('optgroup');
-    group.label = 'Switch connection';
+    group.label = t('switchConnection', 'Switch connection');
     const s = this.settings;
     if (s.mode === 'direct') {
-      const option = new Option(s.token ? 'Claude Code (local server)' : 'Claude Code (local server, not set up)', '@server');
+      const option = new Option(s.token ? t('claudeCodeServer', 'Claude Code (local server)') : t('claudeCodeServerNotSetUp', 'Claude Code (local server, not set up)'), '@server');
       option.disabled = !s.token;
-      option.title = s.token ? 'Use your Claude subscription through the local server' : 'Set it up in Options';
+      option.title = s.token ? t('claudeCodeServerTitle', 'Use your Claude subscription through the local server') : t('setUpInOptions', 'Set it up in Options');
       group.append(option);
     } else {
       // Claude with an API key, then every preset that is set up (a key; Ollama: a chosen model).
@@ -946,8 +948,8 @@ export class App {
     const tokenText = tokens >= 1000 ? `${(tokens / 1000).toFixed(1)}k tok` : `${tokens} tok`;
     el.textContent = usage.costUsd === null ? tokenText : `$${usage.costUsd.toFixed(usage.costUsd < 0.1 ? 4 : 2)} · ${tokenText}`;
     el.title = this.session?.provider === 'claude-cli'
-      ? 'Estimated cost reported by Claude Code. With a subscription this is usage against your plan, not a separate bill.'
-      : 'Estimated API cost of this conversation';
+      ? t('costClaudeCode', 'Estimated cost reported by Claude Code. With a subscription this is usage against your plan, not a separate bill.')
+      : t('costApi', 'Estimated API cost of this conversation');
   }
 
   // ───────────────────────────────────────────────────────── saved tasks
@@ -982,13 +984,13 @@ export class App {
     this.updateComposer();
     this.tasksView.refresh();
     this.watchPageStop();
-    const header = this.chat.activity(`Running the saved task "${task.name}"`);
+    const header = this.chat.activity(t('taskRunning', 'Running the saved task "$1"', task.name));
     try {
       const done = await this.agent.replay(task);
-      header.done(`Ran the saved task "${task.name}" (${done.length} step${done.length === 1 ? '' : 's'})`);
+      header.done(done.length === 1 ? t('taskRanOne', 'Ran the saved task "$1" (1 step)', task.name) : t('taskRan', 'Ran the saved task "$1" ($2 steps)', task.name, done.length));
       await updateTask(task.id, { lastRun: Date.now() });
     } catch (err) {
-      header.done(`The saved task "${task.name}" stopped: ${/** @type {any} */ (err).message}`, false);
+      header.done(t('taskStopped', 'The saved task "$1" stopped: $2', task.name, /** @type {any} */ (err).message), false);
     } finally {
       this.replaying = false;
       this.chat.askSubject = 'the AI';
@@ -1012,8 +1014,8 @@ export class App {
   renderServerToggle() {
     const on = Boolean(this.connected);
     $('server-toggle').setAttribute('aria-pressed', String(on));
-    $('server-toggle').title = on ? 'The local server is running. Click to stop it' : 'Start the local server';
-    $('server-toggle').setAttribute('aria-label', on ? 'Stop the local server' : 'Start the local server');
+    $('server-toggle').title = on ? t('serverRunningTitle', 'The local server is running. Click to stop it') : t('startServerTitle', 'Start the local server');
+    $('server-toggle').setAttribute('aria-label', on ? t('stopServerTitle', 'Stop the local server') : t('startServerTitle', 'Start the local server'));
   }
 
   /**
@@ -1026,28 +1028,28 @@ export class App {
     if (!(await chrome.permissions.contains({ permissions: ['nativeMessaging'] }))) {
       const granted = await chrome.permissions.request({ permissions: ['nativeMessaging'] }).catch(() => false);
       if (!granted) {
-        this.showBanner('To start the server from here, IntegratedAI needs your OK to talk to its helper program on this computer. '
-          + 'Click Server again and allow it, or allow it in the settings.', true, 'Open settings', () => bg('options.open'));
+        this.showBanner(t('serverPermission', 'To start the server from here, IntegratedAI needs your OK to talk to its helper program on this computer. Click Server again and allow it, or allow it in the settings.'),
+          true, t('openSettings', 'Open settings'), () => bg('options.open'));
         return;
       }
     }
     button.classList.add('working');
-    this.showBanner(want === 'start' ? 'Starting the local server…' : 'Stopping the local server…');
+    this.showBanner(want === 'start' ? t('serverStarting', 'Starting the local server…') : t('serverStopping', 'Stopping the local server…'));
     try {
       /** @type {any} */
       const reply = await bg('services.call', { action: want });
       if (reply.needsPermission) {
-        this.showBanner('Allow IntegratedAI to talk to its helper program first (click Server again).', true);
+        this.showBanner(t('serverAllowFirst', 'Allow IntegratedAI to talk to its helper program first (click Server again).'), true);
       } else if (reply.notInstalled) {
-        this.showBanner(`One-time setup: in the IntegratedAI folder, run  ${reply.installCommand}  then click Server again.`, true,
-          'Copy command', () => copyToClipboard(reply.installCommand).then(() => this.showBanner('Copied. Run it in a terminal in the IntegratedAI folder, then click Server again.')));
+        this.showBanner(t('serverSetup', 'One-time setup: in the IntegratedAI folder, run  $1  then click Server again.', reply.installCommand), true,
+          t('copyCommand', 'Copy command'), () => copyToClipboard(reply.installCommand).then(() => this.showBanner(t('serverSetupCopied', 'Copied. Run it in a terminal in the IntegratedAI folder, then click Server again.'))));
       } else if (reply.error) {
         this.showBanner(reply.error, true);
       } else if (want === 'start') {
         this.hideBanner();
         this.client.reconnect();
       } else {
-        this.showBanner('The local server is stopped. Click Server to start it again.');
+        this.showBanner(t('serverStopped', 'The local server is stopped. Click Server to start it again.'));
       }
     } catch (err) {
       this.showBanner(String(/** @type {any} */ (err)?.message ?? err), true);
@@ -1119,10 +1121,11 @@ export class App {
   setOllamaDown(down) {
     this.ollamaDown = down;
     $('status-dot').className = `dot ${down ? 'disconnected' : this.connected ? 'connected' : 'disconnected'}`;
-    $('status-dot').title = down ? "Ollama isn't running" : (this.connected ? 'connected' : 'disconnected');
+    $('status-dot').title = down ? t('ollamaNotRunningShort', "Ollama isn't running") : (this.connected ? t('connected', 'connected') : t('disconnected', 'disconnected'));
     if (down) {
-      const start = /Mac/.test(navigator.platform) ? 'open it from Applications' : /Win/.test(navigator.platform) ? 'start it from the Start menu' : 'start it (ollama serve)';
-      this.showBanner(`Ollama isn't running: ${start}, then send your message.`, true, 'Check again', () => this.checkOllama());
+      const start = /Mac/.test(navigator.platform) ? t('ollamaStartMac', 'open it from Applications')
+        : /Win/.test(navigator.platform) ? t('ollamaStartWin', 'start it from the Start menu') : t('ollamaStartLinux', 'start it (ollama serve)');
+      this.showBanner(t('ollamaNotRunning', "Ollama isn't running: $1, then send your message.", start), true, t('checkAgain', 'Check again'), () => this.checkOllama());
     } else {
       this.hideBanner();
     }
@@ -1141,19 +1144,18 @@ export class App {
         method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ model, keep_alive: 0 }),
       });
       if (!res.ok) throw new Error(`Ollama answered ${res.status}`);
-      this.showBanner(`Unloaded ${model}: your graphics card is free. Your next message loads it again (a few seconds). `
-        + 'To quit Ollama completely, use its own icon (by the clock, or in the menu bar).');
+      this.showBanner(t('unloaded', 'Unloaded $1: your graphics card is free. Your next message loads it again (a few seconds). To quit Ollama completely, use its own icon (by the clock, or in the menu bar).', model));
     } catch (err) {
       // Nothing answers: Ollama isn't running, so no model is loaded (a TypeError is fetch's "can't connect").
-      if (err instanceof TypeError) this.showBanner("Ollama isn't running, so no model is loaded: your graphics card is already free. Start Ollama again before your next message.");
-      else this.showBanner(`Couldn't unload the model: ${/** @type {any} */ (err).message}`, true);
+      if (err instanceof TypeError) this.showBanner(t('unloadNotRunning', "Ollama isn't running, so no model is loaded: your graphics card is already free. Start Ollama again before your next message."));
+      else this.showBanner(t('unloadFailed', "Couldn't unload the model: $1", /** @type {any} */ (err).message), true);
     }
   }
 
   /** Save the conversation as a Markdown file (to read or share; no page data beyond what's in the chat). */
   saveMarkdown() {
     if (!this.session?.messages.length) {
-      this.showBanner('Nothing to save yet: this conversation is empty.');
+      this.showBanner(t('nothingToSave', 'Nothing to save yet: this conversation is empty.'));
       return;
     }
     const text = conversationToMarkdown(/** @type {any} */ (this.session));
@@ -1211,6 +1213,6 @@ const app = new App();
 /** @type {any} */ (window).app = app;
 app.start().catch((err) => {
   console.error(err);
-  app.showBanner(`The AI panel failed to start: ${err.message}`, true);
+  app.showBanner(t('panelFailed', 'The AI panel failed to start: $1', err.message), true);
 });
 

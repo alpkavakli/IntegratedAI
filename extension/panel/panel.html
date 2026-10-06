@@ -11,25 +11,25 @@
       <div class="toolbar-main">
         <span id="status-dot" class="dot" title="Disconnected"></span>
         <nav class="tabs" role="tablist">
-          <button type="button" role="tab" id="tab-chat" aria-controls="view-chat" aria-selected="true" data-tab="chat" class="active">Chat</button>
-          <button type="button" role="tab" id="tab-patches" aria-controls="view-patches" aria-selected="false" tabindex="-1" data-tab="patches">Patches <span id="patch-count" class="badge" hidden></span></button>
-          <button type="button" role="tab" id="tab-tasks" class="devtools-only" aria-controls="view-tasks" aria-selected="false" tabindex="-1" data-tab="tasks">Tasks <span id="task-count" class="badge" hidden></span></button>
-          <button type="button" role="tab" id="tab-console" aria-controls="view-console" aria-selected="false" tabindex="-1" data-tab="console">Console <span id="error-count" class="badge error" hidden></span></button>
-          <button type="button" role="tab" id="tab-memory" aria-controls="view-memory" aria-selected="false" tabindex="-1" data-tab="memory">Memory <span id="memory-count" class="badge" hidden></span></button>
+          <button type="button" role="tab" id="tab-chat" aria-controls="view-chat" aria-selected="true" data-tab="chat" class="active"><span data-i18n="tabChat">Chat</span></button>
+          <button type="button" role="tab" id="tab-patches" aria-controls="view-patches" aria-selected="false" tabindex="-1" data-tab="patches"><span data-i18n="tabPatches">Patches</span> <span id="patch-count" class="badge" hidden></span></button>
+          <button type="button" role="tab" id="tab-tasks" class="devtools-only" aria-controls="view-tasks" aria-selected="false" tabindex="-1" data-tab="tasks"><span data-i18n="tabTasks">Tasks</span> <span id="task-count" class="badge" hidden></span></button>
+          <button type="button" role="tab" id="tab-console" aria-controls="view-console" aria-selected="false" tabindex="-1" data-tab="console"><span data-i18n="tabConsole">Console</span> <span id="error-count" class="badge error" hidden></span></button>
+          <button type="button" role="tab" id="tab-memory" aria-controls="view-memory" aria-selected="false" tabindex="-1" data-tab="memory"><span data-i18n="tabMemory">Memory</span> <span id="memory-count" class="badge" hidden></span></button>
         </nav>
         <span class="spacer"></span>
-        <button type="button" id="history-button" class="icon" title="Earlier conversations on this site" aria-label="History"><span class="glyph"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.5 1.5"/></svg></span><span class="label">History</span></button>
-        <button type="button" id="new-chat" class="icon" title="New conversation for this tab" aria-label="New conversation"><span class="glyph"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg></span><span class="label">New</span></button>
-        <button type="button" id="ollama-unload" class="icon ollama-only" title="Free your graphics card: unload the model now (Ollama otherwise keeps it loaded for 5 minutes after the last message; your next message loads it again)" aria-label="Unload the Ollama model"><span class="glyph"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="8" height="8" rx="1"/><path d="M6 1.5V4M10 1.5V4M6 12v2.5M10 12v2.5M1.5 6H4M1.5 10H4M12 6h2.5M12 10h2.5"/><path d="M6.5 9.5l3-3"/></svg></span><span class="label">Unload</span></button>
-        <button type="button" id="server-toggle" class="icon server-only" aria-pressed="false" title="Start the local server" aria-label="Start the local server"><span class="glyph"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v6"/><path d="M4.6 4.2a5 5 0 1 0 6.8 0"/></svg></span><span class="label">Server</span></button>
-        <button type="button" id="open-options" class="icon" title="Settings" aria-label="Settings"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 4.5h7M13 4.5h1M2 11.5h1M7 11.5h7"/><circle cx="11" cy="4.5" r="2"/><circle cx="5" cy="11.5" r="2"/></svg></button>
+        <button type="button" id="history-button" class="icon" title="Earlier conversations on this site" aria-label="History" data-i18n-title="historyTitle" data-i18n-aria-label="history"><span class="glyph"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M8 4.5V8l2.5 1.5"/></svg></span><span class="label" data-i18n="history">History</span></button>
+        <button type="button" id="new-chat" class="icon" title="New conversation for this tab" aria-label="New conversation" data-i18n-title="newChatTitle" data-i18n-aria-label="newChatLabel"><span class="glyph"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg></span><span class="label" data-i18n="newChat">New</span></button>
+        <button type="button" id="ollama-unload" class="icon ollama-only" title="Free your graphics card: unload the model now (Ollama otherwise keeps it loaded for 5 minutes after the last message; your next message loads it again)" aria-label="Unload the Ollama model" data-i18n-title="unloadTitle" data-i18n-aria-label="unloadLabel"><span class="glyph"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="8" height="8" rx="1"/><path d="M6 1.5V4M10 1.5V4M6 12v2.5M10 12v2.5M1.5 6H4M1.5 10H4M12 6h2.5M12 10h2.5"/><path d="M6.5 9.5l3-3"/></svg></span><span class="label" data-i18n="unload">Unload</span></button>
+        <button type="button" id="server-toggle" class="icon server-only" aria-pressed="false" title="Start the local server" aria-label="Start the local server"><span class="glyph"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v6"/><path d="M4.6 4.2a5 5 0 1 0 6.8 0"/></svg></span><span class="label" data-i18n="server">Server</span></button>
+        <button type="button" id="open-options" class="icon" title="Settings" aria-label="Settings" data-i18n-title="settings" data-i18n-aria-label="settings"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 4.5h7M13 4.5h1M2 11.5h1M7 11.5h7"/><circle cx="11" cy="4.5" r="2"/><circle cx="5" cy="11.5" r="2"/></svg></button>
       </div>
       <div class="toolbar-session" id="session-row" hidden>
-        <select id="provider-select" title="AI provider" aria-label="AI provider"></select>
-        <select id="model-select" title="Model" aria-label="Model"></select>
+        <select id="provider-select" title="AI provider" aria-label="AI provider" data-i18n-title="aiProvider" data-i18n-aria-label="aiProvider"></select>
+        <select id="model-select" title="Model" aria-label="Model" data-i18n-title="model" data-i18n-aria-label="model"></select>
         <span class="spacer"></span>
         <span id="cost" class="cost"></span>
-        <button type="button" id="save-markdown" class="icon" title="Save this conversation as a Markdown file" aria-label="Save this conversation as Markdown"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.5v7.5M4.8 6.8 8 10l3.2-3.2"/><path d="M2.5 11.5v2h11v-2"/></svg></button>
+        <button type="button" id="save-markdown" class="icon" title="Save this conversation as a Markdown file" aria-label="Save this conversation as Markdown" data-i18n-title="saveMarkdownTitle" data-i18n-aria-label="saveMarkdownLabel"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.5v7.5M4.8 6.8 8 10l3.2-3.2"/><path d="M2.5 11.5v2h11v-2"/></svg></button>
       </div>
       <ai-history id="history" hidden></ai-history>
     </header>
@@ -42,35 +42,35 @@
     <main>
       <section id="view-chat" role="tabpanel" aria-labelledby="tab-chat" class="view">
         <div id="card-tip" class="tip card-only" role="note" hidden>
-          <span>This is the quick version. For filling in forms, working through pages, saved tasks and more, press
+          <span data-i18n-html="cardTip">This is the quick version. For filling in forms, working through pages, saved tasks and more, press
             <kbd>F12</kbd> and open the <strong>AI</strong> tab. Don't see it? Click <strong>»</strong> in the DevTools tab bar.</span>
-          <button type="button" id="card-tip-ok">Got it</button>
+          <button type="button" id="card-tip-ok" data-i18n="gotIt">Got it</button>
         </div>
         <ai-chat id="chat" role="log" aria-live="polite" aria-label="Conversation"></ai-chat>
         <form id="composer" autocomplete="off">
           <div class="composer-box">
             <div class="chips">
-                <label class="chip" title="Send a short description of the element selected in the Elements panel">
+                <label class="chip" title="Send a short description of the element selected in the Elements panel" data-i18n-title="chipSelectedTitle">
                   <input type="checkbox" id="ctx-selected"> <span id="selected-label">$0 (nothing selected)</span>
                 </label>
-                <label class="chip" title="Send recent console errors and warnings">
-                  <input type="checkbox" id="ctx-console"> Console
+                <label class="chip" title="Send recent console errors and warnings" data-i18n-title="chipConsoleTitle">
+                  <input type="checkbox" id="ctx-console"> <span data-i18n="chipConsole">Console</span>
                 </label>
-                <button type="button" id="pick-element" class="chip-button card-only" title="Click an element on the page to ask about it (Esc cancels)">Pick element</button>
-                <label class="chip devtools-only" title="Send failed and recent network requests (sensitive headers removed)">
-                  <input type="checkbox" id="ctx-network"> Network
+                <button type="button" id="pick-element" class="chip-button card-only" title="Click an element on the page to ask about it (Esc cancels)" data-i18n-title="pickElementTitle" data-i18n="pickElement">Pick element</button>
+                <label class="chip devtools-only" title="Send failed and recent network requests (sensitive headers removed)" data-i18n-title="chipNetworkTitle">
+                  <input type="checkbox" id="ctx-network"> <span data-i18n="chipNetwork">Network</span>
                 </label>
-                <button type="button" id="copy-text" class="chip-button" title="Copy the text of the selected element to the clipboard (no AI involved)">Copy text</button>
+                <button type="button" id="copy-text" class="chip-button" title="Copy the text of the selected element to the clipboard (no AI involved)" data-i18n-title="copyTextTitle" data-i18n="copyText">Copy text</button>
             </div>
-            <textarea id="prompt" rows="2" placeholder="Ask about this page or the selected element" aria-label="Message"></textarea>
+            <textarea id="prompt" rows="2" placeholder="Ask about this page or the selected element" aria-label="Message" data-i18n-placeholder="promptPlaceholder" data-i18n-aria-label="message"></textarea>
             <div class="composer-bar">
-              <button type="button" id="to-devtools" class="link card-only" title="Form filling, page steps, element edits, scripts and the network log are in the DevTools panel">Continue in DevTools</button>
+              <button type="button" id="to-devtools" class="link card-only" title="Form filling, page steps, element edits, scripts and the network log are in the DevTools panel" data-i18n-title="toDevtoolsTitle" data-i18n="toDevtools">Continue in DevTools</button>
               <select id="agent-mode" class="mode-select devtools-only" aria-label="What the AI may do on the page"
-                title="What the AI may do on the page">
-                <option value="suggest" title="It suggests changes; nothing happens until you click">Suggest</option>
-                <option value="ask" title="It works on the page itself and asks before each step">Ask each step</option>
-                <option value="auto" title="It works on the page itself and only asks before risky steps">Auto</option>
-                <option value="full" title="It works on the page itself and never asks">Full auto</option>
+                title="What the AI may do on the page" data-i18n-title="agentModeTitle" data-i18n-aria-label="agentModeTitle">
+                <option value="suggest" title="It suggests changes; nothing happens until you click" data-i18n-title="modeSuggestTitle" data-i18n="modeSuggest">Suggest</option>
+                <option value="ask" title="It works on the page itself and asks before each step" data-i18n-title="modeAskTitle" data-i18n="modeAsk">Ask each step</option>
+                <option value="auto" title="It works on the page itself and only asks before risky steps" data-i18n-title="modeAutoTitle" data-i18n="modeAuto">Auto</option>
+                <option value="full" title="It works on the page itself and never asks" data-i18n-title="modeFullTitle" data-i18n="modeFull">Full auto</option>
               </select>
               <span class="spacer"></span>
               <button type="submit" id="send" class="send" title="Send (Enter)" aria-label="Send">
@@ -79,7 +79,7 @@
               </button>
             </div>
           </div>
-          <div class="composer-hint">Enter to send · Shift+Enter for a new line</div>
+          <div class="composer-hint" data-i18n="composerHint">Enter to send · Shift+Enter for a new line</div>
         </form>
       </section>
 
