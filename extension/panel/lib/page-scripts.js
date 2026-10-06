@@ -791,6 +791,45 @@ export function setCardHidden(h, selected, { hidden }) {
   return Boolean(card);
 }
 
+/**
+ * screenshot of something inside an iframe: where the frame's content area is on the page (scrolled into view
+ * if it's off-screen; restoreScroll puts the page back). The element's position inside the frame is added to it.
+ */
+export function frameBox(h, selected, { url }) {
+  const same = (a, b) => {
+    try {
+      const x = new URL(a, location.href);
+      const y = new URL(b);
+      return x.origin === y.origin && x.pathname === y.pathname;
+    } catch { return false; }
+  };
+  const el = [...document.querySelectorAll('iframe, frame')].find((f) => {
+    let src = f.src;
+    try { src = f.contentWindow.location.href; } catch { /* cross-origin: its src */ }
+    return same(src, url);
+  });
+  if (!el) throw new Error(`No frame with the URL ${url} on the page`);
+  const viewport = { width: innerWidth, height: innerHeight };
+  const scroll = { x: scrollX, y: scrollY };
+  let r = el.getBoundingClientRect();
+  let scrolled = false;
+  if (r.bottom <= 0 || r.top >= innerHeight || r.right <= 0 || r.left >= innerWidth) {
+    el.scrollIntoView({ block: 'center', inline: 'nearest' });
+    scrolled = true;
+    r = el.getBoundingClientRect();
+  }
+  const cs = getComputedStyle(el);
+  const left = parseFloat(cs.paddingLeft) || 0;
+  const top = parseFloat(cs.paddingTop) || 0;
+  return {
+    viewport, scroll, scrolled,
+    box: {
+      x: r.left + el.clientLeft + left, y: r.top + el.clientTop + top,
+      width: el.clientWidth - left - (parseFloat(cs.paddingRight) || 0), height: el.clientHeight - top - (parseFloat(cs.paddingBottom) || 0),
+    },
+  };
+}
+
 /** screenshot, step 3: undo the scroll from prepareScreenshot. */
 export function restoreScroll(h, selected, { x, y }) {
   scrollTo(x, y);

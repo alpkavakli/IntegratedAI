@@ -18,7 +18,7 @@ import fs from 'node:fs';
 import http from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { pageHelpers, findElements, pageOutline, readText, inspectElement } from '../extension/panel/lib/page-scripts.js';
+import { pageHelpers, findElements, frameBox, pageOutline, readText, inspectElement } from '../extension/panel/lib/page-scripts.js';
 import { interactStep, quietFor } from '../extension/panel/lib/page-interact.js';
 
 const CHROME = process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
@@ -205,6 +205,12 @@ try {
   await ev('document.body.append(document.createElement("p"))');
   const after = await call(quietFor);
   check('quietFor: measures the time since the last change', quiet.quietMs >= 250 && after.quietMs < 100, { quiet, after });
+
+  // A screenshot inside an iframe starts from where the frame's content is on the page.
+  await ev('scrollTo(0, 0)');
+  const fb = await call(frameBox, { url: `http://127.0.0.1:${PORTS.page}/frame.html` });
+  const real = await ev(`(() => { const r = document.querySelector('iframe').getBoundingClientRect(); return { x: r.left + 2, y: r.top + 2 }; })()`);
+  check('frameBox: the content area of the iframe (inside its border)', Math.abs(fb.box.x - real.x) < 1 && Math.abs(fb.box.y - real.y) < 1 && fb.box.width === 300, { fb, real });
 
   // inspect_element by ref.
   const inspected = await call(inspectElement, { ref: rows.matches[1].ref, include: ['html'] });

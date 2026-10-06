@@ -44,6 +44,7 @@ const PATCH_SCHEMA = {
     enabled: { type: 'boolean' },
     createdAt: { type: 'number' },
     sourceUrl: { type: 'string' },
+    frame: { type: 'string' },
     toggle: {
       type: 'object',
       properties: {

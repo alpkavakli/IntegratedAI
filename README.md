@@ -631,8 +631,9 @@ These were also checked against real Chrome and the real `claude` CLI during dev
 - Patches are inserted when navigation commits, so a very fast page may show its original style for a moment.
 - Injected CSS beats ordinary page rules: before inserting, every selector gets `:not(#integratedai)` added, which matches everything but counts as one more ID (`extension/shared/css-boost.js`). Cards and patches still show the CSS as the AI wrote it. Page rules with `!important`, inline styles and selectors with two or more IDs can still win; the AI uses `!important` for those.
 - The card on the page can't open on Chrome's own pages or the Web Store, and has no iframe, network or resource tools.
-- CSS patches, `modify_element`, screenshots and the selected-element context are top-frame only. The AI can look into
-  and operate iframes (`find_elements`, `page_outline`, `read_text`, `inspect_element`, `interact` with `frame`).
+- Iframes: the AI can look into and operate them, change their CSS (also as saved patches, re-applied when the frame
+  loads on matching pages) and take screenshots of them (`frame`: the frame's URL, matched without its query).
+  `modify_element`, toggle buttons, and the selected-element context are for the page itself only.
 - Console capture starts when the page loads; tabs opened before installing the extension need a reload.
 - `execute_js` results are awaited for up to 30 seconds; a script that takes longer keeps running in the page, but its result isn't reported.
 - Undo info is tied to one page load: after a reload or navigation the page is fresh, so earlier cards show as no longer active.

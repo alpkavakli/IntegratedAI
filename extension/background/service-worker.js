@@ -55,8 +55,8 @@ const handlers = {
     return chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' });
   },
 
-  'css.insert': async ({ tabId, css }) => insertCss(tabId, css),
-  'css.remove': async ({ tabId, css }) => removeCss(tabId, css),
+  'css.insert': async ({ tabId, css, frame }) => insertCss(tabId, css, frame),
+  'css.remove': async ({ tabId, css, frame }) => removeCss(tabId, css, frame),
 
   'patches.list': async () => getPatches(),
   'patches.add': async ({ patch }) => addPatch(patch),
@@ -195,8 +195,33 @@ function patchCss(patch) {
  * @param {number} tabId
  * @param {string} css
  */
-async function insertCss(tabId, css) {
-  await chrome.scripting.insertCSS({ target: { tabId }, css, origin: 'AUTHOR' });
+async function insertCss(tabId, css, frame = undefined) {
+  await chrome.scripting.insertCSS({ target: await cssTarget(tabId, frame), css, origin: 'AUTHOR' });
+}
+
+/**
+ * Where CSS goes: the page itself, or the iframe(s) at a URL (CSS changes and patches for content in a frame).
+ * A frame counts as the same when its address matches without the query and hash (they change between loads).
+ * @param {number} tabId
+ * @param {string} [frame]
+ */
+async function cssTarget(tabId, frame) {
+  if (!frame) return { tabId };
+  const frames = (await chrome.webNavigation.getAllFrames({ tabId })) ?? [];
+  const frameIds = frames.filter((f) => f.frameId !== 0 && sameFrame(f.url, frame)).map((f) => f.frameId);
+  if (!frameIds.length) throw new Error(`The frame ${frame} is not on this page (any more)`);
+  return { tabId, frameIds };
+}
+
+/** @param {string} a @param {string} b */
+function sameFrame(a, b) {
+  try {
+    const x = new URL(a);
+    const y = new URL(b);
+    return x.origin === y.origin && x.pathname === y.pathname;
+  } catch {
+    return a === b;
+  }
 }
 
 /**
@@ -204,8 +229,8 @@ async function insertCss(tabId, css) {
  * @param {number} tabId
  * @param {string} css
  */
-async function removeCss(tabId, css) {
-  await chrome.scripting.removeCSS({ target: { tabId }, css, origin: 'AUTHOR' });
+async function removeCss(tabId, css, frame = undefined) {
+  await chrome.scripting.removeCSS({ target: await cssTarget(tabId, frame), css, origin: 'AUTHOR' });
 }
 
 // ─────────────────────────────────────────────────────────── persistent patches
@@ -260,8 +285,8 @@ async function updatePatch(id, changes) {
   await savePatches(patches);
 
   // Remove the old version where it was applied, then apply the new one.
-  if (before.enabled) await forMatchingTabs(before, (tabId) => removeCss(tabId, patchCss(before)));
-  if (after.enabled) await forMatchingTabs(after, (tabId) => insertCss(tabId, patchCss(after)));
+  if (before.enabled) await forMatchingTabs(before, (tabId) => removeCss(tabId, patchCss(before), before.frame).catch(() => {}));
+  if (after.enabled) await forMatchingTabs(after, (tabId) => insertCss(tabId, patchCss(after), after.frame).catch(() => {}));
   return after;
 }
 
@@ -271,15 +296,25 @@ async function removePatch(id) {
   const patch = patches.find((p) => p.id === id);
   if (!patch) return;
   await savePatches(patches.filter((p) => p.id !== id));
-  if (patch.enabled) await forMatchingTabs(patch, (tabId) => removeCss(tabId, patchCss(patch)));
+  if (patch.enabled) await forMatchingTabs(patch, (tabId) => removeCss(tabId, patchCss(patch), patch.frame).catch(() => {}));
 }
 
-// Reapply enabled patches as soon as a matching page starts loading.
+// Reapply enabled patches as soon as a matching page starts loading; a patch for content in an iframe when
+// that frame loads, on pages its scope matches.
 chrome.webNavigation.onCommitted.addListener(async ({ tabId, frameId, url }) => {
-  if (frameId !== 0) return;
-  const patches = (await getPatches()).filter((p) => p.enabled && scopeMatches(p.scope, url));
-  for (const patch of patches) {
-    insertCss(tabId, patchCss(patch)).catch((err) => console.warn('Patch injection failed', patch.name, err));
+  if (frameId === 0) {
+    const patches = (await getPatches()).filter((p) => p.enabled && !p.frame && scopeMatches(p.scope, url));
+    for (const patch of patches) {
+      insertCss(tabId, patchCss(patch)).catch((err) => console.warn('Patch injection failed', patch.name, err));
+    }
+    return;
+  }
+  const framed = (await getPatches()).filter((p) => p.enabled && p.frame && sameFrame(p.frame, url));
+  if (!framed.length) return;
+  const top = await chrome.tabs.get(tabId).catch(() => null);
+  for (const patch of framed.filter((p) => top?.url && scopeMatches(p.scope, top.url))) {
+    chrome.scripting.insertCSS({ target: { tabId, frameIds: [frameId] }, css: patchCss(patch), origin: 'AUTHOR' })
+      .catch((err) => console.warn('Patch injection failed', patch.name, err));
   }
 });
 
@@ -417,7 +452,7 @@ async function importData(data) {
   const current = (await chrome.storage.local.get('settings')).settings ?? {};
   await chrome.storage.local.set({ settings: { ...current, ...settings } });
   // Show enabled imported patches right away in open tabs that match.
-  for (const patch of patches.filter((p) => p.enabled)) await forMatchingTabs(patch, (tabId) => insertCss(tabId, patchCss(patch)));
+  for (const patch of patches.filter((p) => p.enabled)) await forMatchingTabs(patch, (tabId) => insertCss(tabId, patchCss(patch), patch.frame).catch(() => {}));
   return {
     added: result.added, updated: result.updated, skipped: result.skipped, settings: Object.keys(settings),
     conversations: imported.added + imported.updated, notes, tasks: taskResult.added,
@@ -426,7 +461,7 @@ async function importData(data) {
 
 /** Delete everything the extension stored (patches, settings, direct-mode conversations and memory, per-tab data). */
 async function clearData() {
-  for (const patch of (await getPatches()).filter((p) => p.enabled)) await forMatchingTabs(patch, (tabId) => removeCss(tabId, patchCss(patch)));
+  for (const patch of (await getPatches()).filter((p) => p.enabled)) await forMatchingTabs(patch, (tabId) => removeCss(tabId, patchCss(patch), patch.frame).catch(() => {}));
   await chrome.storage.local.clear();
   await chrome.storage.session.clear();
   await new Promise((resolve) => {

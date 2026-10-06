@@ -212,6 +212,7 @@ export const ACTIONS = {
       properties: {
         selector: { type: 'string', description: 'CSS selector of the element to capture. Omit to capture the selected element ($0), or the visible page if nothing is selected.' },
         ref: refProp,
+        frame: frameProp,
         fullViewport: { type: 'boolean', description: 'Capture everything visible in the tab instead of one element.' },
       },
       additionalProperties: false,
@@ -282,6 +283,7 @@ export const ACTIONS = {
       properties: {
         description: { type: 'string', description: 'One short sentence: what this change does.' },
         css: { type: 'string', description: 'Plain CSS rules (no <style> tags). Applied only while the toggle is on.' },
+        frame: frameProp,
         toggle: {
           type: 'object',
           description: 'Optional on/off button added to the page for this CSS.',
@@ -695,6 +697,7 @@ export function validateAction(name, input, settings) {
       if (!ok) errors.push('url must be an absolute http(s) URL');
     }
   }
+  if (name === 'inject_css' && i.frame && i.toggle) errors.push('toggle buttons work only for the page itself, not inside a frame');
   if (name === 'inject_css' && /<\/?style/i.test(i.css)) {
     errors.push('css must be plain CSS without <style> tags');
   }

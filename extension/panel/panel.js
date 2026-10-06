@@ -768,7 +768,10 @@ export class App {
     const { input } = this.prepare(actionId);
     await bg('patches.add', {
       // css: as the AI wrote it (shown, editable); injectedCss: what is inserted (selectors boosted to win ties).
-      patch: { name, css: input.css, injectedCss: boostCss(input.css), scope, enabled: true, sourceUrl: this.pageUrl, ...(input.toggle ? { toggle: input.toggle } : {}) },
+      patch: {
+        name, css: input.css, injectedCss: boostCss(input.css), scope, enabled: true, sourceUrl: this.pageUrl,
+        ...(input.toggle ? { toggle: input.toggle } : {}), ...(input.frame ? { frame: input.frame } : {}),
+      },
     });
     // The CSS is already in the page; from now on the patch owns it (toggle/delete in Patches).
     await this.changes.forget(actionId);

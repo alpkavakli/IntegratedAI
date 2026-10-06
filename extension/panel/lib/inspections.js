@@ -6,7 +6,7 @@
 
 import { bg } from './bg.js';
 import { callInPage } from './inspected.js';
-import { findElements, inspectElement, pageOutline, prepareScreenshot, readConsole, readText, restoreScroll, setCardHidden } from './page-scripts.js';
+import { findElements, frameBox, inspectElement, pageOutline, prepareScreenshot, readConsole, readText, restoreScroll, setCardHidden } from './page-scripts.js';
 
 // Headers that must never be sent to the AI.
 const SENSITIVE_HEADERS = /^(cookie|set-cookie|authorization|proxy-authorization|x-api-key|api-key|x-auth-token|x-csrf-token|x-xsrf-token|x-amz-security-token)$/i;
@@ -65,12 +65,12 @@ export function screenshot(input, ctx) {
 }
 
 /**
- * @param {{ selector?: string, fullViewport?: boolean }} input
+ * @param {{ selector?: string, ref?: string, frame?: string, fullViewport?: boolean }} input
  * @param {{ selectedSelector?: string, tabId: number }} ctx
  */
 async function takeScreenshot(input, ctx) {
-  const selector = input.fullViewport ? undefined : input.selector || (input.ref ? undefined : ctx.selectedSelector) || undefined;
-  const target = await callInPage(prepareScreenshot, { ...input, selector });
+  const selector = input.fullViewport ? undefined : input.selector || (input.ref || input.frame ? undefined : ctx.selectedSelector) || undefined;
+  const target = input.frame ? await frameTarget(input, selector) : await callInPage(prepareScreenshot, { ...input, selector });
   let dataUrl;
   try {
     const wait = Math.max(target.scrolled ? 150 : 0, lastCaptureAt + CAPTURE_INTERVAL_MS - Date.now()); // repaint, rate limit
@@ -86,6 +86,7 @@ async function takeScreenshot(input, ctx) {
     }
   } finally {
     if (target.scrolled) await callInPage(restoreScroll, target.scroll).catch(() => {});
+    if (target.frameScrolled) await callInPage(restoreScroll, target.frameScroll, input.frame).catch(() => {});
   }
 
   const bitmap = await createImageBitmap(await (await fetch(dataUrl)).blob());
@@ -121,6 +122,31 @@ async function takeScreenshot(input, ctx) {
     size: { width, height },
     ...(cutOff ? { note: 'The element is larger than the visible area; only its visible part was captured.' } : {}),
     image: { mediaType: 'image/jpeg', data: await toBase64(blob) },
+  };
+}
+
+/**
+ * Something inside an iframe: its position in the frame (prepareScreenshot there), moved by where the frame's
+ * content is on the page (frameBox), and cut to the frame's visible area. Without a target: the whole frame.
+ * @param {{ selector?: string, ref?: string, frame?: string, fullViewport?: boolean }} input
+ * @param {string | undefined} selector
+ */
+async function frameTarget(input, selector) {
+  const frame = /** @type {string} */ (input.frame);
+  const outer = await callInPage(frameBox, { url: frame });
+  const whole = input.fullViewport || (!selector && !input.ref);
+  const inner = whole ? null : await callInPage(prepareScreenshot, { ...input, selector, fullViewport: false }, frame);
+  const b = outer.box;
+  let rect = { x: b.x, y: b.y, width: b.width, height: b.height };
+  if (inner?.rect) {
+    const x = Math.max(b.x, b.x + inner.rect.x);
+    const y = Math.max(b.y, b.y + inner.rect.y);
+    rect = { x, y, width: Math.min(b.x + b.width, b.x + inner.rect.x + inner.rect.width) - x, height: Math.min(b.y + b.height, b.y + inner.rect.y + inner.rect.height) - y };
+  }
+  return {
+    viewport: outer.viewport, scroll: outer.scroll, scrolled: outer.scrolled,
+    frameScroll: inner?.scroll, frameScrolled: Boolean(inner?.scrolled),
+    rect, selector: inner?.selector ?? frame, label: inner ? `${inner.label} (in ${frame})` : `the frame ${frame}`,
   };
 }
 

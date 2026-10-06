@@ -105,7 +105,7 @@ export class ChangeManager {
     if (name === 'execute_js' || name === 'interact') throw new Error('This change cannot be previewed');
     if (this.data.changes[id]) return;
     await this.execute(id, name, input);
-    this.data.changes[id] = { name, css: injectedCss(name, input), committed: false };
+    this.data.changes[id] = { name, css: injectedCss(name, input), committed: false, ...(input.frame ? { frame: input.frame } : {}) };
     await this.persist();
   }
 
@@ -169,7 +169,7 @@ export class ChangeManager {
   async execute(id, name, input) {
     switch (name) {
       case 'inject_css':
-        await bg('css.insert', { tabId: this.tabId, css: injectedCss(name, input) });
+        await bg('css.insert', { tabId: this.tabId, css: injectedCss(name, input), frame: input.frame });
         return undefined;
       case 'modify_element':
         await callInPage(applyModify, { actionId: id, input });
@@ -260,7 +260,7 @@ export class ChangeManager {
     if (!change) return;
     switch (change.name) {
       case 'inject_css':
-        await bg('css.remove', { tabId: this.tabId, css: change.css });
+        await bg('css.remove', { tabId: this.tabId, css: change.css, frame: change.frame });
         break;
       case 'modify_element':
         await callInPage(revertModify, { actionId: id });
