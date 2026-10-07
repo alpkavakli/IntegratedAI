@@ -30,6 +30,7 @@ the dashboard takes a description per language (Store listing → language menu)
 > - **Does things for you:** fills in forms, chooses options and clicks through flows with real browser events.
 > - **Agent modes:** let it work through a task on the page by itself, step by step while you watch. It asks before
 >   each step, or only before risky ones (submitting, sending, paying, deleting); you choose.
+> - **Translates the page** into your language, and puts the original text back with one click.
 > - **Remembers each site:** key selectors and your preferences, so the next conversation starts informed.
 > - **Explains console errors** and jumps to the source.
 > - **Your key, your choice:** paste an API key for Anthropic (Claude), OpenAI, Google Gemini, OpenRouter, DeepSeek,
