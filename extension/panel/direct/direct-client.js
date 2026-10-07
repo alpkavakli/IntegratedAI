@@ -81,7 +81,7 @@ export class DirectRegistry {
   /** @param {string} id */
   async isAvailable(id) {
     const P = this.get(id);
-    if (!P) return { available: false, reason: `"${id}" needs the local agent server (Options → Connection).` };
+    if (!P) return { available: false, reason: `"${id}" needs the local agent server (settings: Choose your AI → Claude Code).` };
     if (P === AnthropicProvider) {
       return this.config.providers.anthropic.apiKey
         ? { available: true }
@@ -117,7 +117,7 @@ export class DirectRegistry {
         label: P === AnthropicProvider ? 'Anthropic API (direct)' : P.label,
         available,
         reason,
-        // The built-in suggestions, then what the provider itself lists (remembered by Options → Check, and
+        // The built-in suggestions, then what the provider itself lists (remembered by the settings page's Check, and
         // refreshed by the panel), so new models show up without an update of the extension.
         models: [...new Set([...P.models, ...(this.config.modelLists?.[P.id]?.ids ?? [])])],
         defaultModel: P.defaultModel(this.config),
@@ -212,7 +212,7 @@ export class DirectClient extends EventTarget {
     if (reply !== undefined) return reply;
     // Server-only features.
     if (msg.type === 'source.project') return { type: 'source.project', project: null };
-    if (msg.type.startsWith('source.')) throw new Error('Apply to source needs the local agent server (Options → Connection).');
+    if (msg.type.startsWith('source.')) throw new Error('Apply to source needs the local agent server (settings: Choose your AI → Claude Code).');
     throw new Error(`"${msg.type}" is not available in direct mode`);
   }
 

@@ -101,8 +101,8 @@ support URL `https://github.com/alpkavakli/IntegratedAI/issues`.
 ## Privacy practices tab
 
 **Single purpose:**
-> An AI assistant in Chrome DevTools that helps the user understand and change the web page they are
-> inspecting: explaining layout, styling and console errors, proposing CSS, element and form changes, and,
+> An AI assistant for the web page the user is looking at, in Chrome DevTools or as a card on the page opened from the
+> toolbar button, that helps the user understand and change that page: explaining layout, styling and console errors, reading or translating its text, proposing CSS, element and form changes, and,
 > only when the user turns on an agent mode for a conversation, operating that page for them (clicking, typing,
 > opening pages) with the confirmations the user chose.
 
@@ -111,8 +111,8 @@ support URL `https://github.com/alpkavakli/IntegratedAI/issues`.
 | Permission | Justification |
 |---|---|
 | `storage` | Saves the user's settings, API keys or pairing token, and CSS patches locally, and per-tab conversation/undo state. In direct mode also the site memory notes (conversations are kept in the extension's IndexedDB). |
-| `scripting` | Inserts and removes the CSS changes the user approved (`insertCSS` / `removeCSS`), including saved per-site patches. |
-| `webNavigation` | Detects when a page the user saved a patch for starts loading, to reapply that patch. |
+| `scripting` | Inserts and removes the CSS changes the user approved (`insertCSS` / `removeCSS`), including saved per-site patches. Shows the AI card on the page when the user clicks the toolbar button (`executeScript` with the packaged `content/card-host.js`), and, while the card is open, runs the extension's own packaged page functions in that tab to read the page or apply an approved change. No code from outside the package is run this way. |
+| `webNavigation` | Detects when a page the user saved a patch for starts loading, to reapply that patch (also in the page's frames, found with `getAllFrames`), and puts the AI card back on the next page of a tab where the user left it open. |
 | Host permission `<all_urls>` | The tool works on whatever page the user is inspecting in DevTools, so it must be able to read that page (on request), capture its console errors, take screenshots, and apply approved CSS on any site. |
 | Optional permission `nativeMessaging` | Asked for only when a user of the optional local agent server clicks the panel's Server button: it lets the extension ask a helper program the user installed themselves (`npm run services:install`) to start or stop that server. It sends only "status", "start" or "stop". Most users (API key or Ollama) never see this request. |
 | Toolbar button (`action`), `web_accessible_resources` | The toolbar button opens the AI card on the current page. The card is the extension's own panel page shown in a frame on the page; the two page-helper files are loaded into the extension's isolated world to read the page for it. Nothing is loaded from outside the package. |
@@ -153,11 +153,13 @@ If the review still rejects it, the fallback is a store build without `execute_j
 
 ## Test instructions (the dashboard's "Test instructions" field)
 
-> No account is needed. 1) Open any web page, open DevTools (F12) and choose the **AI** tab. 2) In the setup page that
-> opens, choose **Ollama** (free, local) or paste an API key for Anthropic, OpenAI, Google Gemini or OpenRouter. 3)
-> Select an element in the Elements panel and ask, e.g. "why is this cut off?". Changes appear as cards that only run
-> when you click Apply. Agent modes (menu in the message box) let it click and type on the page, asking first as
-> configured. The JavaScript feature is off by default: Options → Advanced settings → "Let it suggest JavaScript".
+> No account is needed. 1) After installing, the setup page opens (later: right-click the toolbar icon → Options).
+> Choose Ollama (free, runs locally) or paste an API key for one of the listed providers, and click Check. 2) On any
+> page, click the toolbar icon: a card opens on the page. Ask "summarize this page", or pick an element and ask "why is
+> this cut off?". 3) In DevTools (F12), open the AI tab: select an element in the Elements panel and ask about it.
+> Changes appear as cards and only run when you click Apply. Agent modes (menu under the message box) let it click and
+> type on the page, asking first as configured. The JavaScript feature is off by default: Options → Advanced settings →
+> "Let it suggest JavaScript".
 
 **Privacy policy URL:** https://alpkavakli.github.io/IntegratedAI/privacy.html
 (GitHub Pages from `/docs` on `main`; rebuild with `npm run site` after changing `store/PRIVACY.md`, then push.)

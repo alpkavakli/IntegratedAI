@@ -15,18 +15,24 @@ import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('..', import.meta.url));
 const manifest = JSON.parse(readFileSync(`${root}/extension/manifest.json`, 'utf8'));
 const markdown = readFileSync(`${root}/store/PRIVACY.md`, 'utf8');
+// The manifest's name and summary may be "__MSG_key__" (translated): take the English text then.
+const messages = JSON.parse(readFileSync(`${root}/extension/_locales/${manifest.default_locale ?? 'en'}/messages.json`, 'utf8'));
+const text = (/** @type {string} */ value) => value.replace(/^__MSG_(\w+)__$/, (_, key) => messages[key]?.message ?? value);
+const name = text(manifest.name);
 
 mkdirSync(`${root}/docs`, { recursive: true });
-writeFileSync(`${root}/docs/privacy.html`, page('Privacy policy · Browser IntegratedAI DevTools', markdownToHtml(markdown)));
-writeFileSync(`${root}/docs/index.html`, page('Browser IntegratedAI DevTools', `
-<h1>Browser IntegratedAI DevTools</h1>
-<p class="lead">${escapeHtml(manifest.description)}</p>
+writeFileSync(`${root}/docs/privacy.html`, page(`Privacy policy · ${name}`, markdownToHtml(markdown)));
+writeFileSync(`${root}/docs/index.html`, page(name, `
+<h1>${escapeHtml(name)}</h1>
+<p class="lead">${escapeHtml(text(manifest.description))}</p>
 <ul>
-  <li>Select an element in the Elements panel, open the <strong>AI</strong> tab, and ask: "why is this overflowing?", "make this look better", "add a dark-mode toggle to the nav bar".</li>
+  <li>On any page, click the toolbar icon: a card opens on the page. Ask about the page, have it summarize or translate it, or pick an element and ask why it looks wrong.</li>
+  <li>In DevTools, select an element in the Elements panel, open the <strong>AI</strong> tab, and ask: "why is this overflowing?", "make this look better", "add a dark-mode toggle to the nav bar".</li>
   <li>Every change is a card you preview and approve. Nothing runs on its own.</li>
-  <li>Use your own Anthropic API key, or the local agent server with your Claude subscription.</li>
+  <li>Use your own API key (Anthropic, OpenAI, Google Gemini, OpenRouter, DeepSeek, Qwen, Kimi, GLM, MiniMax or any OpenAI-compatible service), free local models with Ollama, or the local agent server with your Claude subscription.</li>
+  <li>English and Turkish interface. Free and open source (GNU AGPL).</li>
 </ul>
-<p><a href="privacy.html">Privacy policy</a></p>
+<p><a href="privacy.html">Privacy policy</a> · <a href="https://github.com/alpkavakli/IntegratedAI">Source code and guide</a> · <a href="https://github.com/alpkavakli/IntegratedAI/issues">Report a problem</a> · <a href="mailto:alpkavakli@gmail.com?subject=IntegratedAI">alpkavakli@gmail.com</a></p>
 `));
 writeFileSync(`${root}/docs/.nojekyll`, ''); // serve files as-is on GitHub Pages
 console.log('Built docs/index.html and docs/privacy.html');

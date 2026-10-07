@@ -12,7 +12,8 @@ The AI runs in one of two ways (see [Two ways to run it](#two-ways-to-run-it)):
 ```
 Direct mode (default): nothing to install
   Chrome DevTools ── "AI" panel (extension, runs the agent itself)
-        └── your own API key: Anthropic, OpenAI, Google Gemini, OpenRouter
+        └── your own API key: Anthropic, OpenAI, Google Gemini, OpenRouter, DeepSeek,
+            Qwen, Kimi, GLM, MiniMax or any OpenAI-compatible service,
             or Ollama on your computer (no key)
 
 Local server mode (for developers)
@@ -31,11 +32,11 @@ Local server mode (for developers)
 
 ## Two ways to run it
 
-Choose in **Options → Connection**:
+Choose in the settings page (step 1, **Choose your AI**):
 
 | | **Direct** (default for new installs) | **Local agent server** |
 |---|---|---|
-| Setup | Paste an API key for Anthropic, OpenAI, Google Gemini or OpenRouter, or use [Ollama](https://ollama.com) on your computer (no key; see below). Nothing else to install. | Node.js 20+ and [Claude Code](https://code.claude.com), then `npm start` (below) |
+| Setup | Paste an API key for Anthropic, OpenAI, Google Gemini, OpenRouter, DeepSeek, Qwen, Kimi, GLM or MiniMax, or use [Ollama](https://ollama.com) on your computer (no key; see below). Nothing else to install. | Node.js 20+ and [Claude Code](https://code.claude.com), then `npm start` (below) |
 | Pays with | Your account with that provider | Your Claude subscription (via Claude Code), or an API key |
 | Where conversations and memory live | In the browser (IndexedDB, extension storage) | `~/.integratedai/` on your computer |
 | Extras | — | "Apply to source"; page tools as real Claude Code tools |
@@ -54,7 +55,7 @@ model menu without an update of the extension (the built-in names come first). *
 connects any other service with the OpenAI Chat Completions API and tool calls: Groq, Mistral, Together, LM Studio,
 vLLM, your own server. Enter its address, its key if it needs one, and the model.
 
-Both use the **same agent code** (`extension/shared/agent/`: orchestrator, prompts, memory, request handling). In direct mode it runs inside the extension: Anthropic through a vendored build of the official SDK (`extension/vendor/`, regenerate with `npm run vendor:sdk`); OpenAI, Gemini, OpenRouter and Ollama through their OpenAI-compatible Chat Completions API (`extension/shared/providers/openai-compatible.js`; another compatible service is one more preset there).
+Both use the **same agent code** (`extension/shared/agent/`: orchestrator, prompts, memory, request handling). In direct mode it runs inside the extension: Anthropic through a vendored build of the official SDK (`extension/vendor/`, regenerate with `npm run vendor:sdk`); OpenAI, Gemini, OpenRouter, the China-based providers, Custom and Ollama through their OpenAI-compatible Chat Completions API (`extension/shared/providers/openai-compatible.js`; another compatible service is one more preset there).
 
 **Ollama (free, local models).** Install [Ollama](https://ollama.com/download), download a model that supports tools
 (`ollama pull qwen3`), allow browser extensions to call it (Ollama refuses them by default), and raise its context
@@ -321,7 +322,7 @@ time), asking before risky steps as in Auto mode; Stop in the panel or on the pa
 page, the task opens its start page first. Steps are saved with targets that survive a reload (the element's selector,
 then its visible name), never with refs, and never with what was typed into a password field (that step is skipped
 on replay). Saved steps pass the same checks as the AI's, also when imported from an export file. Tasks are stored
-in the browser and included in *Options → Your data → Export*.
+in the browser and included in *Options → Advanced settings → Your data → Export*.
 
 With the Claude Code CLI, the page actions are offered as MCP tools (`mcp__page__interact`, `mcp__page__navigate`) in
 the agent modes only.
@@ -389,12 +390,12 @@ Everything stays on your computer.
 - **First install:** the Options page opens automatically so you can add an API key or connect to the server.
 
 **Moving to another copy of the extension.** A development copy (Load unpacked) and the Chrome Web Store version are *different* extensions to Chrome, with separate storage. In server mode your conversations and memory are shared, because they're on the server; your patches are not. In direct mode, nothing is shared.
-1. In the old copy, open **Options → Your data → Export**. The file holds your patches and settings, and in direct mode also your conversations and site memory (shared and private).
+1. In the old copy, open **Options → Advanced settings → Your data → Export**. The file holds your patches and settings, and in direct mode also your conversations and site memory (shared and private).
 2. In the new copy, click **Import…**. Importing adds to what's there: a conversation is only replaced by a newer copy of itself, and memory notes are joined without duplicates.
 
 API keys and the pairing token are never exported.
 
-**Options → Your data** shows what's stored on both sides and has **Delete extension data**. To back up or remove the server's conversations and memory, copy or delete its folder.
+**Options → Advanced settings → Your data** shows what's stored on both sides and has **Delete extension data**. To back up or remove the server's conversations and memory, copy or delete its folder.
 
 ## Security model
 

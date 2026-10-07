@@ -32,10 +32,10 @@ const COMPACT_FULL_RESULTS = 3;
  * @typedef {object} Preset
  * @property {string} label
  * @property {string} baseUrl
- * @property {string[]} models        suggestions; the user can type any model id (Options → Test key lists real ones)
+ * @property {string[]} models        suggestions; the user can type any model id (the settings page's Check lists real ones)
  * @property {string} keyUrl          where to create a key (local: where to get the app)
  * @property {boolean} includeUsage   send stream_options.include_usage (not every endpoint accepts it)
- * @property {string} [keyCheckUrl]   where Test key checks the key, when the model list doesn't need one
+ * @property {string} [keyCheckUrl]   where Check key checks the key, when the model list doesn't need one
  * @property {Record<string, string>} [headers]
  * @property {boolean} [local]        runs on the user's computer: no key, and the address can be changed in Options
  * @property {string} [addressHint]   the address can be changed in Options (other regions, own workspace): what to put there
@@ -458,7 +458,7 @@ export function httpError(label, status, text) {
   if (status === 401 || status === 403 || (status === 400 && /api key/i.test(detail))) {
     return new Error(`The ${label} API key was not accepted. Check it in Options.`);
   }
-  if (status === 404) return new Error(`This model is not available on ${label}. Pick another in Options (Test key lists them).`);
+  if (status === 404) return new Error(`This model is not available on ${label}. Pick another in the settings (Check key lists them).`);
   if (status === 402) return new Error(`Your ${label} account is out of credits.`);
   if (status === 429) return new Error(`${label} rate limit or quota reached. Wait a moment and try again.`);
   if (status >= 500) return new Error(`${label} had a temporary problem (${status}). Try again in a moment.`);

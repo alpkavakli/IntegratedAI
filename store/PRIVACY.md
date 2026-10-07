@@ -67,8 +67,8 @@ All storage is local to your computer:
   (local server mode), saved CSS patches and saved tasks (the page steps you chose to save, including what was
   typed, but never what was typed into a password field). In direct mode also your conversations (IndexedDB) and site
   memory, including private per-conversation memory. Removed when you uninstall the extension, or via
-  *Options → Your data → Delete extension data*. Each API key is only ever sent to its own provider.
-  *Options → Your data → Export* saves this data (without API keys or the pairing token) to a file on your
+  *Options → Advanced settings → Your data → Delete extension data*. Each API key is only ever sent to its own provider.
+  *Options → Advanced settings → Your data → Export* saves this data (without API keys or the pairing token) to a file on your
   computer, only when you click it.
 - **Local server mode, on your computer, in the agent server's folder** (`~/.integratedai`): conversations, site memory notes
   and page types, logs of failed calls, and automatic backups made before data-format updates. You can
