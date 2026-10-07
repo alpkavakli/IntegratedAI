@@ -2,6 +2,24 @@
   "aTerminal": {
     "message": "bir terminal"
   },
+  "accessArea": {
+    "message": "Yalnızca bir alan…"
+  },
+  "accessAreaTitle": {
+    "message": "Bir alan işaretle: yalnızca onun içini görür ve orada çalışır"
+  },
+  "accessFull": {
+    "message": "Tüm sayfa"
+  },
+  "accessFullTitle": {
+    "message": "Gerektiğinde tüm sayfayı okuyabilir"
+  },
+  "accessNone": {
+    "message": "Sadece yanıtla"
+  },
+  "accessNoneTitle": {
+    "message": "Sayfayı hiç görmez, yalnızca sorunu yanıtlar"
+  },
   "actionTitle": {
     "message": "IntegratedAI: bu sayfada yapay zekâ kartını aç (Alt+Shift+A)"
   },
@@ -100,6 +118,33 @@
   },
   "applyOn": {
     "message": "Şurada uygula"
+  },
+  "areaChange": {
+    "message": "Değiştir"
+  },
+  "areaConfirm": {
+    "message": "Bu başka bir sayfa: yapay zekâ bir şey görmeden önce alanı burada onayla"
+  },
+  "areaDraw": {
+    "message": "Yapay zekânın görebileceği alanı işaretlemek için sürükle ya da bir öğeye tıkla"
+  },
+  "areaEdit": {
+    "message": "Şeklini köşeleri sürükleyerek ayarla. Köşe eklemek için aradaki noktayı sürükle, taşımak için içini sürükle, köşeyi silmek için çift tıkla."
+  },
+  "areaMark": {
+    "message": "İşaretle"
+  },
+  "areaMarking": {
+    "message": "Alanı sayfada işaretle, sonra oradaki Tamam'a tıkla"
+  },
+  "areaRedraw": {
+    "message": "Yeniden çiz"
+  },
+  "areaShared": {
+    "message": "Yapay zekâ yalnızca işaretli alanı görüyor"
+  },
+  "areaTag": {
+    "message": "Yapay zekâ yalnızca bunu görür"
   },
   "askAi": {
     "message": "Yapay zekâ şunu yapsın mı: $1?"
@@ -304,6 +349,9 @@
   },
   "dockRight": {
     "message": "Sağ kenara yerleştir"
+  },
+  "done": {
+    "message": "Tamam"
   },
   "edit": {
     "message": "Düzenle"
@@ -889,6 +937,9 @@
   },
   "otherSitesCount": {
     "message": "Diğer siteler ($1)"
+  },
+  "pageAccessTitle": {
+    "message": "Yapay zekânın sayfadan görebilecekleri"
   },
   "pageButton": {
     "message": "sayfa düğmesi \"$1\""

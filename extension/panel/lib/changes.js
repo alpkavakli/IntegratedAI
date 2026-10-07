@@ -52,6 +52,12 @@ export class ChangeManager {
     this.key = `undo:${tabId}`;
     /** @type {{ timeOrigin: number | null, changes: Record<string, AppliedChange> }} */
     this.data = { timeOrigin: null, changes: {} };
+    /**
+     * With a marked area: the outermost elements inside it (selectors). CSS changes are limited to them and
+     * scripts get them as $area; null for the whole page. Set by the panel.
+     * @type {() => string[] | null}
+     */
+    this.areaRoots = () => null;
   }
 
   /**
@@ -105,7 +111,7 @@ export class ChangeManager {
     if (name === 'execute_js' || name === 'interact') throw new Error('This change cannot be previewed');
     if (this.data.changes[id]) return;
     await this.execute(id, name, input);
-    this.data.changes[id] = { name, css: injectedCss(name, input), committed: false, ...(input.frame ? { frame: input.frame } : {}) };
+    this.data.changes[id] = { name, css: injectedCss(name, input, this.areaRoots()), committed: false, ...(input.frame ? { frame: input.frame } : {}) };
     await this.persist();
   }
 
@@ -139,7 +145,7 @@ export class ChangeManager {
     } else if (!this.isPreviewing(id)) {
       detail = await this.execute(id, name, input);
     }
-    this.data.changes[id] = { name, css: injectedCss(name, input), undoCode: input.undoCode, undoable, committed: true, ...(input.frame ? { frame: input.frame } : {}) };
+    this.data.changes[id] = { name, css: injectedCss(name, input, this.areaRoots()), undoCode: input.undoCode, undoable, committed: true, ...(input.frame ? { frame: input.frame } : {}) };
     await this.persist();
     return detail;
   }
@@ -169,14 +175,17 @@ export class ChangeManager {
   async execute(id, name, input) {
     switch (name) {
       case 'inject_css':
-        await bg('css.insert', { tabId: this.tabId, css: injectedCss(name, input), frame: input.frame });
+        await bg('css.insert', { tabId: this.tabId, css: injectedCss(name, input, this.areaRoots()), frame: input.frame });
         return undefined;
       case 'modify_element':
         await callInPage(applyModify, { actionId: id, input });
         return undefined;
       case 'execute_js': {
-        const res = await runApprovedScript(input.code);
-        if (!res?.ok) throw new Error(res?.error ?? 'Script failed');
+        const roots = this.areaRoots();
+        const res = await runApprovedScript(input.code, { areaRoots: roots ?? [] });
+        if (!res?.ok) throw new Error(roots ? 'The script failed (with a marked area, its error is not shared)' : res?.error ?? 'Script failed');
+        // A script can read the whole page, so with a marked area what it returns stays here.
+        if (roots) return 'The script ran. (With a marked area, its result is not shared with the AI.)';
         return res.value === null || res.value === undefined ? undefined : `Script returned: ${JSON.stringify(res.value).slice(0, 1000)}`;
       }
       default:
@@ -293,11 +302,18 @@ function progress(done) {
 }
 
 /**
- * The CSS actually inserted for an inject_css change: the AI's CSS with boosted selectors.
- * (Stored with the change so undo removes exactly the same text.)
+ * The CSS actually inserted for an inject_css change: the AI's CSS with boosted selectors, limited to the
+ * marked area if there is one. (Stored with the change so undo removes exactly the same text.)
  * @param {string} name
  * @param {any} input
+ * @param {string[] | null} [roots]  the outermost elements inside the marked area
  */
-function injectedCss(name, input) {
-  return name === 'inject_css' ? boostCss(input.css) : undefined;
+function injectedCss(name, input, roots) {
+  if (name !== 'inject_css') return undefined;
+  const css = boostCss(input.css);
+  if (!roots) return css;
+  // Only inside the marked area: an @scope rooted at the elements inside it (none: it applies nowhere).
+  return `@scope (${roots.length ? roots.join(', ') : ':not(*)'}) {
+${css}
+}`;
 }

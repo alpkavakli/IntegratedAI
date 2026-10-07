@@ -2,6 +2,24 @@
   "aTerminal": {
     "message": "a terminal"
   },
+  "accessArea": {
+    "message": "Only an area…"
+  },
+  "accessAreaTitle": {
+    "message": "Mark an area: it sees and works only inside it"
+  },
+  "accessFull": {
+    "message": "Whole page"
+  },
+  "accessFullTitle": {
+    "message": "It can read the whole page when it needs to"
+  },
+  "accessNone": {
+    "message": "Just answer"
+  },
+  "accessNoneTitle": {
+    "message": "It doesn't see the page at all, it only answers your question"
+  },
   "actionTitle": {
     "message": "IntegratedAI: open the AI card on this page (Alt+Shift+A)"
   },
@@ -100,6 +118,33 @@
   },
   "applyOn": {
     "message": "Apply on"
+  },
+  "areaChange": {
+    "message": "Change"
+  },
+  "areaConfirm": {
+    "message": "This is another page: confirm the area here before the AI sees anything"
+  },
+  "areaDraw": {
+    "message": "Drag to mark the area the AI may see, or click an element"
+  },
+  "areaEdit": {
+    "message": "Drag the corners to shape it. Drag a dot between corners to add one, drag inside to move it, double-click a corner to remove it."
+  },
+  "areaMark": {
+    "message": "Mark it"
+  },
+  "areaMarking": {
+    "message": "Mark the area on the page, then click Done there"
+  },
+  "areaRedraw": {
+    "message": "Redraw"
+  },
+  "areaShared": {
+    "message": "The AI sees only the marked area"
+  },
+  "areaTag": {
+    "message": "The AI sees only this"
   },
   "askAi": {
     "message": "Allow the AI to $1?"
@@ -304,6 +349,9 @@
   },
   "dockRight": {
     "message": "Dock to the right side"
+  },
+  "done": {
+    "message": "Done"
   },
   "edit": {
     "message": "Edit"
@@ -889,6 +937,9 @@
   },
   "otherSitesCount": {
     "message": "Other sites ($1)"
+  },
+  "pageAccessTitle": {
+    "message": "What the AI may see of the page"
   },
   "pageButton": {
     "message": "page button \"$1\""

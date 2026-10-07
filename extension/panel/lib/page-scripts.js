@@ -12,9 +12,92 @@
  * on a hidden window property: window[Symbol.for('integratedai.state')].
  */
 
-/** Helpers available to every page function as `h`. */
-export function pageHelpers() {
+/**
+ * Helpers available to every page function as `h`.
+ *
+ * `scope` is the page access the user chose, sent by the panel with every call (so the page can't change it):
+ *   { area: [{x, y}, …], url }  only what lies inside this polygon (document coordinates) exists for the AI:
+ *                          the element lookups and the readable text below leave everything else out, and
+ *                          anything named outside it is refused. When in doubt (partly inside, no size), it's left
+ *                          out. url: the page it was marked on; on any other page (the AI went elsewhere) nothing
+ *                          is shown at all until the user confirms the area there.
+ */
+export function pageHelpers(scope = null) {
   const MAX_HTML = 1500;
+  const AREA = scope && Array.isArray(scope.area) && scope.area.length >= 3 ? scope.area : null;
+  const WRONG_PAGE = Boolean(AREA && scope.url && location.href.split('#')[0] !== scope.url);
+  const WRONG_PAGE_TEXT = 'This is a different page from the one the user marked the area on: nothing here can be shown until the user confirms the area on this page. Tell the user, and wait for their next message.';
+
+  /** With an area: stop right away on a page it wasn't marked on. */
+  function assertPage() {
+    if (WRONG_PAGE) throw new Error(WRONG_PAGE_TEXT);
+  }
+
+  /** Is the point (document coordinates) inside the marked polygon? Ray casting. */
+  function pointInArea(x, y) {
+    let inside = false;
+    for (let i = 0, j = AREA.length - 1; i < AREA.length; j = i++) {
+      const a = AREA[i];
+      const b = AREA[j];
+      if ((a.y > y) !== (b.y > y) && x < ((b.x - a.x) * (y - a.y)) / (b.y - a.y) + a.x) inside = !inside;
+    }
+    return inside;
+  }
+
+  /** Does the segment a–b pass through the open box (Liang–Barsky clipping)? */
+  function segmentCrossesBox(a, b, left, top, right, bottom) {
+    let t0 = 0;
+    let t1 = 1;
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    for (const [p, q] of [[-dx, a.x - left], [dx, right - a.x], [-dy, a.y - top], [dy, bottom - a.y]]) {
+      if (p === 0) { if (q <= 0) return false; continue; }
+      const t = q / p;
+      if (p < 0) { if (t > t1) return false; if (t > t0) t0 = t; } else { if (t < t0) return false; if (t < t1) t1 = t; }
+    }
+    return t0 < t1;
+  }
+
+  /**
+   * Is this box (viewport coordinates, from getBoundingClientRect) completely inside the area? Exactly: all its
+   * corners are inside and no side of the area passes through it (so a corner of the area can't poke into it).
+   * One pixel in from its edges, so a border lying exactly on the line still counts as inside.
+   */
+  function rectInArea(r) {
+    if (WRONG_PAGE || (!r.width && !r.height)) return false;
+    const left = r.left + scrollX + 1;
+    const top = r.top + scrollY + 1;
+    const right = Math.max(left, r.right + scrollX - 1);
+    const bottom = Math.max(top, r.bottom + scrollY - 1);
+    if (![[left, top], [right, top], [left, bottom], [right, bottom]].every(([x, y]) => pointInArea(x, y))) return false;
+    for (let i = 0, j = AREA.length - 1; i < AREA.length; j = i++) {
+      if (segmentCrossesBox(AREA[j], AREA[i], left, top, right, bottom)) return false;
+    }
+    return true;
+  }
+
+  /** Without an area: everything. With one: only elements whose whole box is inside it. */
+  function inArea(el) {
+    if (!AREA) return true;
+    if (!(el instanceof Element)) return false;
+    return rectInArea(el.getBoundingClientRect());
+  }
+
+  /** Throw when the user's area leaves this element out (the AI asked for something it can't see). */
+  function checkArea(el) {
+    assertPage();
+    if (!inArea(el)) throw new Error('That element is outside the area the user marked; only what is inside it can be used');
+    return el;
+  }
+
+  /** Is all of this text node inside the area? */
+  function textInArea(node) {
+    if (!AREA) return true;
+    const range = document.createRange();
+    range.selectNodeContents(node);
+    const rects = [...range.getClientRects()].filter((r) => r.width && r.height);
+    return rects.length > 0 && rects.every(rectInArea);
+  }
 
   // Computed style values that are almost always uninteresting.
   const BORING = new Set([
@@ -121,8 +204,44 @@ export function pageHelpers() {
     return info;
   }
 
-  /** outerHTML, shortened: long text cut, deep children replaced by "…". */
+  /** Query parameters that carry secrets (as in inspections.js). */
+  const SECRET_PARAM = /([?&](?:token|access_token|id_token|refresh_token|code|key|api_key|apikey|secret|password|sig|signature|session|csrf|auth)[^=&#]*=)[^&#]*/gi;
+  /** One long run of letters and digits: an id, a token, a key. */
+  const TOKEN_LIKE = /^(?=.*\d)(?=.*[A-Za-z])[A-Za-z0-9_\-.=+/]{32,}$/;
+
+  /**
+   * A copy of the element that is safe to show the AI: values of hidden, password, one-time-code and card
+   * fields, script contents, token-like attribute values and secret URL parameters are taken out; with an
+   * area, so is everything inside it that lies outside the area or isn't shown.
+   */
+  function safeCopy(el) {
+    const copy = el.cloneNode(true);
+    if (AREA) {
+      const originals = [...el.querySelectorAll('*')];
+      const copies = [...copy.querySelectorAll('*')];
+      originals.forEach((o, i) => {
+        if (!copy.contains(copies[i])) return; // already cut out with an ancestor
+        if (!o.getClientRects().length || !inArea(o)) copies[i].replaceWith(document.createComment(' left out (not shown, or outside the marked area) '));
+      });
+    }
+    for (const node of [copy, ...copy.querySelectorAll('*')]) {
+      if (node.localName === 'script') { node.textContent = '…'; continue; }
+      const secretField = node.matches('input[type=hidden], input[type=password], [autocomplete~="one-time-code"], [autocomplete*="cc-"], [autocomplete*="password"]');
+      for (const attr of [...node.attributes]) {
+        if (attr.name === 'value' && secretField) node.setAttribute('value', '[hidden]');
+        else if (TOKEN_LIKE.test(attr.value)) node.setAttribute(attr.name, '[token]');
+        else if (/^(href|src|action|srcset|data-[\w-]*url[\w-]*)$/i.test(attr.name) && SECRET_PARAM.test(attr.value)) {
+          node.setAttribute(attr.name, attr.value.replace(SECRET_PARAM, '$1redacted'));
+        }
+        SECRET_PARAM.lastIndex = 0;
+      }
+    }
+    return copy;
+  }
+
+  /** outerHTML (of a safe copy), shortened: long text cut, deep children replaced by "…". */
   function htmlExcerpt(el, max = MAX_HTML) {
+    el = safeCopy(el);
     let html = el.outerHTML;
     if (html.length <= max) return html;
     const open = html.slice(0, html.indexOf('>') + 1);
@@ -149,12 +268,12 @@ export function pageHelpers() {
     if (ref) return byRef(ref);
     if (selector) {
       let el;
-      try { el = document.querySelector(selector) || queryAll(selector)[0]; } catch { throw new Error(`Invalid selector: ${selector}`); }
-      if (!el) throw new Error(`No element matches ${selector}`);
+      try { el = AREA ? queryAll(selector)[0] : document.querySelector(selector) || queryAll(selector)[0]; } catch { throw new Error(`Invalid selector: ${selector}`); }
+      if (!el) throw new Error(AREA ? `No element inside the marked area matches ${selector}` : `No element matches ${selector}`);
       return el;
     }
     if (!(selected instanceof Element)) throw new Error('No element is selected in the Elements panel');
-    return selected;
+    return checkArea(selected);
   }
 
   /** Hidden per-page state shared between calls. */
@@ -189,27 +308,32 @@ export function pageHelpers() {
     }
     const el = refs.byId.get(id).deref();
     if (!el || !el.isConnected) throw new Error(`${id} is not on the page any more (the page changed or reloaded); look the element up again`);
-    return el;
+    return checkArea(el);
   }
 
-  /** querySelectorAll that also looks inside open shadow roots (web components). */
+  /** querySelectorAll that also looks inside open shadow roots (web components); with an area, only what's inside it. */
   function queryAll(selector, root = document) {
-    const out = [...root.querySelectorAll(selector)];
-    for (const host of root.querySelectorAll('*')) {
-      if (host.shadowRoot) out.push(...queryAll(selector, host.shadowRoot));
-    }
-    return out;
+    const all = (r) => {
+      const out = [...r.querySelectorAll(selector)];
+      for (const host of r.querySelectorAll('*')) {
+        if (host.shadowRoot) out.push(...all(host.shadowRoot));
+      }
+      return out;
+    };
+    const found = all(root);
+    return AREA ? found.filter(inArea) : found;
   }
 
   /** Our own outline, badge, card and element picker are not part of the page. */
-  const OWN_IDS = new Set(['integratedai-highlight', 'integratedai-working', 'integratedai-card', 'integratedai-picker']);
+  const OWN_IDS = new Set(['integratedai-highlight', 'integratedai-working', 'integratedai-card', 'integratedai-picker', 'integratedai-area']);
   const OWN_SELECTOR = [...OWN_IDS].map((id) => `#${id}`).join(', ');
 
-  /** Is the element rendered with a size (it may still be scrolled out of view)? */
+  /** Is the element rendered with a size (it may still be scrolled out of view), and inside the area if there is one? */
   function visible(el) {
     if (OWN_IDS.has(el.id) || el.closest(OWN_SELECTOR)) return false;
     const r = el.getBoundingClientRect();
     if (!r.width || !r.height) return false;
+    if (AREA && !rectInArea(r)) return false;
     const cs = getComputedStyle(el);
     return cs.visibility !== 'hidden' && cs.display !== 'none';
   }
@@ -229,8 +353,10 @@ export function pageHelpers() {
     const quote = (s) => `"${s.length > 60 ? `${s.slice(0, 60)}…` : s}"`;
     const clean = (s) => String(s || '').replace(/\s+/g, ' ').trim();
     const labelledBy = el.getAttribute('aria-labelledby');
-    const byId = labelledBy && labelledBy.split(/\s+/).map((id) => document.getElementById(id)?.innerText || '').join(' ');
-    const labelled = clean(el.getAttribute('aria-label') || byId || (el.labels && el.labels[0] && el.labels[0].innerText)
+    // (Label elements elsewhere on the page count only when they're inside the area too.)
+    const shownLabel = (node) => (node && inArea(node) ? node.innerText || '' : '');
+    const byId = labelledBy && labelledBy.split(/\s+/).map((id) => shownLabel(document.getElementById(id))).join(' ');
+    const labelled = clean(el.getAttribute('aria-label') || byId || (el.labels && shownLabel(el.labels[0]))
       || el.getAttribute('placeholder') || el.getAttribute('title') || el.getAttribute('alt'));
     if (el.matches('input:not([type=button]):not([type=submit]):not([type=checkbox]):not([type=radio]), textarea, [contenteditable=""], [contenteditable="true"], [role=textbox], [role=searchbox], [role=combobox]')) {
       return labelled ? `the ${quote(labelled)} field` : el.matches('[type=search], [role=searchbox]') ? 'the search field' : 'a text field';
@@ -265,7 +391,8 @@ export function pageHelpers() {
     let visited = 0;
     const flush = () => {
       const text = lineIsPre ? line.replace(/\s+$/, '') : line.replace(/\s+/g, ' ').replace(/( \|)+\s*$/, '').trim();
-      if (text.trim()) { lines.push(text); size += text.length + 1; }
+      // (A heading or list mark with no text: nothing to read, e.g. its text is outside the marked area.)
+      if (text.trim() && !/^(#{1,6}|-||)$/.test(text.trim())) { lines.push(text); size += text.length + 1; }
       line = '';
       lineIsPre = false;
     };
@@ -297,6 +424,7 @@ export function pageHelpers() {
       if (size >= max || ++visited > 60000) return;
       if (node.nodeType === 3) {
         if (hidden) return;
+        if (AREA && node.textContent.trim() && !textInArea(node)) return;
         if (onScreenOnly) {
           const range = document.createRange();
           range.selectNodeContents(node);
@@ -323,7 +451,7 @@ export function pageHelpers() {
       if (block) flush();
       else if (cell) line += ' ';
       if (el.matches('input, textarea, select')) {
-        if (isHidden || (onScreenOnly && !onScreen(el))) return;
+        if (isHidden || (onScreenOnly && !onScreen(el)) || !inArea(el)) return;
         if (el.localName === 'textarea' && /\n/.test(el.value) && !cell) {
           // A multi-line text area (a code viewer, a long message): its text on its own lines.
           flush();
@@ -339,10 +467,10 @@ export function pageHelpers() {
       }
       if (/^h[1-6]$/.test(el.localName)) line += `${'#'.repeat(Number(el.localName[1]))} `;
       else if (el.localName === 'li') line += '- ';
-      else if (el.localName === 'img' && el.alt && !isHidden && (!onScreenOnly || onScreen(el))) line += ` [image: ${el.alt}] `;
+      else if (el.localName === 'img' && el.alt && !isHidden && (!onScreenOnly || onScreen(el)) && inArea(el)) line += ` [image: ${el.alt}] `;
       const isPre = pre || /^pre/.test(cs.whiteSpace);
       for (const child of (el.shadowRoot ? el.shadowRoot.childNodes : el.childNodes)) walk(child, isPre, isHidden, cell || isCell);
-      if (links && el.localName === 'a' && el.href && !/^javascript:/i.test(el.href)) line += ` (${el.getAttribute('href').slice(0, 200)})`;
+      if (links && el.localName === 'a' && el.href && !/^javascript:/i.test(el.href) && inArea(el)) line += ` (${el.getAttribute('href').slice(0, 200)})`;
       if (isCell && !cell) line += ' | ';
       if (block) flush();
     };
@@ -354,6 +482,7 @@ export function pageHelpers() {
   return {
     KEY_PROPERTIES, cssPath, label, computed, rect, overflowInfo, htmlExcerpt, toJson, target, state,
     refOf, byRef, queryAll, visible, onScreen, humanName, readable,
+    area: AREA, inArea, checkArea, textInArea, assertPage, pointInArea: (x, y) => (AREA ? pointInArea(x, y) : true),
   };
 }
 
@@ -385,8 +514,9 @@ export function selectedText(h, selected) {
 /** The small default context for the selected element ($0). */
 export function describeSelected(h, selected) {
   if (!(selected instanceof Element)) return null;
+  if (!h.inArea(selected)) return h.area ? 'The selected element is outside the area the user marked (or this is another page), so it is not shared' : null;
   const el = selected;
-  const parent = el.parentElement;
+  const parent = el.parentElement && h.inArea(el.parentElement) ? el.parentElement : null;
   const text = (el.innerText || '').trim();
   return {
     selector: h.cssPath(el),
@@ -450,7 +580,7 @@ export function inspectElement(h, selected, input) {
 
   if (include.has('ancestors')) {
     out.ancestors = [];
-    for (let node = el.parentElement; node && out.ancestors.length < 8; node = node.parentElement) {
+    for (let node = el.parentElement; node && h.inArea(node) && out.ancestors.length < 8; node = node.parentElement) {
       out.ancestors.push({
         selector: h.cssPath(node),
         box: h.rect(node),
@@ -462,7 +592,7 @@ export function inspectElement(h, selected, input) {
   }
 
   if (include.has('children')) {
-    out.children = [...el.children].slice(0, 30).map((c) => ({
+    out.children = [...el.children].filter((c) => h.inArea(c)).slice(0, 30).map((c) => ({
       selector: h.cssPath(c),
       box: h.rect(c),
       computed: h.computed(c, ['display', 'position', 'width', 'min-width', 'flex', 'white-space']),
@@ -478,6 +608,7 @@ export function inspectElement(h, selected, input) {
  * list the page landmarks so the model can find the header/nav/footer.
  */
 export function findElements(h, selected, input) {
+  h.assertPage();
   const limit = Math.min(Math.max(input.limit || 15, 1), 50);
   const selector = input.selector
     || (input.text ? '*' : 'header, nav, main, footer, aside, [role="banner"], [role="navigation"], [role="main"], [role="contentinfo"]');
@@ -526,6 +657,7 @@ export function findElements(h, selected, input) {
  * through with `offset`. For reading articles, messages, search results, file contents.
  */
 export function readText(h, selected, input) {
+  h.assertPage();
   const MAX = 12000;
   const root = input.ref || input.selector ? h.target(input.selector, selected, input.ref) : document.body;
   const from = Math.max(0, input.offset || 0);
@@ -547,6 +679,7 @@ export function readText(h, selected, input) {
  *   all: the whole page instead of only what's on screen
  */
 export function pageOutline(h, selected, input = {}) {
+  h.assertPage();
   const limit = Math.min(Math.max(input.limit || 60, 1), 200);
   const textChars = input.textChars ?? 1500;
   const INTERACTIVE = 'a[href], button, input:not([type=hidden]), select, textarea, summary, [contenteditable=""], [contenteditable="true"], '
@@ -591,10 +724,10 @@ export function pageOutline(h, selected, input = {}) {
     return bits.join(' ');
   };
 
-  const focused = document.activeElement && document.activeElement !== document.body ? document.activeElement : null;
+  const focused = document.activeElement && document.activeElement !== document.body && h.inArea(document.activeElement) ? document.activeElement : null;
   const headings = h.queryAll('h1, h2, h3, [role=heading]', scope).filter((el) => h.visible(el) && where(el))
     .slice(0, 12).map((el) => el.innerText.replace(/\s+/g, ' ').trim().slice(0, 100)).filter(Boolean);
-  const frames = [...document.querySelectorAll('iframe, frame')].filter((f) => h.visible(f)).slice(0, 10).map((f) => {
+  const frames = h.area ? [] : [...document.querySelectorAll('iframe, frame')].filter((f) => h.visible(f)).slice(0, 10).map((f) => {
     let url = f.src;
     try { url = f.contentWindow.location.href; } catch { /* cross-origin: its src is the best we know */ }
     return { url, title: f.title || undefined, onScreen: h.onScreen(f) };
@@ -603,8 +736,8 @@ export function pageOutline(h, selected, input = {}) {
   const page = document.scrollingElement || document.documentElement;
   const text = textChars > 0 ? h.readable(scope, { onScreenOnly: !input.all, max: textChars + 1 }) : '';
   return {
-    url: location.href,
-    title: document.title,
+    // With an area, the page's address and title stay out (a title can hold exactly what the user keeps hidden).
+    ...(h.area ? { area: 'Only the area the user marked is shown; the rest of the page is hidden from you.' } : { url: location.href, title: document.title }),
     scroll: page.scrollHeight > innerHeight + 4
       ? `screen ${Math.floor(scrollY / innerHeight) + 1} of ${Math.ceil(page.scrollHeight / innerHeight)}`
       : 'the whole page fits on screen',
@@ -625,6 +758,7 @@ export function pageOutline(h, selected, input = {}) {
  * @returns {{ pieces: { id: number, text: string }[], cut: boolean }}  cut: the page had more than the limit
  */
 export function collectTexts(h, selected, { maxPieces = 600, maxChars = 40000 } = {}) {
+  h.assertPage();
   const state = h.state();
   state.translate = state.translate ?? { nodes: [], originals: new Map() };
   const nodes = [];
@@ -637,7 +771,7 @@ export function collectTexts(h, selected, { maxPieces = 600, maxChars = 40000 } 
       const text = node.textContent.trim();
       if (text.length < 2 || !/\p{L}/u.test(text)) return NodeFilter.FILTER_REJECT; // no letters: numbers, symbols
       const parent = node.parentElement;
-      if (!parent || parent.closest(SKIP) || !h.visible(parent)) return NodeFilter.FILTER_REJECT;
+      if (!parent || parent.closest(SKIP) || !h.visible(parent) || !h.textInArea(node)) return NodeFilter.FILTER_REJECT;
       return NodeFilter.FILTER_ACCEPT;
     },
   });
@@ -760,8 +894,27 @@ export function readConsole(h, selected, input) {
  * Without a selector or selected element, the visible page is captured.
  */
 export function prepareScreenshot(h, selected, input) {
+  h.assertPage();
   const viewport = { width: innerWidth, height: innerHeight };
   const scroll = { x: scrollX, y: scrollY };
+  if (h.area) {
+    // The area, whatever was asked: brought into view, and its outline (viewport coordinates) so the panel can
+    // grey out everything outside it before the picture goes anywhere.
+    const xs = h.area.map((p) => p.x);
+    const ys = h.area.map((p) => p.y);
+    const box = { left: Math.min(...xs), top: Math.min(...ys), right: Math.max(...xs), bottom: Math.max(...ys) };
+    let scrolled = false;
+    if (box.top < scrollY || box.bottom > scrollY + innerHeight || box.left < scrollX || box.right > scrollX + innerWidth) {
+      scrollTo({ left: Math.max(0, box.left - 16), top: Math.max(0, box.top - 16), behavior: 'instant' });
+      scrolled = true;
+    }
+    const polygon = h.area.map((p) => ({ x: p.x - scrollX, y: p.y - scrollY }));
+    return {
+      viewport, scroll, scrolled, polygon,
+      rect: { x: box.left - scrollX, y: box.top - scrollY, width: box.right - box.left, height: box.bottom - box.top },
+      label: 'the marked area',
+    };
+  }
   if (input.fullViewport || (!input.ref && !input.selector && !(selected instanceof Element))) {
     return { viewport, scroll, scrolled: false, rect: null, label: 'the visible page' };
   }
@@ -789,7 +942,281 @@ export function prepareScreenshot(h, selected, input) {
 export function setCardHidden(h, selected, { hidden }) {
   const card = document.getElementById('integratedai-card');
   if (card) card.style.visibility = hidden ? 'hidden' : '';
-  return Boolean(card);
+  // The area's outline isn't part of the page either.
+  const area = document.getElementById('integratedai-area');
+  if (area) area.style.visibility = hidden ? 'hidden' : '';
+  return Boolean(card || area); // something to wait for (a repaint)
+}
+
+// ───────────────────────────────────────────────────────────── the marked area
+
+/**
+ * The area the AI may see, on the page:
+ *   mode "edit": the user marks it. Drag to draw a rectangle, or click an element to take its box. Then drag
+ *                the corners, drag the dots between corners to add a corner, drag inside to move it, and
+ *                double-click a corner to remove it. Done (Enter), Redraw, Cancel (Esc).
+ *   mode "show": just its outline (not clickable), so the user always sees what's shared.
+ *   mode "off":  nothing.
+ * Points are in document coordinates. The panel reads the result with areaStatus (and keeps the area itself:
+ * it sends it with every call, so what the page does with this outline can't widen it).
+ * @param {{ mode: 'edit' | 'show' | 'off', points?: {x: number, y: number}[], labels?: Record<string, string> }} args
+ */
+export function areaOverlay(h, selected, { mode, points = [], labels = {} }) {
+  const state = h.state();
+  state.areaUi?.stop();
+  state.areaResult = null;
+  if (mode === 'off') return true;
+  const L = { draw: 'Drag to mark the area the AI may see, or click an element', edit: 'Drag the corners to shape it. Drag a dot between corners to add one, drag inside to move it, double-click a corner to remove it.',
+    done: 'Done', redraw: 'Redraw', cancel: 'Cancel', shown: 'The AI sees only this', ...labels };
+  const BLUE = '#1a73e8';
+  const editing = mode === 'edit';
+  let pts = points.map((p) => ({ x: p.x, y: p.y }));
+  let phase = editing && pts.length < 3 ? 'draw' : 'edit';
+
+  const host = document.createElement('div');
+  host.id = 'integratedai-area';
+  host.style.cssText = `all:initial;position:fixed;inset:0;z-index:2147483645;pointer-events:${editing ? 'auto' : 'none'}`;
+  const root = host.attachShadow({ mode: 'closed' });
+  root.innerHTML = `<style>
+    svg { position: fixed; inset: 0; width: 100vw; height: 100vh; overflow: visible; }
+    .dim { fill: rgba(32, 33, 36, ${editing ? 0.35 : 0.12}); fill-rule: evenodd; }
+    .shape { fill: transparent; stroke: ${BLUE}; stroke-width: 2; cursor: ${editing ? 'move' : 'default'}; }
+    .rubber { fill: rgba(26, 115, 232, .12); stroke: ${BLUE}; stroke-width: 1.5; stroke-dasharray: 4 3; }
+    .corner { fill: #fff; stroke: ${BLUE}; stroke-width: 2; cursor: grab; }
+    .mid { fill: ${BLUE}; opacity: .55; cursor: copy; }
+    .mid:hover { opacity: 1; }
+    .bar { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 8px;
+      max-width: calc(100vw - 32px); padding: 6px 8px 6px 12px; border-radius: 6px; background: #202124; color: #e8eaed;
+      font: 13px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; box-shadow: 0 2px 8px rgba(0,0,0,.3); }
+    .bar span { flex: 1; min-width: 0; }
+    .bar button { font: inherit; padding: 3px 10px; border-radius: 4px; border: 1px solid #5f6368; background: #303134; color: #e8eaed; cursor: pointer; }
+    .bar button.primary { background: ${BLUE}; border-color: ${BLUE}; color: #fff; }
+    .bar button:disabled { opacity: .5; cursor: default; }
+    .tag { position: fixed; padding: 1px 8px; border-radius: 4px; background: ${BLUE}; color: #fff; white-space: nowrap;
+      font: 600 12px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    .pick { position: fixed; border: 2px solid ${BLUE}; background: rgba(26, 115, 232, .1); border-radius: 2px; pointer-events: none; display: none; }
+  </style>
+  <svg xmlns="http://www.w3.org/2000/svg"></svg>
+  <div class="pick"></div>
+  ${editing ? `<div class="bar" role="toolbar"><span></span><button type="button" data-do="redraw"></button><button type="button" data-do="cancel"></button><button type="button" class="primary" data-do="done"></button></div>` : '<div class="tag"></div>'}`;
+  document.documentElement.append(host);
+  const svg = root.querySelector('svg');
+  const pick = root.querySelector('.pick');
+  const bar = root.querySelector('.bar');
+  const tag = root.querySelector('.tag');
+  if (bar) {
+    bar.querySelector('[data-do=redraw]').textContent = L.redraw;
+    bar.querySelector('[data-do=cancel]').textContent = L.cancel;
+    bar.querySelector('[data-do=done]').textContent = L.done;
+  }
+  if (tag) tag.textContent = L.shown;
+  const NS = 'http://www.w3.org/2000/svg';
+  const make = (name, attrs) => {
+    const node = document.createElementNS(NS, name);
+    for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, String(v));
+    return node;
+  };
+  // Document ↔ screen coordinates.
+  const toScreen = (p) => ({ x: p.x - scrollX, y: p.y - scrollY });
+  const page = () => document.scrollingElement || document.documentElement;
+  const clamp = (p) => ({
+    x: Math.round(Math.min(Math.max(p.x, 0), page().scrollWidth)),
+    y: Math.round(Math.min(Math.max(p.y, 0), page().scrollHeight)),
+  });
+  const inside = (x, y) => {
+    let hit = false;
+    for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+      const a = toScreen(pts[i]);
+      const b = toScreen(pts[j]);
+      if ((a.y > y) !== (b.y > y) && x < ((b.x - a.x) * (y - a.y)) / (b.y - a.y) + a.x) hit = !hit;
+    }
+    return hit;
+  };
+
+  let rubber = null; // the rectangle being drawn, in screen coordinates
+  function render() {
+    svg.replaceChildren();
+    const W = innerWidth;
+    const H = innerHeight;
+    const screenPts = pts.map(toScreen);
+    if (phase === 'edit' && screenPts.length >= 3) {
+      const poly = screenPts.map((p) => `${p.x},${p.y}`).join(' ');
+      svg.append(make('path', { class: 'dim', d: `M0,0H${W}V${H}H0Z M${screenPts.map((p) => `${p.x},${p.y}`).join(' L')}Z` }));
+      svg.append(make('polygon', { class: 'shape', points: poly, 'data-part': 'shape' }));
+      if (editing) {
+        screenPts.forEach((p, i) => {
+          const q = screenPts[(i + 1) % screenPts.length];
+          svg.append(make('circle', { class: 'mid', cx: (p.x + q.x) / 2, cy: (p.y + q.y) / 2, r: 4.5, 'data-part': 'mid', 'data-i': i }));
+        });
+        screenPts.forEach((p, i) => svg.append(make('circle', { class: 'corner', cx: p.x, cy: p.y, r: 6.5, 'data-part': 'corner', 'data-i': i })));
+      }
+      if (tag) {
+        const top = Math.min(...screenPts.map((p) => p.y));
+        const left = Math.min(...screenPts.map((p) => p.x));
+        Object.assign(tag.style, { left: `${Math.max(4, left)}px`, top: `${top > 26 ? top - 24 : top + 4}px` });
+      }
+    } else {
+      svg.append(make('rect', { class: 'dim', x: 0, y: 0, width: W, height: H }));
+      if (rubber) {
+        svg.append(make('rect', {
+          class: 'rubber', x: Math.min(rubber.x0, rubber.x1), y: Math.min(rubber.y0, rubber.y1),
+          width: Math.abs(rubber.x1 - rubber.x0), height: Math.abs(rubber.y1 - rubber.y0),
+        }));
+      }
+    }
+    if (bar) {
+      bar.querySelector('span').textContent = phase === 'draw' ? L.draw : L.edit;
+      bar.querySelector('[data-do=done]').disabled = pts.length < 3;
+      bar.querySelector('[data-do=redraw]').hidden = phase === 'draw';
+    }
+    host.style.cursor = phase === 'draw' ? 'crosshair' : '';
+  }
+
+  /** The page element under the pointer (the overlay steps aside for a moment to find it). */
+  const elementAt = (x, y) => {
+    host.style.display = 'none';
+    const el = document.elementFromPoint(x, y);
+    host.style.display = '';
+    return el && el !== document.documentElement && el !== document.body && el.id !== 'integratedai-card' ? el : null;
+  };
+  const finish = (result) => {
+    state.areaUi?.stop();
+    if (result === 'done') areaOverlay(h, selected, { mode: 'show', points: pts, labels }); // keep the outline
+    // (after that: showing the outline starts with a clean result)
+    state.areaResult = { result, points: pts, url: location.href.split('#')[0] };
+  };
+
+  let drag = null;
+  const down = (e) => {
+    if (e.button !== 0 || e.composedPath().some((n) => n === bar)) return;
+    e.preventDefault();
+    const part = e.target.getAttribute?.('data-part');
+    const i = Number(e.target.getAttribute?.('data-i'));
+    if (phase === 'draw') {
+      drag = { kind: 'draw' };
+      rubber = { x0: e.clientX, y0: e.clientY, x1: e.clientX, y1: e.clientY };
+    } else if (part === 'corner') {
+      drag = { kind: 'corner', i };
+    } else if (part === 'mid') {
+      pts.splice(i + 1, 0, { x: e.clientX + scrollX, y: e.clientY + scrollY });
+      drag = { kind: 'corner', i: i + 1 };
+    } else if (inside(e.clientX, e.clientY)) {
+      drag = { kind: 'move', x: e.clientX, y: e.clientY, from: pts.map((p) => ({ ...p })) };
+    } else {
+      return;
+    }
+    svg.setPointerCapture?.(e.pointerId);
+    render();
+  };
+  const move = (e) => {
+    if (!drag) {
+      // Drawing: show which element a click would take.
+      if (phase === 'draw') {
+        const el = elementAt(e.clientX, e.clientY);
+        const r = el?.getBoundingClientRect();
+        Object.assign(pick.style, r ? { display: 'block', left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px` } : { display: 'none' });
+      }
+      return;
+    }
+    if (drag.kind === 'draw') {
+      rubber.x1 = e.clientX;
+      rubber.y1 = e.clientY;
+      pick.style.display = 'none';
+    } else if (drag.kind === 'corner') {
+      pts[drag.i] = clamp({ x: e.clientX + scrollX, y: e.clientY + scrollY });
+    } else if (drag.kind === 'move') {
+      const dx = e.clientX - drag.x;
+      const dy = e.clientY - drag.y;
+      pts = drag.from.map((p) => clamp({ x: p.x + dx, y: p.y + dy }));
+    }
+    render();
+  };
+  const up = (e) => {
+    if (!drag) return;
+    if (drag.kind === 'draw') {
+      const wide = Math.abs(rubber.x1 - rubber.x0) > 6 && Math.abs(rubber.y1 - rubber.y0) > 6;
+      let box = null;
+      if (wide) {
+        box = { left: Math.min(rubber.x0, rubber.x1), top: Math.min(rubber.y0, rubber.y1), right: Math.max(rubber.x0, rubber.x1), bottom: Math.max(rubber.y0, rubber.y1) };
+      } else {
+        // A click: the box of the element under it (a little bigger, so its edges are inside).
+        const r = elementAt(e.clientX, e.clientY)?.getBoundingClientRect();
+        if (r && r.width && r.height) box = { left: r.left - 4, top: r.top - 4, right: r.right + 4, bottom: r.bottom + 4 };
+      }
+      rubber = null;
+      pick.style.display = 'none';
+      if (box) {
+        pts = [[box.left, box.top], [box.right, box.top], [box.right, box.bottom], [box.left, box.bottom]]
+          .map(([x, y]) => clamp({ x: x + scrollX, y: y + scrollY }));
+        phase = 'edit';
+      }
+    }
+    drag = null;
+    render();
+  };
+  const dbl = (e) => {
+    if (e.target.getAttribute?.('data-part') !== 'corner' || pts.length <= 3) return;
+    pts.splice(Number(e.target.getAttribute('data-i')), 1);
+    render();
+  };
+  const key = (e) => {
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); finish('cancel'); }
+    else if (e.key === 'Enter' && pts.length >= 3 && phase === 'edit') { e.preventDefault(); e.stopPropagation(); finish('done'); }
+  };
+  const click = (e) => {
+    const action = e.target.closest?.('button')?.dataset.do;
+    if (action === 'done') finish('done');
+    else if (action === 'cancel') finish('cancel');
+    else if (action === 'redraw') { pts = []; phase = 'draw'; render(); }
+  };
+  const redraw = () => requestAnimationFrame(render);
+
+  if (editing) {
+    // On the (closed) shadow root: outside it, every event looks like it came from the host.
+    root.addEventListener('pointerdown', down);
+    root.addEventListener('pointermove', move);
+    root.addEventListener('pointerup', up);
+    root.addEventListener('dblclick', dbl);
+    root.addEventListener('click', click);
+    addEventListener('keydown', key, true);
+  }
+  addEventListener('scroll', redraw, true);
+  addEventListener('resize', redraw);
+  state.areaUi = {
+    stop() {
+      removeEventListener('keydown', key, true);
+      removeEventListener('scroll', redraw, true);
+      removeEventListener('resize', redraw);
+      host.remove();
+      state.areaUi = undefined;
+    },
+  };
+  render();
+  return true;
+}
+
+/** What happened in the area editor since the last look: { result: 'done' | 'cancel', points } or null (still editing). */
+export function areaStatus(h) {
+  const state = h.state();
+  const result = state.areaResult;
+  state.areaResult = null;
+  return result ?? (state.areaUi ? null : { result: 'gone', points: [] });
+}
+
+/**
+ * The outermost elements completely inside the area (as selectors), at most 40: CSS changes are limited to
+ * them (@scope), and scripts get them as $area.
+ */
+export function areaRoots(h) {
+  if (!h.area) return [];
+  const roots = [];
+  const walk = (el) => {
+    if (roots.length >= 40) return;
+    if (h.inArea(el)) { roots.push(h.cssPath(el)); return; }
+    for (const child of el.children) walk(child);
+  };
+  walk(document.body);
+  return roots;
 }
 
 /**

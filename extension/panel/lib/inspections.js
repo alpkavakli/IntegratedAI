@@ -93,12 +93,16 @@ async function takeScreenshot(input, ctx) {
   const scale = bitmap.width / target.viewport.width; // device pixels per CSS pixel
   let crop = { x: 0, y: 0, w: bitmap.width, h: bitmap.height };
   let cutOff = false;
+  // With a marked area: exactly its box (no padding), and everything outside the area greyed out below.
+  const padding = target.polygon ? 0 : SCREENSHOT_PADDING;
+  let x0 = 0;
+  let y0 = 0;
   if (target.rect) {
     const r = target.rect;
-    const x0 = Math.max(0, r.x - SCREENSHOT_PADDING);
-    const y0 = Math.max(0, r.y - SCREENSHOT_PADDING);
-    const x1 = Math.min(target.viewport.width, r.x + r.width + SCREENSHOT_PADDING);
-    const y1 = Math.min(target.viewport.height, r.y + r.height + SCREENSHOT_PADDING);
+    x0 = Math.max(0, r.x - padding);
+    y0 = Math.max(0, r.y - padding);
+    const x1 = Math.min(target.viewport.width, r.x + r.width + padding);
+    const y1 = Math.min(target.viewport.height, r.y + r.height + padding);
     if (x1 <= x0 || y1 <= y0) throw new Error('The element is not on screen, so it cannot be captured');
     // 1px tolerance: boxes often end at fractional pixels just past the edge.
     cutOff = r.x < -1 || r.y < -1 || r.x + r.width > target.viewport.width + 1 || r.y + r.height > target.viewport.height + 1;
@@ -112,8 +116,23 @@ async function takeScreenshot(input, ctx) {
   const width = Math.max(1, Math.round(crop.w * k));
   const height = Math.max(1, Math.round(crop.h * k));
   const canvas = new OffscreenCanvas(width, height);
-  /** @type {OffscreenCanvasRenderingContext2D} */ (canvas.getContext('2d')).drawImage(bitmap, crop.x, crop.y, crop.w, crop.h, 0, 0, width, height);
+  const context = /** @type {OffscreenCanvasRenderingContext2D} */ (canvas.getContext('2d'));
+  context.drawImage(bitmap, crop.x, crop.y, crop.w, crop.h, 0, 0, width, height);
   bitmap.close();
+  if (target.polygon) {
+    // Paint over everything outside the area before the picture leaves this function.
+    const f = scale * k;
+    context.beginPath();
+    context.rect(0, 0, width, height);
+    target.polygon.forEach((/** @type {{x: number, y: number}} */ p, /** @type {number} */ i) => {
+      const x = (p.x - x0) * f;
+      const y = (p.y - y0) * f;
+      if (i) context.lineTo(x, y); else context.moveTo(x, y);
+    });
+    context.closePath();
+    context.fillStyle = '#80868b';
+    context.fill('evenodd');
+  }
   const blob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.85 });
 
   return {

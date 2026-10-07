@@ -96,6 +96,18 @@ Only the text changes; **Undo** restores it. Long pages: up to about 40,000 char
 **Save as Markdown:** the download icon next to the model saves the conversation (questions, answers, what it
 looked at, and each change with what happened to it) as a `.md` file.
 
+**Page access (what the AI may see):** the menu next to the message box. *Whole page* (default); *Only an area…*:
+you mark part of the page and the AI sees and works only there; *Just answer*: nothing from the page, only your
+question. Marking an area: drag a rectangle, or click an element to take its box; then drag the corners, drag the
+dots between corners to add corners (any shape), drag inside to move it, double-click a corner to remove it, Enter or
+Done. The extension decides what's inside, not the AI: the panel keeps the area and sends it with every call into
+the page ([page-scripts.js](extension/panel/lib/page-scripts.js), `pageHelpers(scope)`), where element lookups,
+refs, text, clicks and typing only see elements completely inside it (partly inside counts as outside), labels from
+outside are dropped, screenshots are cropped and masked, CSS is wrapped in `@scope`, scripts get `$area` and their
+result isn't returned. The page address, title, console, network and site memory aren't sent. The area belongs to the
+page it was marked on: on any other page every tool refuses until the user confirms it there (the editor opens with
+the same shape). Tested in `npm run page-check` (tries to read outside in every way) and `npm run ui-check`.
+
 **Copy text:** the button next to the context chips copies the selected element's text to the clipboard. The extension does this itself; no AI is involved.
 
 ### Quick start (direct mode)

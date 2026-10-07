@@ -16,7 +16,8 @@
  * DevTools for the rest. Both share the tab's conversation, so DevTools continues where the card was.
  */
 
-import { ACTIONS, CARD_ACTIONS, isPageAction, validateAction } from '../shared/actions.js';
+import { ACTIONS, AREA_ACTIONS, CARD_ACTIONS, isPageAction, validateAction } from '../shared/actions.js';
+import { PageAccess } from './lib/page-access.js';
 import { IN_CARD, TAB_ID } from './lib/surface.js';
 import { AgentRunner } from './lib/agent-runner.js';
 import { hideWorkingBadge, showWorkingBadge, takeStopRequest } from './lib/page-interact.js';
@@ -87,6 +88,9 @@ export class App {
     });
     this.patchesView = /** @type {any} */ (null);
     this.consoleView = /** @type {any} */ (null);
+    /** What of the page the AI may see: the whole page, a marked area, or nothing ("Just answer"). */
+    this.access = new PageAccess(this.tabId, { onChange: () => this.renderAccess() });
+    this.changes.areaRoots = () => (this.access.mode === 'area' ? this.access.roots : null);
   }
 
   async start() {
@@ -128,6 +132,10 @@ export class App {
     const page = await callInPage(pageInfo);
     this.pageUrl = page.url;
     this.chat.setPageLang(page.lang ?? '');
+    $('page-access').addEventListener('change', () => this.access.setMode($('page-access').value).catch((err) => this.showError(err.message)));
+    $('area-change').addEventListener('click', () => this.access.edit().catch((err) => this.showError(err.message)));
+    await this.access.load(page.url).catch(() => {});
+    this.renderAccess();
     await this.changes.load(page.timeOrigin);
 
     // translate_page cards: each batch goes to the conversation's provider; progress shows on the card.
@@ -227,6 +235,19 @@ export class App {
     $('model-select').addEventListener('change', () => this.configure({ model: $('model-select').value }));
   }
 
+  /** The Page access menu and the line about the marked area. */
+  renderAccess() {
+    const { mode, editing, pending, points } = this.access;
+    $('page-access').value = mode;
+    document.body.dataset.pageAccess = mode;
+    $('area-row').hidden = mode !== 'area';
+    $('area-label').textContent = editing ? t('areaMarking', 'Mark the area on the page, then click Done there')
+      : pending || points.length < 3 ? t('areaConfirm', 'This is another page: confirm the area here before the AI sees anything')
+        : t('areaShared', 'The AI sees only the marked area');
+    $('area-change').hidden = editing;
+    $('area-change').textContent = pending || points.length < 3 ? t('areaMark', 'Mark it') : t('areaChange', 'Change');
+  }
+
   /** @param {string} name */
   showTab(name) {
     for (const tab of document.querySelectorAll('.tabs button')) {
@@ -259,7 +280,7 @@ export class App {
     // Reload or navigation: the page is fresh, so nothing we applied is active any more.
     chrome.devtools.network.onNavigated.addListener((url) => {
       this.pageUrl = url;
-      this.navigationReset = this.afterNavigation();
+      this.navigationReset = this.afterNavigation().then(() => this.access.pageChanged(url));
     });
   }
 
@@ -309,6 +330,7 @@ export class App {
       if (change.status === 'complete') callInPage(pageInfo).then((page) => this.chat.setPageLang(page.lang ?? '')).catch(() => {});
       if (!change.url) return;
       this.pageUrl = change.url;
+      this.access.pageChanged(change.url).catch(() => {}); // an app changing its address without a new page
       this.patchesView.refresh();
       this.refreshMemory();
     });
@@ -511,6 +533,9 @@ export class App {
     try {
       const errors = validateAction(name, input);
       if (errors.length) throw new Error(errors.join('; '));
+      // The page access the user chose, enforced here too (the agent decides what it offers; this runs it).
+      if (this.access.mode === 'none') throw new Error('The user chose "Just answer": the page is not shared');
+      if (this.access.mode === 'area' && !AREA_ACTIONS.includes(name)) throw new Error(`${ACTIONS[name]?.label ?? name} is not available while only a marked area is shared`);
       if (isPageAction(name)) {
         // The panel enforces the mode itself: nothing runs here in Suggest mode.
         await this.navigationReset;
@@ -538,23 +563,32 @@ export class App {
   async sendFromUi(text, extra = {}) {
     text = text.trim();
     if (!text || !this.session || !this.connected || this.session.busy) return;
+    // "Only an area" without a confirmed area on this page: mark it first (the message waits in the box).
+    if (this.access.mode === 'area' && !this.access.areaReady) {
+      if (!this.access.editing) this.access.edit().catch((err) => this.showError(err.message));
+      return;
+    }
     $('prompt').value = '';
     $('send').disabled = true;
     try {
-      const { context } = await collectContext({
+      const full = this.access.mode === 'full';
+      const { context } = this.access.mode === 'none' ? { context: {} } : await collectContext({
         selected: $('ctx-selected').checked,
-        console: $('ctx-console').checked,
-        network: $('ctx-network').checked,
-      }, extra);
+        // The console and the network log are about the whole page: only with full access.
+        console: full && $('ctx-console').checked,
+        network: full && $('ctx-network').checked,
+      }, full ? extra : {});
       this.lastSentSelector = /** @type {any} */ (context.selected)?.selector ?? '';
       this.client.send({
         type: 'chat.send',
         conversationId: this.session.id,
         text,
-        context,
+        context: this.access.limitContext(context),
+        pageUrl: this.pageUrl,
         settings: {
           executeJs: this.settings.executeJs, webTools: this.settings.webTools, agentMode: this.settings.defaultAgentMode,
           ...(IN_CARD ? { surface: 'card' } : {}),
+          ...(this.access.mode !== 'full' ? { pageAccess: this.access.mode } : {}),
         },
       });
     } catch (err) {
@@ -885,6 +919,7 @@ export class App {
     $('provider-select').disabled = busy;
     $('model-select').disabled = busy;
     $('agent-mode').disabled = busy;
+    $('page-access').disabled = busy;
   }
 
   renderProviderPicker() {

@@ -60,6 +60,8 @@ const AGENT_SCRIPT = [
 ];
 /** What the page steps returned to the stand-in AI (each should carry an outline of the page). @type {string[]} */
 const agentResults = [];
+/** The chat requests the stand-in got (to check what a limited page access lets through). @type {any[]} */
+const chatRequests = [];
 
 /**
  * Speaks the part of Ollama's API the extension uses. In Suggest mode every chat answer is the
@@ -83,6 +85,21 @@ const ollama = http.createServer((req, res) => {
       const pieces = JSON.parse(request.messages.at(-1).content);
       send({ choices: [{ delta: { content: JSON.stringify(pieces.map((/** @type {any} */ p) => ({ id: p.id, text: p.text.toUpperCase() }))) } }] });
       send({ choices: [{ delta: {}, finish_reason: 'stop' }] });
+      return res.end('data: [DONE]\n\n');
+    }
+    chatRequests.push(request);
+    // Page access checks: read the page once (whatever the access allows), then answer.
+    const lastText = request.messages.findLast((/** @type {any} */ m) => m.role === 'user' && typeof m.content === 'string')?.content ?? '';
+    if (/AREA-TEST|NONE-TEST/.test(lastText)) {
+      const tools = (request.tools ?? []).map((/** @type {any} */ t) => t.function.name);
+      const after = request.messages.slice(request.messages.findLastIndex((/** @type {any} */ m) => m.role === 'user' && typeof m.content === 'string'));
+      if (tools.includes('read_text') && !after.some((/** @type {any} */ m) => m.role === 'tool')) {
+        send({ choices: [{ delta: { tool_calls: [{ index: 0, id: `call_rt_${Date.now()}`, type: 'function', function: { name: 'read_text', arguments: '{}' } }] } }] });
+        send({ choices: [{ delta: {}, finish_reason: 'tool_calls' }] });
+      } else {
+        send({ choices: [{ delta: { content: 'Here is what I can tell.' } }] });
+        send({ choices: [{ delta: {}, finish_reason: 'stop' }] });
+      }
       return res.end('data: [DONE]\n\n');
     }
     // "Translate this page": propose it.
@@ -513,6 +530,60 @@ try {
   await sleep(800);
   const restored = await ev(cardPage.session, `document.querySelector('h1').textContent`);
   if (restored !== 'Simple, honest pricing') violations.push(`card: Undo did not restore the text (${restored})`);
+
+  // Page access, "Only an area…": mark the heading on the page by dragging, ask, and check what the AI got.
+  /** Wait until the message reached the stand-in AI, then until the turn is over. @param {number} from */
+  const waitAnswer = async (from) => {
+    for (let i = 0; i < 40 && chatRequests.length <= from; i++) await sleep(250);
+    await sleep(300);
+    for (let i = 0; i < 60 && (await ev(cardSession, `document.getElementById('send').classList.contains('busy')`)); i++) await sleep(250);
+  };
+  await ev(cardSession, `(() => { const s = document.getElementById('page-access'); s.value = 'area'; s.dispatchEvent(new Event('change')); })()`);
+  for (let i = 0; i < 20 && !(await ev(cardPage.session, `!!document.getElementById('integratedai-area')`)); i++) await sleep(250);
+  // Around the heading's text (the h1 itself is as wide as the page).
+  const h1 = await ev(cardPage.session, `(() => { const range = document.createRange(); range.selectNodeContents(document.querySelector('h1')); const r = range.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom }; })()`);
+  const mouse = (/** @type {string} */ type, /** @type {number} */ x, /** @type {number} */ y) =>
+    cdp('Input.dispatchMouseEvent', { type, x, y, button: 'left', buttons: type === 'mouseReleased' ? 0 : 1, clickCount: 1 }, cardPage.session);
+  await mouse('mousePressed', h1.l - 20, h1.t - 12);
+  await mouse('mouseMoved', (h1.l + h1.r) / 2, h1.b);
+  await mouse('mouseMoved', h1.r + 20, h1.b + 12);
+  await mouse('mouseReleased', h1.r + 20, h1.b + 12);
+  await shot(cardPage, 'page-16-area-editor', 1280, 800);
+  await cdp('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 }, cardPage.session);
+  let areaLine = '';
+  for (let i = 0; i < 20 && !/sees only the marked area/.test(areaLine = await ev(cardSession, `document.getElementById('area-row').hidden ? '' : document.getElementById('area-label').textContent`)); i++) await sleep(250);
+  log(`card: area marked → "${areaLine}"`);
+  if (!/sees only the marked area/.test(areaLine)) violations.push(`card: marking the area did not finish (${areaLine})`);
+  await shot(cardPage, 'page-17-area-marked', 1280, 800);
+  const before = chatRequests.length;
+  await ev(cardSession, `document.getElementById('prompt').value = 'AREA-TEST what is here?'; document.getElementById('composer').requestSubmit()`);
+  await waitAnswer(before);
+  const areaRequests = chatRequests.slice(before);
+  const first = areaRequests[0];
+  const offered = (first?.tools ?? []).map((/** @type {any} */ t) => t.function.name);
+  const sentText = JSON.stringify(first?.messages.findLast((/** @type {any} */ m) => m.role === 'user') ?? '');
+  const readResult = String(areaRequests.at(-1)?.messages.findLast((/** @type {any} */ m) => m.role === 'tool')?.content ?? '');
+  log(`card: area → offered ${offered.join(', ')}; read_text gave ${JSON.stringify(readResult.slice(0, 120))}`);
+  if (!first) violations.push('card: area: nothing reached the AI');
+  if (offered.includes('inspect_console') || offered.includes('remember')) violations.push(`card: area: tools outside the area were offered (${offered})`);
+  if (/pricing\.html|Lumen Cloud|"title"/.test(sentText)) violations.push(`card: area: the page address or title was sent (${sentText.slice(0, 300)})`);
+  if (!/Simple, honest pricing/.test(readResult)) violations.push(`card: area: read_text missed the marked heading (${readResult.slice(0, 200)})`);
+  if (/Choose Team|Starter|\$29/.test(readResult)) violations.push(`card: area: read_text gave text outside the area (${readResult.slice(0, 300)})`);
+
+  // "Just answer": no tools, no page.
+  await ev(cardSession, `(() => { const s = document.getElementById('page-access'); s.value = 'none'; s.dispatchEvent(new Event('change')); })()`);
+  await sleep(500);
+  if (await ev(cardPage.session, `!!document.getElementById('integratedai-area')`)) violations.push('card: just answer: the area outline is still on the page');
+  const beforeNone = chatRequests.length;
+  await ev(cardSession, `document.getElementById('prompt').value = 'NONE-TEST how do I center a div?'; document.getElementById('composer').requestSubmit()`);
+  await waitAnswer(beforeNone);
+  const noneRequest = chatRequests[beforeNone];
+  const noneText = JSON.stringify(noneRequest?.messages.findLast((/** @type {any} */ m) => m.role === 'user') ?? '');
+  log(`card: just answer → ${(noneRequest?.tools ?? []).length} tools offered`);
+  if (!noneRequest) violations.push('card: just answer: nothing reached the AI');
+  else if ((noneRequest.tools ?? []).length) violations.push(`card: just answer: tools were offered (${noneRequest.tools.length})`);
+  if (/pricing|Simple, honest|"page"/.test(noneText)) violations.push(`card: just answer: page content was sent (${noneText.slice(0, 300)})`);
+  await ev(cardSession, `(() => { const s = document.getElementById('page-access'); s.value = 'full'; s.dispatchEvent(new Event('change')); })()`);
   await ev(sw, `chrome.storage.session.set({ 'card:${cardTab}': { open: false } })`);
 
   // Nothing set up yet: the panel's first-run screen.

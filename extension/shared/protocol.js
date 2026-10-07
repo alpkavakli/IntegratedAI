@@ -16,7 +16,7 @@
  *   session.reset    { id, url, title }                        → session.state (new conversation)
  *   session.config   { conversationId, provider?, model? }     → session.state
  *   providers.list   { id }                                    → providers
- *   chat.send        { conversationId, text, context, settings }
+ *   chat.send        { conversationId, text, context, settings (incl. pageAccess), pageUrl }
  *   chat.cancel      { conversationId }
  *   tool.result      { requestId, ok, result?, error? }        (answer to tool.request)
  *   action.status    { conversationId, actionId, status, detail? }

@@ -10,6 +10,19 @@ running on your own computer ("direct mode"), or to an agent server that runs on
 
 ## What the extension reads
 
+You choose how much of the page the AI may see, in the **Page access** menu next to the message box:
+
+- **Whole page** (the default): what's described below, when the AI needs it.
+- **Only an area:** you mark part of the page. The extension works out on your computer what lies inside it, and
+  only that is read, changed or photographed (screenshots are cropped to it, with everything else greyed out).
+  The page's address and title, the console, the network log and site memory are not used. After going to another
+  page, nothing is read until you confirm the area there. A script you approve may still act on the whole page, so
+  in this mode its result is not sent to the AI.
+- **Just answer:** nothing from the page is sent; only your question.
+
+In every mode, values of hidden fields, password and card-number fields, script contents and token-like values are
+removed from any HTML that is sent.
+
 Only when you use the AI panel, and only from the tab you are inspecting:
 
 - **Page content you choose to share.** For example, the element selected in the Elements panel (its HTML

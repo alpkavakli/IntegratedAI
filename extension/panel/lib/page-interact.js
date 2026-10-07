@@ -31,6 +31,7 @@
  *   | { found: true, what: string, risky: string }}  risky: why it is, or ''; target: see below (steps on an element)
  */
 export function interactStep(h, selected, { actionId, step, dry = false, hold = false }) {
+  h.assertPage?.();
   const norm = (s) => String(s ?? '').replace(/\s+/g, ' ').trim().toLowerCase();
   const visible = h.visible;
   const humanName = h.humanName;
@@ -220,6 +221,10 @@ export function interactStep(h, selected, { actionId, step, dry = false, hold = 
   // Steps that don't need a target: scroll the page, press a key on what has focus, pause.
   const targetless = !step.selector && !step.text && !step.ref;
   if (targetless && ['scroll', 'press', 'wait'].includes(step.action)) {
+    // With a marked area, a key goes only to something inside it.
+    if (step.action === 'press' && h.area && !h.inArea(document.activeElement)) {
+      throw new Error('What has focus is outside the area the user marked: press the key in a field inside it (give its ref)');
+    }
     if (dry) {
       const focused = document.activeElement;
       const what = step.action === 'scroll' ? `scroll the page ${step.value}`

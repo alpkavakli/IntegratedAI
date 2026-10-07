@@ -16,6 +16,22 @@ import { pageHelpers } from './page-scripts.js';
 import { IN_CARD, TAB_ID } from './surface.js';
 
 /**
+ * The area the user marked ({ area: [{x, y}, …], url }: document coordinates, and the page it was marked on), or
+ * null for the whole page. It goes with every call into the page, where the helpers leave out everything outside
+ * it, and show nothing at all on another page (see pageHelpers).
+ * @type {{ area: { x: number, y: number }[], url: string } | null}
+ */
+let pageScope = null;
+
+/**
+ * @param {{ x: number, y: number }[] | null} area
+ * @param {string} [url]  the page's address (without #…)
+ */
+export function setPageArea(area, url = '') {
+  pageScope = area && area.length >= 3 ? { area: area.map(({ x, y }) => ({ x: Number(x), y: Number(y) })), url } : null;
+}
+
+/**
  * Evaluate an expression in the inspected page, or in one of its frames.
  * @param {string} expression
  * @param {string} [frame] URL of an iframe (as the frame reports it); omit for the page itself
@@ -50,7 +66,7 @@ export function evalInPage(expression, frame) {
  */
 export function callInPage(fn, args = {}, frame = undefined) {
   if (IN_CARD) return callInCard(fn, args, frame);
-  const expression = `(${fn.toString()})((${pageHelpers.toString()})(), typeof $0 === 'undefined' ? undefined : $0, ${JSON.stringify(args)})`;
+  const expression = `(${fn.toString()})((${pageHelpers.toString()})(${JSON.stringify(pageScope)}), typeof $0 === 'undefined' ? undefined : $0, ${JSON.stringify(args)})`;
   return evalInPage(expression, frame);
 }
 
@@ -79,7 +95,7 @@ async function callInCard(fn, args, frame) {
     target: { tabId: TAB_ID },
     world: 'ISOLATED',
     func: runInCard,
-    args: [fn.name, /** @type {any} */ (args)],
+    args: [fn.name, /** @type {any} */ (args), /** @type {any} */ (pageScope)],
   });
   const reply = /** @type {{ ok: boolean, value?: any, error?: string } | undefined} */ (injection?.result);
   if (!reply) throw new Error('The page did not answer (it may be loading)');
@@ -92,8 +108,9 @@ async function callInCard(fn, args, frame) {
  * Self-contained: it is sent to the page as source text.
  * @param {string} name
  * @param {any} args
+ * @param {any} scope  the marked area, if any (see pageHelpers)
  */
-async function runInCard(name, args) {
+async function runInCard(name, args, scope) {
   try {
     const [scripts, interact] = await Promise.all([
       import(chrome.runtime.getURL('panel/lib/page-scripts.js')),
@@ -101,7 +118,7 @@ async function runInCard(name, args) {
     ]);
     const fn = scripts[name] ?? interact[name];
     if (typeof fn !== 'function') throw new Error(`Unknown page function ${name}`);
-    const h = scripts.pageHelpers();
+    const h = scripts.pageHelpers(scope);
     const picked = h.state().picked;
     return { ok: true, value: await fn(h, picked && picked.isConnected ? picked : undefined, args) };
   } catch (err) {
@@ -119,10 +136,11 @@ export const SCRIPT_TIMEOUT_MS = 30_000;
  *
  * inspectedWindow.eval() can't wait for a Promise, so the script's settled result
  * is kept in the page's hidden state under a random key, and read back by polling.
+ * With a marked area, the script also gets $area: the outermost elements inside it (areaRoots), to work on.
  * @param {string} code
- * @param {{ timeoutMs?: number, pollMs?: number }} [options]
+ * @param {{ timeoutMs?: number, pollMs?: number, areaRoots?: string[] }} [options]
  */
-export async function runApprovedScript(code, { timeoutMs = SCRIPT_TIMEOUT_MS, pollMs = 100 } = {}) {
+export async function runApprovedScript(code, { timeoutMs = SCRIPT_TIMEOUT_MS, pollMs = 100, areaRoots = [] } = {}) {
   const key = crypto.randomUUID();
   // The code is placed into the expression as-is (not via `new Function`), so it
   // also works on pages whose CSP forbids eval. A syntax error rejects the promise.
@@ -130,9 +148,9 @@ export async function runApprovedScript(code, { timeoutMs = SCRIPT_TIMEOUT_MS, p
   const __h = (${pageHelpers.toString()})();
   const __scripts = __h.state().scripts ??= {};
   __scripts[${JSON.stringify(key)}] = null;
-  (async function ($0) {
+  (async function ($0, $area) {
 ${code}
-  })(typeof $0 === 'undefined' ? undefined : $0).then(
+  })(typeof $0 === 'undefined' ? undefined : $0, ${JSON.stringify(areaRoots)}.map((s) => document.querySelector(s)).filter(Boolean)).then(
     (value) => { __scripts[${JSON.stringify(key)}] = { ok: true, value: __h.toJson(value) }; },
     (e) => { __scripts[${JSON.stringify(key)}] = { ok: false, error: String(e && e.stack || e) }; },
   );

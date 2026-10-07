@@ -21,7 +21,7 @@
  */
 
 import { ACTION_STATUS } from '../protocol.js';
-import { AGENT_MODES, CARD_ACTIONS, compactActionNames, enabledActionNames, isKnownAction, isReadOnly, isServerSide, normalizeInput, runsLive, validateAction } from '../actions.js';
+import { AGENT_MODES, CARD_ACTIONS, actionsForAccess, compactActionNames, enabledActionNames, isKnownAction, isReadOnly, isServerSide, normalizeInput, runsLive, validateAction } from '../actions.js';
 import { siteKey } from '../page-groups.js';
 import { formatResult } from './format-result.js';
 import { fingerprint, forPanel, snapshot } from './session-model.js';
@@ -63,7 +63,8 @@ import { buildSystemPrompt } from './system-prompt.js';
  * Settings the panel sends with each message. agentMode: the user's default for
  * conversations that haven't chosen one (never "full", see requests.js). surface "card": the message
  * comes from the basic card on the page, which offers only CARD_ACTIONS and never runs page actions.
- * @typedef {{ executeJs?: boolean, webTools?: boolean, agentMode?: string, surface?: 'card' }} TurnSettings
+ * pageAccess: what of the page the user lets the AI see ("full", "area" or "none", see PAGE_ACCESS in actions.js).
+ * @typedef {{ executeJs?: boolean, webTools?: boolean, agentMode?: string, surface?: 'card', pageAccess?: 'full' | 'area' | 'none' }} TurnSettings
  */
 
 /**
@@ -220,9 +221,10 @@ export class Orchestrator {
    * Handle one user message. Resolves when the turn is over (never throws;
    * errors are sent to the panel).
    * @param {Session} session
-   * @param {{ text: string, context?: unknown, settings?: TurnSettings }} msg
+   * @param {{ text: string, context?: unknown, settings?: TurnSettings, pageUrl?: string }} msg
+   *   pageUrl: the tab's address, for History only (with "area" or "none" access it isn't in the context the AI gets)
    */
-  async chat(session, { text, context, settings = {} }) {
+  async chat(session, { text, context, settings = {}, pageUrl }) {
     const id = session.id;
     if (session.busy) {
       this.panel.send(id, { type: 'error', conversationId: id, message: 'Still working on the previous message.' });
@@ -248,17 +250,19 @@ export class Orchestrator {
       // fewer tools, and older tool results shortened in the history.
       const compact = /** @type {any} */ (provider).compact === true;
       const card = settings.surface === 'card';
-      const enabled = enabledActionNames(settings).filter((name) => !card || CARD_ACTIONS.includes(name));
+      const access = settings.pageAccess === 'area' || settings.pageAccess === 'none' ? settings.pageAccess : 'full';
+      const enabled = actionsForAccess(enabledActionNames(settings).filter((name) => !card || CARD_ACTIONS.includes(name)), access);
       const actionNames = compact ? compactActionNames(enabled) : enabled;
       const webTools = settings.webTools === true;
       const pageTools = Boolean(this.pageTools && P.pageToolsViaMcp);
       const agentMode = this.agentModeFor(session, settings);
-      const system = buildSystemPrompt({ actionNames, webTools, pageTools, structuredEnvelope: Boolean(P.structuredEnvelope), agentMode, compact, card });
+      const system = buildSystemPrompt({ actionNames, webTools, pageTools, structuredEnvelope: Boolean(P.structuredEnvelope), agentMode, compact, card, pageAccess: access });
       // Working through a task on the page takes one model call per step.
       const maxSteps = agentMode === 'suggest' ? this.config.maxStepsPerTurn : (this.config.maxAgentSteps ?? AGENT_STEPS);
 
-      this.trackPage(session, context, text);
-      this.append(session, this.buildUserMessage(session, text, context));
+      this.trackPage(session, context, text, pageUrl);
+      // Site memory is about the whole site: only with full page access.
+      this.append(session, this.buildUserMessage(session, text, context, { memory: access === 'full' }));
 
       // Model calls in a row whose tool calls were all invalid (a model stuck on the same mistake).
       let invalidStreak = 0;
@@ -341,6 +345,7 @@ export class Orchestrator {
    */
   agentModeFor(session, settings) {
     if (settings.surface === 'card') return 'suggest'; // the card never operates the page
+    if (settings.pageAccess === 'none') return 'suggest'; // nothing to operate
     if (session.agentMode) return session.agentMode;
     return ['ask', 'auto'].includes(/** @type {any} */ (settings.agentMode)) ? /** @type {any} */ (settings.agentMode) : 'suggest';
   }
@@ -529,7 +534,7 @@ export class Orchestrator {
    * @param {unknown} context
    * @returns {NeutralMessage}
    */
-  buildUserMessage(session, text, context) {
+  buildUserMessage(session, text, context, { memory: withMemory = true } = {}) {
     /** @type {ContentBlock[]} */
     const content = [];
 
@@ -557,7 +562,7 @@ export class Orchestrator {
     if (updates.length) content.push({ type: 'note', text: updates.join('\n') });
 
     // Site memory is sent when it differs from what this conversation last saw.
-    const memory = this.memoryContext(session);
+    const memory = withMemory ? this.memoryContext(session) : null;
     if (memory) content.push({ type: 'memory', data: memory });
     if (context) content.push({ type: 'context', data: context });
     content.push({ type: 'text', text: String(text ?? '') });
@@ -572,9 +577,10 @@ export class Orchestrator {
    * @param {Session} session
    * @param {any} context
    * @param {string} text
+   * @param {string} [pageUrl]  the tab's address when the context leaves it out
    */
-  trackPage(session, context, text) {
-    const url = typeof context?.page?.url === 'string' ? context.page.url : session.lastUrl;
+  trackPage(session, context, text, pageUrl) {
+    const url = typeof context?.page?.url === 'string' ? context.page.url : typeof pageUrl === 'string' && /^(https?|file):/.test(pageUrl) ? pageUrl : session.lastUrl;
     if (url) {
       session.lastUrl = url;
       session.site = siteKey(url) ?? session.site;

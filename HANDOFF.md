@@ -188,6 +188,20 @@ harness) or the owner's GitHub/Telegram test is the next thing to do.
   The Turkish store description is in store/SUBMISSION.md. Still English: step descriptions in the activity list
   (`describeStep`), risk reasons ("submits a form"), `describeScope`, provider address hints.
 
+## v0.2 branch (2026-10-08, not released; 0.1.0 is in store review from main)
+
+- **Page access** (menu by the message box): Whole page / Only an area… / Just answer. Area = a polygon the user
+  shapes on the page (drag a rectangle or click an element, then corners, add-corner dots, move; no free drawing,
+  by the owner's choice). Enforced in `pageHelpers(scope)`, with the scope sent by the panel on every call
+  (`setPageArea` in inspected.js; `lib/page-access.js` keeps it per tab in storage.session). Partly inside = out.
+  Agent clicks/typing/navigation and scripts work in the area (owner's request): navigation to another page makes
+  every tool refuse until the user confirms the area there; scripts get `$area`, their result isn't returned.
+  Area/none: no console, network, resources, memory; no page address/title in the context. Min Chrome 118 (@scope).
+- **HTML excerpts** are cleaned in every mode (hidden/password/card field values, scripts, tokens, secret URL params).
+- **Easier setup**: pasted keys pick their provider by prefix (`shared/key-detect.js`); a running Ollama is offered.
+- Ideas discussed for later: OpenRouter sign-in (OAuth PKCE), Chrome's built-in AI (no key), "never read this site"
+  list, personal-detail masking in page text, "what the AI saw" view, fewer host permissions (activeTab).
+
 ## Next work, in order
 
 0. **Chinese models: presets done (seventh session), not tried with real keys.** Check each one's tool-calling

@@ -491,6 +491,30 @@ export const CARD_ACTIONS = [
   'remember', 'forget', 'define_page_group', 'inject_css', 'translate_page',
 ];
 
+/**
+ * What the user lets the AI see of the page (the "Page access" menu by the message box):
+ *   full → the whole page (every tool)
+ *   area → only an area the user marked: the tools that work inside it (the panel limits each one to it);
+ *          not the console, network log, page resources or site memory, which are about the whole page
+ *   none → "Just answer": no page tools at all, no page context, no memory
+ */
+export const PAGE_ACCESS = /** @type {const} */ (['full', 'area', 'none']);
+export const AREA_ACTIONS = [
+  'find_elements', 'page_outline', 'read_text', 'inspect_element', 'screenshot',
+  'inject_css', 'modify_element', 'translate_page', 'interact', 'navigate', 'execute_js',
+];
+
+/**
+ * The actions offered for a page access level, from the ones otherwise enabled.
+ * @param {string[]} names
+ * @param {string} [access]
+ */
+export function actionsForAccess(names, access) {
+  if (access === 'none') return [];
+  if (access === 'area') return names.filter((name) => AREA_ACTIONS.includes(name));
+  return names;
+}
+
 /** Actions left out in compact mode: rarely needed, and every tool costs context. */
 const COMPACT_LEAVE_OUT = new Set(['inspect_network', 'inspect_resources', 'define_page_group', 'forget']);
 

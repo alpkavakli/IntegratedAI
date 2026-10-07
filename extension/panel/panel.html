@@ -49,6 +49,10 @@
         <ai-chat id="chat" role="log" aria-live="polite" aria-label="Conversation"></ai-chat>
         <form id="composer" autocomplete="off">
           <div class="composer-box">
+            <div id="area-row" class="area-row" role="status" hidden>
+              <span id="area-label" data-i18n="areaShared">The AI sees only the marked area</span>
+              <button type="button" id="area-change" class="link" data-i18n="areaChange">Change</button>
+            </div>
             <div class="chips">
                 <label class="chip" title="Send a short description of the element selected in the Elements panel" data-i18n-title="chipSelectedTitle">
                   <input type="checkbox" id="ctx-selected"> <span id="selected-label">$0 (nothing selected)</span>
@@ -65,6 +69,12 @@
             <textarea id="prompt" rows="2" placeholder="Ask about this page or the selected element" aria-label="Message" data-i18n-placeholder="promptPlaceholder" data-i18n-aria-label="message"></textarea>
             <div class="composer-bar">
               <button type="button" id="to-devtools" class="link card-only" title="Form filling, page steps, element edits, scripts and the network log are in the DevTools panel" data-i18n-title="toDevtoolsTitle" data-i18n="toDevtools">Continue in DevTools</button>
+              <select id="page-access" class="mode-select" aria-label="What the AI may see of the page"
+                title="What the AI may see of the page" data-i18n-title="pageAccessTitle" data-i18n-aria-label="pageAccessTitle">
+                <option value="full" title="It can read the whole page when it needs to" data-i18n-title="accessFullTitle" data-i18n="accessFull">Whole page</option>
+                <option value="area" title="Mark an area: it sees and works only inside it" data-i18n-title="accessAreaTitle" data-i18n="accessArea">Only an area…</option>
+                <option value="none" title="It doesn't see the page at all, it only answers your question" data-i18n-title="accessNoneTitle" data-i18n="accessNone">Just answer</option>
+              </select>
               <select id="agent-mode" class="mode-select devtools-only" aria-label="What the AI may do on the page"
                 title="What the AI may do on the page" data-i18n-title="agentModeTitle" data-i18n-aria-label="agentModeTitle">
                 <option value="suggest" title="It suggests changes; nothing happens until you click" data-i18n-title="modeSuggestTitle" data-i18n="modeSuggest">Suggest</option>

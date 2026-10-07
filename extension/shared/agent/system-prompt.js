@@ -24,10 +24,30 @@ const MODE_TEXT = {
  *   webTools: the provider's web search / fetch tools are available.
  *   agentMode: "suggest" (default) or an agent mode, where interact/navigate run during the turn.
  */
-export function buildSystemPrompt({ actionNames, webTools = false, structuredEnvelope = false, pageTools = false, agentMode = 'suggest', compact = false, card = false }) {
-  if (compact && !structuredEnvelope) return buildCompactPrompt({ actionNames, agentMode }) + (card ? CARD_TEXT : '');
-  return buildFullPrompt({ actionNames, webTools, structuredEnvelope, pageTools, agentMode }) + (card ? CARD_TEXT : '');
+export function buildSystemPrompt({ actionNames, webTools = false, structuredEnvelope = false, pageTools = false, agentMode = 'suggest', compact = false, card = false, pageAccess = 'full' }) {
+  const access = ACCESS_TEXT[pageAccess] ?? '';
+  if (compact && !structuredEnvelope) return buildCompactPrompt({ actionNames, agentMode }) + (card ? CARD_TEXT : '') + access;
+  return buildFullPrompt({ actionNames, webTools, structuredEnvelope, pageTools, agentMode }) + (card ? CARD_TEXT : '') + access;
 }
+
+/** What of the page the user lets you see (the "Page access" menu by the message box). */
+const ACCESS_TEXT = {
+  area: `
+
+## Only a marked area
+The user marked one area of the page and lets you see and work on only that. Your tools return only what lies
+inside it, and refuse elements outside it; the page's address and title are not given. Don't try to find out
+what's outside it or guess it. If what the user asks for is outside the area, say so and ask them to mark a
+bigger area (the Page access menu by the message box). CSS changes apply only inside the area. In a script,
+work on $area (the elements inside the area); its result is not returned to you. After you go to another page,
+the user confirms the area on the new page before your tools work again.`,
+  none: `
+
+## Just answer
+The user chose "Just answer": you can't see the page, and there are no page tools. Answer from the question
+and what the user wrote or attached. If you'd need to see the page, say what you'd need, and that they can
+switch the Page access menu (by the message box) to "Whole page" or "Only an area".`,
+};
 
 /**
  * Added when the user talks to the basic card on the page instead of the DevTools panel: what it

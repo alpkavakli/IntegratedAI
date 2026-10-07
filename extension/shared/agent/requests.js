@@ -74,6 +74,8 @@ export function createRequestHandler({ orchestrator, store, registry, memory, on
         orchestrator.chat(session, {
           text,
           context: msg.context,
+          // The tab's address, for History only (not shown to the AI when the page access is limited).
+          ...(typeof msg.pageUrl === 'string' ? { pageUrl: msg.pageUrl.slice(0, 2000) } : {}),
           settings: {
             executeJs: msg.settings?.executeJs === true,
             webTools: msg.settings?.webTools === true,
@@ -81,6 +83,8 @@ export function createRequestHandler({ orchestrator, store, registry, memory, on
             agentMode: ['suggest', 'ask', 'auto'].includes(msg.settings?.agentMode) ? msg.settings.agentMode : 'suggest',
             // The basic card on the page (opened from the toolbar button) instead of the DevTools panel.
             ...(msg.settings?.surface === 'card' ? { surface: /** @type {const} */ ('card') } : {}),
+            // What of the page the AI may see: the whole page, an area the user marked, or nothing ("Just answer").
+            ...(['area', 'none'].includes(msg.settings?.pageAccess) ? { pageAccess: msg.settings.pageAccess } : {}),
           },
         });
         return null;

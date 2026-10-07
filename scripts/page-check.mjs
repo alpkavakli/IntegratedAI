@@ -18,7 +18,7 @@ import fs from 'node:fs';
 import http from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { pageHelpers, findElements, frameBox, pageOutline, readText, inspectElement } from '../extension/panel/lib/page-scripts.js';
+import { pageHelpers, findElements, frameBox, pageOutline, readText, inspectElement, areaOverlay, areaStatus, areaRoots, describeSelected } from '../extension/panel/lib/page-scripts.js';
 import { interactStep, quietFor } from '../extension/panel/lib/page-interact.js';
 
 const CHROME = process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
@@ -56,10 +56,17 @@ const PAGE = `<!doctype html><html><head><title>Agent test page</title><style>
 <button id="covered">Covered button</button><div id="banner">Cookie banner</div>
 <div id="integratedai-card" style="position:fixed;right:0;bottom:0"><button>Card button</button> Card text</div>
 <div style="height:1500px"></div>
+<div id="area-test" style="position:absolute;left:20px;top:2200px;width:600px;height:120px">
+  <div id="inside" style="position:absolute;left:0;top:0;width:250px;height:100px">Inside text <button id="in-btn">Inside button</button>
+    <input type="hidden" name="csrf" value="abc123def456ghi789jkl012mno345pqr678"></div>
+  <div id="outside" style="position:absolute;left:300px;top:0;width:250px;height:100px">Ahmet Yılmaz <button id="out-btn">Outside button</button></div>
+</div>
 <script>
   window.log = [];
   document.querySelectorAll('a.Link--primary').forEach((a) => a.addEventListener('click', (e) => { e.preventDefault(); log.push('open ' + a.getAttribute('href')); }));
   document.getElementById('covered').addEventListener('click', () => log.push('covered clicked'));
+  document.getElementById('in-btn').addEventListener('click', () => log.push('inside clicked'));
+  document.getElementById('out-btn').addEventListener('click', () => log.push('outside clicked'));
   // A chat composer like Telegram's: it keeps its own copy of the text and only updates it from
   // trusted input events (typing, the browser's editing commands), not from scripts changing the DOM.
   const editor = document.getElementById('editor');
@@ -123,6 +130,10 @@ const check = (/** @type {string} */ name, /** @type {boolean} */ ok, /** @type 
   if (!ok) failures++;
 };
 const step = async (/** @type {any} */ s) => call(interactStep, { actionId: 'check', step: s });
+/** Like callInPage with a marked area (page-access.js → setPageArea). */
+const callArea = (/** @type {Function} */ fn, /** @type {any} */ scope, args = {}) =>
+  ev(`(${fn.toString()})((${pageHelpers.toString()})(${JSON.stringify(scope)}), typeof $0 === 'undefined' ? undefined : $0, ${JSON.stringify(args)})`);
+const refused = (/** @type {Promise<any>} */ p) => p.then((v) => `not refused: ${JSON.stringify(v)}`, (err) => String(err.message));
 
 try {
   // Rows of identical markup: every match needs its own selector and ref.
@@ -215,6 +226,84 @@ try {
   // inspect_element by ref.
   const inspected = await call(inspectElement, { ref: rows.matches[1].ref, include: ['html'] });
   check('inspect_element by ref', /docs/.test(inspected.html), inspected);
+
+  // ── Only a marked area: nothing outside it reaches the AI, however it's asked for.
+  const url = await ev('location.href.split("#")[0]');
+  const box = (/** @type {number[]} */ [x0, y0, x1, y1]) => [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }];
+  const area = { area: box([10, 2190, 290, 2310]), url }; // around #inside (20…270, 2200…2300), not #outside (320…)
+  const inText = (await callArea(readText, area)).text;
+  check('area: read_text has what is inside', inText.includes('Inside text') && inText.includes('Inside button'), inText);
+  check('area: read_text has nothing outside (not the name next to it, not the page)', !inText.includes('Ahmet') && !inText.includes('Repository') && !inText.includes('Outside'), inText);
+  const outFind = await callArea(findElements, area, { text: 'Outside button' });
+  check('area: find_elements can not find what is outside', outFind.total === 0, outFind);
+  const inFind = await callArea(findElements, area, { text: 'Inside button' });
+  check('area: find_elements finds what is inside', inFind.total >= 1, inFind);
+  const bySelector = await refused(callArea(inspectElement, area, { selector: '#out-btn' }));
+  check('area: inspect_element refuses a selector outside', /inside the marked area|outside the area/.test(bySelector), bySelector);
+  const outRef = (await call(findElements, { selector: '#out-btn' })).matches[0].ref; // a ref given out without the area
+  const byRef = await refused(callArea(inspectElement, area, { ref: outRef }));
+  check('area: a ref outside is refused', /outside the area/.test(byRef), byRef);
+  const outClick = await callArea(interactStep, area, { actionId: 'check', step: { action: 'click', text: 'Outside button' } });
+  check('area: the agent can not click outside', !outClick.found && !(await ev('log')).includes('outside clicked'), outClick);
+  await callArea(interactStep, area, { actionId: 'check', step: { action: 'click', text: 'Inside button' } });
+  check('area: the agent can click inside', (await ev('log')).includes('inside clicked'), await ev('log'));
+  const html = (await callArea(inspectElement, area, { selector: '#inside', include: ['html'] })).html;
+  check('area: HTML excerpts hide hidden-field values', html.includes('Inside button') && !html.includes('abc123'), html);
+  const plainHtml = (await call(inspectElement, { selector: '#inside', include: ['html'] })).html;
+  check('HTML excerpts hide hidden-field values (whole page too)', !plainHtml.includes('abc123'), plainHtml);
+  const areaOutline = await callArea(pageOutline, area, { all: true });
+  check('area: page_outline leaves out the address and title', !("url" in areaOutline) && !("title" in areaOutline) && Boolean(areaOutline.area), areaOutline);
+  // A cut through an element: it's left out (when in doubt, out).
+  const cut = (await callArea(readText, { area: box([10, 2190, 60, 2310]), url })).text;
+  check('area: text only partly inside is left out', !cut.includes('Inside text'), cut);
+  // A concave area whose corner pokes into #inside: #inside isn't completely inside, so it's not one of the roots.
+  const notch = { area: [{ x: 10, y: 2190 }, { x: 290, y: 2190 }, { x: 290, y: 2310 }, { x: 150, y: 2310 }, { x: 145, y: 2250 }, { x: 140, y: 2310 }, { x: 10, y: 2310 }], url };
+  const notchRoots = await callArea(areaRoots, notch);
+  check('area: a corner poking into an element leaves it out', !notchRoots.includes('#inside'), notchRoots);
+  const roots = await callArea(areaRoots, area);
+  check('area: CSS and scripts are rooted at what is inside', roots.includes('#inside'), roots);
+  // Another page (the AI navigated): everything is refused until the user confirms the area there.
+  const wrongPage = await refused(callArea(readText, { ...area, url: 'http://127.0.0.1:1/other' }));
+  check('area: on another page nothing is shown', /different page/.test(wrongPage), wrongPage);
+  // (as $0: the element selected in the Elements panel)
+  const sel = await ev(`(${describeSelected.toString()})((${pageHelpers.toString()})(${JSON.stringify(area)}), document.getElementById('out-btn'), {})`);
+  check('area: a selected element outside is not described', typeof sel === 'string' && /outside the area/.test(sel), sel);
+
+  // The editor: drag a rectangle, Enter = Done.
+  await ev('scrollTo(0, 0)');
+  await call(areaOverlay, { mode: 'edit' });
+  const mouse = (/** @type {string} */ type, /** @type {number} */ x, /** @type {number} */ y) =>
+    cdp('Input.dispatchMouseEvent', { type, x, y, button: 'left', buttons: type === 'mouseReleased' ? 0 : 1, clickCount: 1 }, session);
+  const enter = () => cdp('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 }, session);
+  const logBefore = (await ev('log')).length;
+  await mouse('mousePressed', 100, 100);
+  await mouse('mouseMoved', 200, 160);
+  await mouse('mouseMoved', 300, 250);
+  await mouse('mouseReleased', 300, 250);
+  await enter();
+  const drawn = await call(areaStatus);
+  check('area editor: drag a rectangle, Enter', drawn?.result === 'done' && drawn.points.length === 4 && drawn.points[0].x === 100 && drawn.points[2].y === 250, drawn);
+  // Change it: drag a corner, then add one from the dot between the top corners.
+  await call(areaOverlay, { mode: 'edit', points: drawn.points });
+  await mouse('mousePressed', 300, 250);
+  await mouse('mouseMoved', 340, 280);
+  await mouse('mouseReleased', 340, 280);
+  await mouse('mousePressed', 200, 100);
+  await mouse('mouseMoved', 200, 60);
+  await mouse('mouseReleased', 200, 60);
+  await enter();
+  const shaped = await call(areaStatus);
+  check('area editor: drag a corner, add a corner', shaped?.points.length === 5 && shaped.points.some((/** @type {any} */ p) => p.x === 340 && p.y === 280) && shaped.points.some((/** @type {any} */ p) => p.x === 200 && p.y === 60), shaped);
+  // Move it: drag inside.
+  await call(areaOverlay, { mode: 'edit', points: shaped.points });
+  await mouse('mousePressed', 200, 150);
+  await mouse('mouseMoved', 230, 170);
+  await mouse('mouseReleased', 230, 170);
+  await enter();
+  const moved = await call(areaStatus);
+  check('area editor: drag inside moves it', moved?.points.every((/** @type {any} */ p, /** @type {number} */ i) => p.x === shaped.points[i].x + 30 && p.y === shaped.points[i].y + 20), moved);
+  check('area editor: the page is not clicked meanwhile, and the outline stays', (await ev('log')).length === logBefore && (await ev('!!document.getElementById("integratedai-area")')) === true);
+  await call(areaOverlay, { mode: 'off' });
 } catch (err) {
   console.log(`FAIL ${err instanceof Error ? err.stack : err}`);
   failures++;
