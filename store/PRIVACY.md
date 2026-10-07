@@ -5,7 +5,7 @@ _Last updated: 2026-10-08_
 Browser IntegratedAI DevTools ("the extension") adds an AI panel to Chrome DevTools. This policy explains what data
 the extension handles and where it goes. In short: **the developer does not collect, receive or sell any of
 your data.** Depending on the connection you choose in Options, the extension talks either directly to the
-AI provider you choose (Anthropic, OpenAI, Google Gemini or OpenRouter) with your own API key, or to Ollama
+AI provider you choose (such as Anthropic, OpenAI or Google Gemini; the full list is below) with your own API key, or to Ollama
 running on your own computer ("direct mode"), or to an agent server that runs on your own computer, which talks to the AI provider you choose.
 
 ## What the extension reads
@@ -25,6 +25,8 @@ Only when you use the AI panel, and only from the tab you are inspecting:
   Network chip or the AI inspects the network. Cookies, authorization headers, API keys and token-like URL
   parameters are removed before anything is sent. Response bodies are never sent.
 - **Screenshots** of an element or of the visible page, when the AI needs to see how something looks.
+- **The visible text of the page**, when you ask it to translate the page and click Translate, in batches to
+  the AI provider you chose. The translation is shown in place of the text and is not stored.
 
 ## Where it goes
 
