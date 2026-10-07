@@ -57,6 +57,9 @@
       .donate .close { margin-left: auto; padding: 0 6px; border: 1px solid transparent; background: none; color: var(--fg-muted); font-size: 14px; line-height: 1.4; }
       .donate .close:hover { border-color: var(--border); color: var(--fg); }
       .license-note { margin-top: 6px; }
+      .found { display: flex; align-items: center; gap: 12px; justify-content: space-between; margin: 0 0 12px;
+        padding: 8px 12px; border: 1px solid var(--accent); border-radius: 6px; background: var(--bg-alt); }
+      .found[hidden] { display: none; }
       .key-row { display: flex; gap: 8px; }
       .key-row input { flex: 1; min-width: 0; }
       input[type="text"], input[type="password"], select { padding: 6px 8px; border-radius: 4px; font-size: 13px; }
@@ -94,6 +97,10 @@
 
     <section class="step" id="step-1">
       <h2><span class="num"><span>1</span></span> <span data-i18n="optStep1">Choose your AI</span></h2>
+      <div class="found" id="found-ollama" role="status" hidden>
+        <span data-i18n="foundOllama">Ollama is running on this computer: free models, no key needed.</span>
+        <button type="button" id="use-ollama" class="primary" data-i18n="useOllama">Use Ollama</button>
+      </div>
       <div data-i18n="optEasiest" class="choice-group">Easiest: an API key. Gemini's has a free tier.</div>
       <div data-i18n-aria-label="aiProvider" class="providers" role="radiogroup" aria-label="AI provider">
         <label class="provider-card"><input type="radio" name="provider" value="anthropic">
@@ -144,6 +151,8 @@
         <div class="key-row">
           <input type="password" id="apiKey" spellcheck="false" autocomplete="off" placeholder="Paste your API key" aria-label="API key" data-i18n-aria-label="apiKey">
         </div>
+        <div class="hint ok" id="key-recognised" role="status" hidden></div>
+        <div class="hint" data-i18n="optAnyKey">Claude, GPT, Gemini and OpenRouter keys are recognised: paste one and the right company is selected for you.</div>
         <div data-i18n-html="optKeyStays" class="hint">Your key stays in this browser and is only sent to <span id="key-host"></span>. Usage is billed to your account there.</div>
         <label class="small-field" id="address-field" hidden><span data-i18n="optApiAddress">API address</span>
           <input type="text" id="providerUrl" spellcheck="false" autocomplete="off"></label>

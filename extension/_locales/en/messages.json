@@ -359,6 +359,9 @@
   "forgot": {
     "message": "Forgot a note ($1)"
   },
+  "foundOllama": {
+    "message": "Ollama is running on this computer: free models, no key needed."
+  },
   "fullAutoWarning": {
     "message": "Full auto: the AI clicks, types, submits forms and moves between pages without asking you. Use it for tasks you would trust someone else with, and watch it; ■ stops it."
   },
@@ -415,6 +418,9 @@
   },
   "keyModelMissing": {
     "message": "Your key works, but \"$1\" isn't one of your $2 models. Pick one in the Model box."
+  },
+  "keyRecognised": {
+    "message": "This is a $1 key, so $1 is selected in step 1."
   },
   "keyRejected": {
     "message": "This key was not accepted. Check that you copied all of it."
@@ -688,6 +694,9 @@
   },
   "optAndYourOk": {
     "message": ", and your OK:"
+  },
+  "optAnyKey": {
+    "message": "Claude, GPT, Gemini and OpenRouter keys are recognised: paste one and the right company is selected for you."
   },
   "optApiAddress": {
     "message": "API address"
@@ -1363,6 +1372,9 @@
   },
   "update": {
     "message": "Update"
+  },
+  "useOllama": {
+    "message": "Use Ollama"
   },
   "vCheck": {
     "message": "Check"

@@ -6,6 +6,7 @@ import { PROTOCOL_VERSION } from '../shared/protocol.js';
 import { loadSettings, saveSettings } from '../panel/lib/settings.js';
 import { PRESETS, baseUrlFor, presetFetch } from '../shared/providers/openai-compatible.js';
 import { localize, t } from '../shared/i18n.js';
+import { providerForKey } from '../shared/key-detect.js';
 
 const $ = (/** @type {string} */ id) => /** @type {HTMLInputElement} */ (document.getElementById(id));
 /** @param {string} id @param {boolean} hidden */
@@ -180,21 +181,45 @@ function showChoice() {
   }
 }
 
-for (const input of /** @type {NodeListOf<HTMLInputElement>} */ (document.querySelectorAll('input[name="provider"]'))) {
-  input.addEventListener('change', async () => {
-    choice = input.value;
-    if (choice === 'server') {
-      settings.mode = 'server';
-      await saveSettings({ mode: 'server' });
-    } else {
-      settings.mode = 'direct';
-      settings.directProvider = choice;
-      await saveSettings({ mode: 'direct', directProvider: choice });
-    }
-    showChoice();
-    showDataSummary();
-  });
+/** Switch step 1 to this AI (a card was clicked, a pasted key was recognised, or "Use Ollama"). @param {string} value */
+async function selectProvider(value) {
+  choice = value;
+  hide('key-recognised', true);
+  if (choice === 'server') {
+    settings.mode = 'server';
+    await saveSettings({ mode: 'server' });
+  } else {
+    settings.mode = 'direct';
+    settings.directProvider = choice;
+    await saveSettings({ mode: 'direct', directProvider: choice });
+  }
+  showChoice();
+  showDataSummary();
 }
+for (const input of /** @type {NodeListOf<HTMLInputElement>} */ (document.querySelectorAll('input[name="provider"]'))) {
+  input.addEventListener('change', () => selectProvider(input.value));
+}
+
+/** The name on a provider's card in step 1 ("Claude", "Gemini", …). @param {string} value */
+const providerName = (value) => document.querySelector(`input[name="provider"][value="${value}"]`)?.closest('label')?.querySelector('strong')?.textContent ?? value;
+
+// Already set up? Then nothing needs suggesting.
+const isSetUp = () => (choice === 'server' ? Boolean(settings.token)
+  : choice === 'ollama' ? Boolean(settings.providerModels.ollama)
+    : choice === 'custom' ? Boolean(settings.providerUrls?.custom) : Boolean(savedKey(choice)));
+
+// Ollama already running on this computer: offer it in one click (it's free, and needs no key).
+if (!isSetUp()) {
+  const root = baseUrlFor('ollama', { baseUrl: settings.providerUrls.ollama }).replace(/\/v1\/?$/, '');
+  fetch(`${root}/api/version`, { signal: AbortSignal.timeout(1500) })
+    .then((res) => { if (res.ok && !isSetUp()) hide('found-ollama', false); })
+    .catch(() => { /* not running: nothing to offer */ });
+}
+$('use-ollama').addEventListener('click', async () => {
+  hide('found-ollama', true);
+  await selectProvider('ollama');
+  check();
+});
 
 // ── Step 2: the key (saved and checked as soon as it's pasted), or Ollama / the server.
 
@@ -226,8 +251,20 @@ $('apiKey').addEventListener('input', () => {
   // Check shortly after pasting or typing stops.
   clearTimeout(keyTimer);
   keyTimer = /** @type {any} */ (setTimeout(async () => {
+    // A key that clearly belongs to another provider (by its prefix): switch to that one, keeping the key.
+    const key = $('apiKey').value.trim();
+    const owner = providerForKey(key);
+    if (owner && owner !== choice) {
+      await selectProvider(owner);
+      $('apiKey').value = key;
+      $('key-recognised').textContent = t('keyRecognised', 'This is a $1 key, so $1 is selected in step 1.', providerName(owner));
+      hide('key-recognised', false);
+      await saveKey();
+      check();
+      return;
+    }
     await saveKey();
-    if ($('apiKey').value.trim()) check();
+    if (key) check();
     else setStatus('');
   }, 600));
 });

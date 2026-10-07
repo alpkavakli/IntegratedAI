@@ -359,6 +359,9 @@
   "forgot": {
     "message": "Bir not unutuldu ($1)"
   },
+  "foundOllama": {
+    "message": "Bu bilgisayarda Ollama çalışıyor: ücretsiz modeller, anahtar gerekmez."
+  },
   "fullAutoWarning": {
     "message": "Tam otomatik: yapay zekâ sana sormadan tıklar, yazar, form gönderir ve sayfalar arasında gezer. Başka birine güvenip bırakabileceğin işler için kullan ve izle; ■ onu durdurur."
   },
@@ -415,6 +418,9 @@
   },
   "keyModelMissing": {
     "message": "Anahtarın çalışıyor ama \"$1\", $2 modelinden biri değil. Model kutusundan birini seç."
+  },
+  "keyRecognised": {
+    "message": "Bu bir $1 anahtarı, bu yüzden 1. adımda $1 seçildi."
   },
   "keyRejected": {
     "message": "Bu anahtar kabul edilmedi. Tamamını kopyaladığından emin ol."
@@ -688,6 +694,9 @@
   },
   "optAndYourOk": {
     "message": ", bir de iznin:"
+  },
+  "optAnyKey": {
+    "message": "Claude, GPT, Gemini ve OpenRouter anahtarları tanınır: birini yapıştır, doğru şirket senin için seçilir."
   },
   "optApiAddress": {
     "message": "API adresi"
@@ -1363,6 +1372,9 @@
   },
   "update": {
     "message": "Güncelle"
+  },
+  "useOllama": {
+    "message": "Ollama'yı kullan"
   },
   "vCheck": {
     "message": "İşaretle"
