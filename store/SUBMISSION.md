@@ -26,6 +26,13 @@ the dashboard takes a description per language (Store listing → language menu)
 > No DevTools needed for quick questions: click the toolbar button for the **AI card on the page**. Ask about the
 > page, have it read or explain things, and preview CSS fixes. Drag it anywhere, or against the side as a panel.
 >
+> HOW IT WORKS
+> 1. Install it: the setup page opens. Choose your AI: paste an API key, or use free local models with Ollama.
+> 2. On any page, click the IntegratedAI icon in the toolbar (or press Alt+Shift+A): a small card opens.
+> 3. Ask about the page, or click Pick element and ask about one part of it.
+> 4. Each change it proposes is a card: Preview it, then Apply, or Undo later.
+> 5. Keep CSS fixes as site patches. For everything else, press F12 and open the AI tab.
+>
 > - **Understands the page you're inspecting:** the selected element, its styles, matching CSS rules, console
 >   errors, network requests and screenshots.
 > - **Proposes, you approve:** every change is a card you preview, apply or undo. Nothing runs on its own.
