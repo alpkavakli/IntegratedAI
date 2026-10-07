@@ -364,6 +364,7 @@ export function pageInfo() {
   return {
     url: location.href,
     title: document.title,
+    lang: document.documentElement.lang || '',
     timeOrigin: performance.timeOrigin, // changes on every page load; used to expire undo info
     viewport: { width: innerWidth, height: innerHeight, devicePixelRatio },
   };

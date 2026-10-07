@@ -127,6 +127,7 @@ export class App {
 
     const page = await callInPage(pageInfo);
     this.pageUrl = page.url;
+    this.chat.setPageLang(page.lang ?? '');
     await this.changes.load(page.timeOrigin);
 
     // translate_page cards: each batch goes to the conversation's provider; progress shows on the card.
@@ -303,7 +304,10 @@ export class App {
       $('prompt').focus();
     });
     chrome.tabs.onUpdated.addListener((tabId, change) => {
-      if (tabId !== this.tabId || !change.url) return;
+      if (tabId !== this.tabId) return;
+      // Loaded: the new page's language, for "Translate this page into …".
+      if (change.status === 'complete') callInPage(pageInfo).then((page) => this.chat.setPageLang(page.lang ?? '')).catch(() => {});
+      if (!change.url) return;
       this.pageUrl = change.url;
       this.patchesView.refresh();
       this.refreshMemory();

@@ -1202,8 +1202,8 @@
   "sugSummarize": {
     "message": "Summarize this page"
   },
-  "sugTranslate": {
-    "message": "Translate this page"
+  "sugTranslateInto": {
+    "message": "Translate this page into $1"
   },
   "switchConnection": {
     "message": "Switch connection"

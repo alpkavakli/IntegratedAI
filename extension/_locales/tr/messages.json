@@ -1202,8 +1202,8 @@
   "sugSummarize": {
     "message": "Bu sayfayı özetle"
   },
-  "sugTranslate": {
-    "message": "Bu sayfayı çevir"
+  "sugTranslateInto": {
+    "message": "Bu sayfayı çevir: $1"
   },
   "switchConnection": {
     "message": "Bağlantıyı değiştir"

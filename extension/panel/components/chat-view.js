@@ -16,7 +16,7 @@ import { ActionCard } from './action-card.js';
 
 /** Starting points on a new conversation: for developers in DevTools, for reading and quick fixes in the card. */
 const SUGGESTIONS = IN_CARD
-  ? [t('sugSummarize', 'Summarize this page'), t('sugTranslate', 'Translate this page'), t('sugExplainPicked', 'Explain what I picked'), t('sugEasier', 'Make this easier to read')]
+  ? [t('sugSummarize', 'Summarize this page'), 'translate', t('sugExplainPicked', 'Explain what I picked'), t('sugEasier', 'Make this easier to read')]
   : [t('sugOverflow', 'Why is this overflowing?'), t('sugBetter', 'Make this look better'), t('sugDark', 'Make this dark'), t('sugConsole', 'Explain the console errors')];
 
 export class ChatView extends HTMLElement {
@@ -38,6 +38,13 @@ export class ChatView extends HTMLElement {
     return this;
   }
 
+  /** The page's language (its <html lang>), for the "Translate this page into …" suggestion. @param {string} lang */
+  setPageLang(lang) {
+    this.pageLang = lang;
+    const chip = this.querySelector('[data-suggestion=translate]');
+    if (chip) chip.textContent = translateSuggestion(lang);
+  }
+
   /** Render a whole conversation (on open / reconnect). */
   renderAll() {
     const session = this.app?.session;
@@ -57,7 +64,10 @@ export class ChatView extends HTMLElement {
       h('div', { class: 'empty-title' }, t('emptyTitle', 'Ask about this page')),
       h('div', null, IN_CARD ? t('emptyCard', 'Pick an element on the page, or ask about the whole page.') : t('emptyDevtools', 'Select an element in the Elements panel, or ask about the whole page.')),
       h('div', { class: 'suggestions' },
-        SUGGESTIONS.map((text) => h('button', { type: 'button', onclick: () => this.app?.sendFromUi(text) }, text))),
+        SUGGESTIONS.map((text) => (text === 'translate'
+          ? h('button', { type: 'button', 'data-suggestion': 'translate', onclick: (/** @type {any} */ e) => this.app?.sendFromUi(e.currentTarget.textContent) },
+            translateSuggestion(this.pageLang))
+          : h('button', { type: 'button', onclick: () => this.app?.sendFromUi(text) }, text)))),
       h('div', { class: 'welcome' })));
     this.app?.updateWelcome();
   }
@@ -393,3 +403,18 @@ function foldInspections(el) {
 }
 
 customElements.define('ai-chat', ChatView);
+
+/**
+ * "Translate this page into Turkish": the reader's first language (Chrome's, then their preferred ones) that isn't
+ * the page's own, named in the interface language. Said up front, so it's clear before anything is sent.
+ * @param {string} [pageLang]
+ */
+export function translateSuggestion(pageLang = '') {
+  const base = (/** @type {string} */ code) => code.toLowerCase().split('-')[0];
+  let ui = 'en';
+  try { ui = chrome.i18n.getUILanguage(); } catch { /* not in the extension */ }
+  const code = [ui, ...navigator.languages].map(base).find((l) => l && l !== base(pageLang)) ?? 'en';
+  let name = code;
+  try { name = new Intl.DisplayNames([ui], { type: 'language' }).of(code) ?? code; } catch { /* unknown code */ }
+  return t('sugTranslateInto', 'Translate this page into $1', name);
+}
