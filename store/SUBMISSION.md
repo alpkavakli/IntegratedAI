@@ -85,8 +85,18 @@ They come from real use of the extension on original demo pages (`store/demo-pag
 changes with `node scripts/store-screenshots.mjs` (needs Chrome and a logged-in Claude Code; makes a few real
 AI calls), or a single one with e.g. `node scripts/store-screenshots.mjs 03-forms`.
 
-**Small promo tile (440×280):** `store/screenshots/promo-tile-440x280.png` (from `store/promo-tile.html`, regenerate with
-`node scripts/store-screenshots.mjs promo-tile`). The 128×128 icon is `extension/icons/icon128.png`.
+**Store icon (128×128):** `extension/icons/icon128.png`: 96×96 artwork with 16 px transparent padding and a faint
+light glow so the dark icon shows on dark backgrounds (Chrome's icon guidance). The 16/32/48 px toolbar icons fill
+their square.
+
+**Small promo tile (440×280, required):** `store/screenshots/promo-tile-440x280.png`.
+**Marquee (1400×560, optional, needed to be featured):** `store/screenshots/marquee-1400x560.png`.
+Both follow the store's promo guidance: saturated blue, the icon large, only the name as text, readable at half size.
+Sources: `store/promo-tile.html` and `store/marquee.html`; render with headless Chrome, e.g.
+`chrome --headless=new --hide-scrollbars --window-size=440,280 --screenshot=<png> store/promo-tile.html`.
+
+**Additional fields:** Homepage URL `https://alpkavakli.github.io/IntegratedAI/`,
+support URL `https://github.com/alpkavakli/IntegratedAI/issues`.
 
 ## Privacy practices tab
 
