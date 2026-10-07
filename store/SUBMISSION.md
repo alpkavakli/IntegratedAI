@@ -20,6 +20,9 @@ the dashboard takes a description per language (Store listing → language menu)
 > An AI assistant inside Chrome DevTools. Select an element in the Elements panel, switch to the **AI** tab and
 > ask: "why is this overflowing?", "make this look better", "add a dark-mode toggle to the nav bar".
 >
+> Your data stays yours: the developer receives nothing. Page content goes only to the AI provider you choose (or
+> to Ollama on your own computer), only when you ask, and conversations stay in your browser.
+>
 > No DevTools needed for quick questions: click the toolbar button for the **AI card on the page**. Ask about the
 > page, have it read or explain things, and preview CSS fixes. Drag it anywhere, or against the side as a panel.
 >
@@ -129,7 +132,10 @@ support URL `https://github.com/alpkavakli/IntegratedAI/issues`.
 - Personal communications: **yes**. When the user asks the AI to read or work on a page that shows messages or
   email (e.g. a web chat), the text it reads from that page goes to the AI provider the user chose, like any other
   website content. Only on request, only from the inspected tab, never to the developer.
-- Web history, personally identifiable info, financial/health data, location, user activity: **no** (not collected;
+- User activity: **yes**. Its examples include "network monitoring": the AI can read the page's network log
+  (request method, URL, status, timing; no bodies, cookies or auth headers) when the Network chip is on or it asks.
+  Sent only to the AI provider the user chose.
+- Web history, personally identifiable info, financial/health data, location: **no** (not collected;
   cookies, authorization headers and token-like URL parameters are removed before anything is sent, and password
   field values are never read).
 - Certify: not sold to third parties; not used for unrelated purposes; not used for creditworthiness/lending.
