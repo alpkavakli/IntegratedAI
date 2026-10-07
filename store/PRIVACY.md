@@ -1,6 +1,6 @@
 # Browser IntegratedAI DevTools: Privacy Policy
 
-_Last updated: 2026-10-06_
+_Last updated: 2026-10-08_
 
 Browser IntegratedAI DevTools ("the extension") adds an AI panel to Chrome DevTools. This policy explains what data
 the extension handles and where it goes. In short: **the developer does not collect, receive or sell any of
