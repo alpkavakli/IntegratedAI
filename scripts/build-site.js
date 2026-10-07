@@ -17,9 +17,9 @@ const manifest = JSON.parse(readFileSync(`${root}/extension/manifest.json`, 'utf
 const markdown = readFileSync(`${root}/store/PRIVACY.md`, 'utf8');
 
 mkdirSync(`${root}/docs`, { recursive: true });
-writeFileSync(`${root}/docs/privacy.html`, page('Privacy policy · IntegratedAI DevTools', markdownToHtml(markdown)));
-writeFileSync(`${root}/docs/index.html`, page('IntegratedAI DevTools', `
-<h1>IntegratedAI DevTools</h1>
+writeFileSync(`${root}/docs/privacy.html`, page('Privacy policy · Browser IntegratedAI DevTools', markdownToHtml(markdown)));
+writeFileSync(`${root}/docs/index.html`, page('Browser IntegratedAI DevTools', `
+<h1>Browser IntegratedAI DevTools</h1>
 <p class="lead">${escapeHtml(manifest.description)}</p>
 <ul>
   <li>Select an element in the Elements panel, open the <strong>AI</strong> tab, and ask: "why is this overflowing?", "make this look better", "add a dark-mode toggle to the nav bar".</li>

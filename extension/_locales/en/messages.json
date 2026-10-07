@@ -339,7 +339,7 @@
     "message": "AI panel in Chrome DevTools: explains layout and console errors, previews CSS fixes, fills forms, saves per-site patches."
   },
   "extName": {
-    "message": "IntegratedAI DevTools"
+    "message": "Browser IntegratedAI DevTools"
   },
   "f12OrCtrl": {
     "message": "F12 (or Ctrl+Shift+I)"

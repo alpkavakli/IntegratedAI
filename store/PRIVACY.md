@@ -1,8 +1,8 @@
-# IntegratedAI DevTools: Privacy Policy
+# Browser IntegratedAI DevTools: Privacy Policy
 
 _Last updated: 2026-10-06_
 
-IntegratedAI DevTools ("the extension") adds an AI panel to Chrome DevTools. This policy explains what data
+Browser IntegratedAI DevTools ("the extension") adds an AI panel to Chrome DevTools. This policy explains what data
 the extension handles and where it goes. In short: **the developer does not collect, receive or sell any of
 your data.** Depending on the connection you choose in Options, the extension talks either directly to the
 AI provider you choose (Anthropic, OpenAI, Google Gemini or OpenRouter) with your own API key, or to Ollama

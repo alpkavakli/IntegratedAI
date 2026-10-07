@@ -5,7 +5,7 @@ Everything the Developer Dashboard asks for, ready to paste. Build the upload wi
 
 ## Store listing
 
-**Name:** IntegratedAI DevTools
+**Name:** Browser IntegratedAI DevTools
 
 **Summary (from the manifest, ≤ 132 chars):**
 AI panel in Chrome DevTools: explains layout and console errors, previews CSS fixes, fills forms, saves per-site patches.

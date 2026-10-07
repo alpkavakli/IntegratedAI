@@ -76,7 +76,7 @@ export const PRESETS = {
     // OpenRouter's model list is public, so it can't tell a good key from a bad one.
     keyCheckUrl: 'https://openrouter.ai/api/v1/key',
     // OpenRouter's optional app attribution.
-    headers: { 'HTTP-Referer': 'https://github.com/alpkavakli/IntegratedAI', 'X-Title': 'IntegratedAI DevTools' },
+    headers: { 'HTTP-Referer': 'https://github.com/alpkavakli/IntegratedAI', 'X-Title': 'Browser IntegratedAI DevTools' },
   },
   // ── Models from China-based companies (checked 2026-10-07 against each provider's own documentation).
   deepseek: {
