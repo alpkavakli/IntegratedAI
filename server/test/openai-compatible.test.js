@@ -242,6 +242,33 @@ test('thinking models: the reasoning is kept with the answer and sent back to th
   for (const id of ['deepseek', 'qwen', 'kimi', 'glm', 'minimax']) assert.equal(PRESETS[id].sendReasoning, true, id);
 });
 
+test('Gemini: thought signatures on tool calls are kept and sent back with them, to Gemini only', async () => {
+  const Gemini = openAICompatibleProvider('gemini');
+  const provider = new Gemini(directConfig(/** @type {any} */ ({ providerKeys: { gemini: 'k' }, providerModels: {} })), {
+    fetch: async () => sseResponse(sse([
+      { choices: [{ delta: { tool_calls: [{ index: 0, id: 'g1', type: 'function', function: { name: 'page_outline', arguments: '{}' }, extra_content: { google: { thought_signature: 'SIG-1' } } }] } }] },
+      { choices: [{ delta: {}, finish_reason: 'tool_calls' }] },
+    ])),
+  });
+  const events = await collect(provider.turn({ messages: [{ role: 'user', ts: 0, content: [{ type: 'text', text: 'look' }] }], system: 'S', actionNames: ['page_outline'], model: 'gemini-3.8-flash', state: {}, signal: new AbortController().signal }));
+  assert.deepEqual(events.find((e) => e.type === 'raw')?.content, { signatures: { g1: 'SIG-1' } });
+
+  const history = /** @type {any[]} */ ([
+    { role: 'user', ts: 0, content: [{ type: 'text', text: 'look' }] },
+    { role: 'assistant', ts: 0, raw: { provider: 'gemini', content: { signatures: { g1: 'SIG-1' } } }, content: [{ type: 'tool_call', id: 'g1', name: 'page_outline', input: {} }] },
+    { role: 'user', ts: 0, content: [{ type: 'tool_result', toolCallId: 'g1', content: '{}' }] },
+    { role: 'assistant', ts: 0, raw: { provider: 'claude-cli', content: {} }, content: [{ type: 'tool_call', id: 'x1', name: 'read_text', input: {} }, { type: 'tool_call', id: 'x2', name: 'read_text', input: {} }] },
+    { role: 'user', ts: 0, content: [{ type: 'tool_result', toolCallId: 'x1', content: '' }, { type: 'tool_result', toolCallId: 'x2', content: '' }] },
+  ]);
+  const calls = toOpenAIMessages('S', history, { signaturesFor: 'gemini' }).filter((m) => m.role === 'assistant').map((m) => m.tool_calls);
+  assert.equal(calls[0][0].extra_content.google.thought_signature, 'SIG-1', 'sent back unchanged');
+  assert.equal(calls[1][0].extra_content.google.thought_signature, 'skip_thought_signature_validator', 'another provider\'s step: the stand-in on its first call');
+  assert.equal('extra_content' in calls[1][1], false, 'and not on the others');
+  const toOthers = toOpenAIMessages('S', history).filter((m) => m.role === 'assistant').flatMap((m) => m.tool_calls);
+  assert.ok(toOthers.every((c) => !('extra_content' in c)), 'other providers never get it');
+  assert.equal(PRESETS.gemini.thoughtSignatures, true);
+});
+
 test('providers with other regions or per-account addresses use the address from Options; others never do', () => {
   assert.equal(baseUrlFor('kimi', { baseUrl: '' }), 'https://api.moonshot.ai/v1');
   assert.equal(baseUrlFor('kimi', { baseUrl: 'https://api.moonshot.cn/v1/' }), 'https://api.moonshot.cn/v1');
@@ -277,4 +304,25 @@ test('the model menu: built-in suggestions, then the models the provider listed 
   })));
   const deepseek = (await registry.list()).find((p) => p.id === 'deepseek');
   assert.deepEqual(deepseek.models, ['deepseek-flash', 'deepseek-v4-pro', 'deepseek-v5']);
+});
+
+test('a busy service (503) is tried again before it counts as an error', async () => {
+  const { RETRY_WAITS_MS, presetFetch } = await import('../../extension/shared/providers/openai-compatible.js');
+  const saved = [...RETRY_WAITS_MS];
+  RETRY_WAITS_MS.fill(1);
+  try {
+    let calls = 0;
+    const flaky = async () => (++calls < 3 ? { ok: false, status: 503, headers: new Map(), text: async () => 'busy' } : { ok: true, status: 200 });
+    const res = await presetFetch('gemini', flaky, 'https://x/chat', {});
+    assert.equal(res.status, 200);
+    assert.equal(calls, 3, 'twice more');
+    calls = 0;
+    await assert.rejects(presetFetch('gemini', async () => { calls++; return { ok: false, status: 503, headers: new Map(), text: async () => 'busy' }; }, 'https://x/chat', {}), /503|temporary/i);
+    assert.equal(calls, 3, 'then the error');
+    calls = 0;
+    await assert.rejects(presetFetch('gemini', async () => { calls++; return { ok: false, status: 400, headers: new Map(), text: async () => 'bad' }; }, 'https://x/chat', {}));
+    assert.equal(calls, 1, 'a real error is not tried again');
+  } finally {
+    RETRY_WAITS_MS.splice(0, RETRY_WAITS_MS.length, ...saved);
+  }
 });

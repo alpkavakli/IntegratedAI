@@ -40,6 +40,8 @@ const COMPACT_FULL_RESULTS = 3;
  * @property {boolean} [local]        runs on the user's computer: no key, and the address can be changed in Options
  * @property {string} [addressHint]   the address can be changed in Options (other regions, own workspace): what to put there
  * @property {boolean} [sendReasoning] send each assistant message's reasoning_content back (thinking models that require it)
+ * @property {boolean} [thoughtSignatures] Gemini: tool calls carry a thought signature (extra_content.google) that must
+ *   go back with them in the next requests, or the API refuses the call ("missing a thought_signature")
  * @property {boolean} [custom]       no fixed address: the user enters it (and any model); the key is optional
  */
 
@@ -66,6 +68,7 @@ export const PRESETS = {
     models: ['gemini-3.8-flash', 'gemini-3.1-pro-preview', 'gemini-3.5-flash-lite'],
     keyUrl: 'https://aistudio.google.com/apikey',
     includeUsage: false,
+    thoughtSignatures: true,
   },
   openrouter: {
     label: 'OpenRouter',
@@ -160,9 +163,21 @@ function safeOrigin(url) {
   try { return new URL(url).origin; } catch { return url || '(no address)'; }
 }
 
+/** Waits before trying a busy service again (presetFetch). */
+export const RETRY_WAITS_MS = [2000, 5000];
+
+/** @param {number} ms @param {AbortSignal | null | undefined} signal */
+function sleepUnlessAborted(ms, signal) {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) { reject(new DOMException('Aborted', 'AbortError')); return; }
+    const timer = setTimeout(resolve, ms);
+    signal?.addEventListener('abort', () => { clearTimeout(timer); reject(new DOMException('Aborted', 'AbortError')); }, { once: true });
+  });
+}
+
 /**
  * fetch() for a preset, with errors a user can act on. A local server that isn't
- * running, and Ollama refusing the extension (403), get their own messages.
+ * running, and Ollama refusing the extension (403), get their own messages; a busy hosted service is tried again.
  * @param {string} id
  * @param {(url: string, init: RequestInit) => Promise<Response>} doFetch
  * @param {string} url
@@ -171,13 +186,19 @@ function safeOrigin(url) {
 export async function presetFetch(id, doFetch, url, init) {
   const preset = PRESETS[id];
   let res;
-  try {
-    res = await doFetch(url, init);
-  } catch (err) {
-    if (/** @type {any} */ (err)?.name === 'AbortError') throw err;
-    if (preset.custom) throw new Error(`Can't reach ${safeOrigin(url)}. Check the address in Options, and that the service is running.`);
-    if (!preset.local) throw err;
-    throw new Error(`Can't reach ${preset.label} at ${new URL(url).origin}. Is it running? Start the Ollama app (or run "ollama serve").`);
+  // A hosted service that's busy for a moment (503/502/529, common on free tiers): try twice more, after a short wait.
+  for (let attempt = 0; ; attempt++) {
+    try {
+      res = await doFetch(url, init);
+    } catch (err) {
+      if (/** @type {any} */ (err)?.name === 'AbortError') throw err;
+      if (preset.custom) throw new Error(`Can't reach ${safeOrigin(url)}. Check the address in Options, and that the service is running.`);
+      if (!preset.local) throw err;
+      throw new Error(`Can't reach ${preset.label} at ${new URL(url).origin}. Is it running? Start the Ollama app (or run "ollama serve").`);
+    }
+    if (preset.local || ![502, 503, 529].includes(res.status) || attempt >= RETRY_WAITS_MS.length) break;
+    const after = Number(res.headers?.get?.('retry-after'));
+    await sleepUnlessAborted(after > 0 ? Math.min(after * 1000, 10_000) : RETRY_WAITS_MS[attempt], init?.signal);
   }
   if (!res.ok) {
     const text = await res.text();
@@ -248,7 +269,7 @@ export function openAICompatibleProvider(id) {
     async *turn({ messages, system, actionNames, model, signal, compact = false }) {
       const body = {
         model,
-        messages: toOpenAIMessages(system, messages, { compact, reasoningFor: preset.sendReasoning ? id : undefined }),
+        messages: toOpenAIMessages(system, messages, { compact, reasoningFor: preset.sendReasoning ? id : undefined, signaturesFor: preset.thoughtSignatures ? id : undefined }),
         // (Left out when there are none: OpenAI refuses an empty list.)
         ...(actionNames.length ? {
           tools: actionNames.map((name) => {
@@ -272,7 +293,7 @@ export function openAICompatibleProvider(id) {
         signal,
       });
 
-      /** @type {{ id: string, name: string, args: string }[]} */
+      /** @type {{ id: string, name: string, args: string, signature?: string }[]} */
       const calls = [];
       let finishReason = 'stop';
       /** @type {any} */
@@ -295,12 +316,20 @@ export function openAICompatibleProvider(id) {
           if (piece.id) call.id = piece.id;
           if (piece.function?.name) call.name = piece.function.name;
           if (piece.function?.arguments) call.args += piece.function.arguments;
+          // Gemini's thought signature for this call (kept, sent back with it).
+          const signature = piece.extra_content?.google?.thought_signature;
+          if (typeof signature === 'string') call.signature = signature;
         }
         if (choice.finish_reason) finishReason = choice.finish_reason;
       }
 
-      // Kept with the assistant message, so it can go back with the next request (sendReasoning presets).
-      if (reasoning) yield { type: 'raw', content: { reasoning } };
+      // Kept with the assistant message, so it can go back with the next request: the reasoning (sendReasoning
+      // presets) and Gemini's thought signatures, by tool call id.
+      for (const call of calls) if (call && !call.id) call.id = newCallId();
+      const signatures = Object.fromEntries(calls.filter((c) => c?.signature).map((c) => [c.id, c.signature]));
+      if (reasoning || Object.keys(signatures).length) {
+        yield { type: 'raw', content: { ...(reasoning ? { reasoning } : {}), ...(Object.keys(signatures).length ? { signatures } : {}) } };
+      }
       yield {
         type: 'usage',
         inputTokens: usage?.prompt_tokens ?? 0,
@@ -329,6 +358,12 @@ export function openAICompatibleProvider(id) {
 }
 
 /**
+ * What Gemini accepts in place of a thought signature on tool calls it didn't make itself (from another provider
+ * earlier in the conversation), per Google's thought-signature documentation.
+ */
+const GEMINI_NO_SIGNATURE = 'skip_thought_signature_validator';
+
+/**
  * Neutral conversation → Chat Completions messages.
  * - tool results become role "tool" messages right after the assistant's tool calls
  * - the rest of a user message (context, memory, text) becomes a user message
@@ -339,11 +374,13 @@ export function openAICompatibleProvider(id) {
  * - reasoningFor (thinking models): assistant messages carry the reasoning_content this provider returned with them;
  *   one with tool calls but no stored reasoning (written by another provider) gets an empty one, which these
  *   providers accept, where a missing one can be refused
+ * - signaturesFor (Gemini): tool calls carry the thought signature this provider returned with them; the calls in a
+ *   step made by another provider (no signatures) get Google's documented stand-in on the first one
  * @param {string} system
  * @param {NeutralMessage[]} messages
- * @param {{ compact?: boolean, reasoningFor?: string }} [opts]
+ * @param {{ compact?: boolean, reasoningFor?: string, signaturesFor?: string }} [opts]
  */
-export function toOpenAIMessages(system, messages, { compact = false, reasoningFor = undefined } = {}) {
+export function toOpenAIMessages(system, messages, { compact = false, reasoningFor = undefined, signaturesFor = undefined } = {}) {
   /** @type {Set<unknown>} tool_result blocks whose images are still sent */
   const keepImages = new Set();
   let imagesLeft = MAX_IMAGES_SENT;
@@ -376,12 +413,19 @@ export function toOpenAIMessages(system, messages, { compact = false, reasoningF
   for (const m of messages) {
     if (m.role === 'assistant') {
       const text = m.content.filter((b) => b.type === 'text').map((b) => /** @type {any} */ (b).text).join('\n');
-      const toolCalls = m.content.filter((b) => b.type === 'tool_call').map((b) => {
-        const c = /** @type {any} */ (b);
-        return { id: c.id, type: 'function', function: { name: c.name, arguments: JSON.stringify(c.input ?? {}) } };
-      });
       /** @type {any} */
       const raw = m.raw;
+      /** @type {Record<string, string> | undefined} */
+      const signatures = signaturesFor && raw?.provider === signaturesFor ? raw.content?.signatures : undefined;
+      const toolCalls = m.content.filter((b) => b.type === 'tool_call').map((b, i) => {
+        const c = /** @type {any} */ (b);
+        // (Only the first call of a step has a signature when the model called several at once.)
+        const signature = signaturesFor ? (signatures?.[c.id] ?? (i === 0 && !signatures ? GEMINI_NO_SIGNATURE : undefined)) : undefined;
+        return {
+          id: c.id, type: 'function', function: { name: c.name, arguments: JSON.stringify(c.input ?? {}) },
+          ...(signature ? { extra_content: { google: { thought_signature: signature } } } : {}),
+        };
+      });
       const reasoning = reasoningFor
         ? (raw?.provider === reasoningFor && typeof raw.content?.reasoning === 'string' ? raw.content.reasoning : (toolCalls.length ? '' : undefined))
         : undefined;
