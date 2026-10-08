@@ -18,7 +18,8 @@
     "ui-check": "node scripts/ui-check.mjs",
     "page-check": "node scripts/page-check.mjs",
     "services:install": "node scripts/services.mjs install",
-    "services:uninstall": "node scripts/services.mjs uninstall"
+    "services:uninstall": "node scripts/services.mjs uninstall",
+    "quiz-demo": "node scripts/quiz-demo.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",
