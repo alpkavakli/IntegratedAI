@@ -64,6 +64,55 @@ export function pageHelpers(scope = null) {
     return inside;
   }
 
+  /**
+   * A frame's document when it's from the same site (a player written into an empty frame, a course frame):
+   * then its content is part of the page for the tools, like a shadow root. Null for other sites' frames (those
+   * are used with the "frame" option).
+   */
+  function frameDoc(frame) {
+    try {
+      const doc = frame.contentDocument;
+      return doc && doc.body ? doc : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * A box from getBoundingClientRect in an element's own document, on the page's screen: moved by where each
+   * frame around it shows its content. clipped: part of it is scrolled out of view inside a frame.
+   */
+  function toPage(r, doc) {
+    let { left, top, right, bottom } = r;
+    let clipped = false;
+    for (let win = doc.defaultView; win && win !== window; win = win.parent) {
+      const fe = win.frameElement;
+      if (!fe) break;
+      if (left < -1 || top < -1 || right > fe.clientWidth + 1 || bottom > fe.clientHeight + 1) clipped = true;
+      const fr = fe.getBoundingClientRect();
+      const cs = getComputedStyle(fe);
+      const dx = fr.left + fe.clientLeft + (parseFloat(cs.paddingLeft) || 0);
+      const dy = fr.top + fe.clientTop + (parseFloat(cs.paddingTop) || 0);
+      left += dx; right += dx; top += dy; bottom += dy;
+    }
+    return { left, top, right, bottom, width: right - left, height: bottom - top, x: left, y: top, clipped };
+  }
+
+  /** The element's box on the page's screen (see toPage). */
+  function pageRect(el) {
+    return toPage(el.getBoundingClientRect(), el.ownerDocument);
+  }
+
+  /** What has the keyboard: inside a same-site frame, the element there. */
+  function activeElement() {
+    let el = document.activeElement;
+    for (let doc = el && (el.localName === 'iframe' || el.localName === 'frame') ? frameDoc(el) : null; doc; ) {
+      el = doc.activeElement;
+      doc = el && (el.localName === 'iframe' || el.localName === 'frame') ? frameDoc(el) : null;
+    }
+    return el;
+  }
+
   /** Does the segment a–b pass through the open box (Liang–Barsky clipping)? */
   function segmentCrossesBox(a, b, left, top, right, bottom) {
     let t0 = 0;
@@ -118,8 +167,9 @@ export function pageHelpers(scope = null) {
   /** Without an area: everything. With one: only elements whose whole box is inside it. */
   function inArea(el) {
     if (!AREA) return true;
-    if (!(el instanceof Element)) return false;
-    return rectInArea(el.getBoundingClientRect());
+    if (!el || el.nodeType !== 1) return false; // (an element from a frame isn't an instanceof this window's Element)
+    const r = pageRect(el);
+    return !r.clipped && rectInArea(r);
   }
 
   /** Throw when the user's area leaves this element out (the AI asked for something it can't see). */
@@ -132,10 +182,10 @@ export function pageHelpers(scope = null) {
   /** Is all of this text node inside the area? */
   function textInArea(node) {
     if (!AREA) return true;
-    const range = document.createRange();
+    const range = node.ownerDocument.createRange();
     range.selectNodeContents(node);
-    const rects = [...range.getClientRects()].filter((r) => r.width && r.height);
-    return rects.length > 0 && rects.every(rectInArea);
+    const rects = [...range.getClientRects()].filter((r) => r.width && r.height).map((r) => toPage(r, node.ownerDocument));
+    return rects.length > 0 && rects.every((r) => !r.clipped && rectInArea(r));
   }
 
   // Computed style values that are almost always uninteresting.
@@ -163,7 +213,7 @@ export function pageHelpers(scope = null) {
    * use the element's ref (refOf) to target those.
    */
   function cssPath(el) {
-    if (!(el instanceof Element)) return '';
+    if (!el || el.nodeType !== 1) return ''; // (also elements in a frame, from another window)
     const root = el.getRootNode();
     const unique = (sel) => {
       try { return root.querySelectorAll(sel).length === 1; } catch { return false; }
@@ -204,7 +254,7 @@ export function pageHelpers(scope = null) {
 
   /** "div#main.card" style label. */
   function label(el) {
-    if (!(el instanceof Element)) return '';
+    if (!el || el.nodeType !== 1) return ''; // (also elements in a frame, from another window)
     return `${el.localName}${el.id ? `#${el.id}` : ''}${[...el.classList].slice(0, 3).map((c) => `.${c}`).join('')}`;
   }
 
@@ -293,7 +343,7 @@ export function pageHelpers(scope = null) {
   function toJson(value) {
     try {
       if (value === undefined) return null;
-      if (value instanceof Element) return { element: cssPath(value) };
+      if (value && value.nodeType === 1) return { element: cssPath(value) };
       const text = JSON.stringify(value);
       if (text === undefined) return String(value);
       return text.length > 20000 ? `${text.slice(0, 20000)}…` : JSON.parse(text);
@@ -311,7 +361,7 @@ export function pageHelpers(scope = null) {
       if (!el) throw new Error(AREA ? `No element inside the marked area matches ${selector}` : `No element matches ${selector}`);
       return el;
     }
-    if (!(selected instanceof Element)) throw new Error('No element is selected in the Elements panel');
+    if (!(selected && selected.nodeType === 1)) throw new Error('No element is selected in the Elements panel');
     return checkArea(selected);
   }
 
@@ -356,6 +406,10 @@ export function pageHelpers(scope = null) {
       const out = [...r.querySelectorAll(selector)];
       for (const host of r.querySelectorAll('*')) {
         if (host.shadowRoot) out.push(...all(host.shadowRoot));
+        if (host.localName === 'iframe' || host.localName === 'frame') {
+          const doc = frameDoc(host);
+          if (doc) out.push(...all(doc));
+        }
       }
       return out;
     };
@@ -370,16 +424,16 @@ export function pageHelpers(scope = null) {
   /** Is the element rendered with a size (it may still be scrolled out of view), and inside the area if there is one? */
   function visible(el) {
     if (OWN_IDS.has(el.id) || el.closest(OWN_SELECTOR)) return false;
-    const r = el.getBoundingClientRect();
+    const r = pageRect(el);
     if (!r.width || !r.height) return false;
-    if (AREA && !rectInArea(r)) return false;
+    if (AREA && (r.clipped || !rectInArea(r))) return false;
     const cs = getComputedStyle(el);
     return cs.visibility !== 'hidden' && cs.display !== 'none';
   }
 
   /** Is (part of) the element inside the visible area of the tab? */
   function onScreen(el) {
-    const r = el.getBoundingClientRect();
+    const r = pageRect(el);
     return r.bottom > 0 && r.right > 0 && r.top < innerHeight && r.left < innerWidth;
   }
 
@@ -422,7 +476,7 @@ export function pageHelpers(scope = null) {
    *   max: stop after about this many characters.
    */
   function readable(root, { links = false, onScreenOnly = false, max = Infinity } = {}) {
-    const SKIP = new Set(['script', 'style', 'noscript', 'template', 'svg', 'canvas', 'iframe', 'head', 'meta', 'link']);
+    const SKIP = new Set(['script', 'style', 'noscript', 'template', 'svg', 'canvas', 'head', 'meta', 'link']);
     const lines = [];
     let line = '';
     let lineIsPre = false;
@@ -465,9 +519,9 @@ export function pageHelpers(scope = null) {
         if (hidden) return;
         if (AREA && node.textContent.trim() && !textInArea(node)) return;
         if (onScreenOnly) {
-          const range = document.createRange();
+          const range = node.ownerDocument.createRange();
           range.selectNodeContents(node);
-          const r = range.getBoundingClientRect();
+          const r = toPage(range.getBoundingClientRect(), node.ownerDocument);
           if (!(r.bottom > 0 && r.right > 0 && r.top < innerHeight && r.left < innerWidth)) return;
         }
         if (pre && !cell) addPre(node.textContent);
@@ -478,6 +532,12 @@ export function pageHelpers(scope = null) {
       if (node.nodeType === 11) { for (const child of node.childNodes) walk(child, pre, hidden, cell); return; }
       const el = node;
       if (SKIP.has(el.localName) || OWN_IDS.has(el.id)) return;
+      if (el.localName === 'iframe' || el.localName === 'frame') {
+        // A same-site frame's text is read with the page (another site's frame: read it with the "frame" option).
+        const doc = frameDoc(el);
+        if (doc) { flush(); walk(doc.body, false, false, false); flush(); }
+        return;
+      }
       if (el.localName === 'br') { if (cell) line += ' '; else flush(); return; }
       const cs = getComputedStyle(el);
       if (cs.display === 'none') return;
@@ -521,7 +581,7 @@ export function pageHelpers(scope = null) {
   return {
     KEY_PROPERTIES, cssPath, label, computed, rect, overflowInfo, htmlExcerpt, toJson, target, state,
     refOf, byRef, queryAll, visible, onScreen, humanName, readable,
-    area: AREA, anchor: anchorEl, wrongPage: WRONG_PAGE, areaOrigin, rectTouchesArea, inArea, checkArea, textInArea, assertPage, pointInArea: (x, y) => (AREA ? pointInArea(x, y) : true),
+    area: AREA, anchor: anchorEl, wrongPage: WRONG_PAGE, areaOrigin, rectTouchesArea, inArea, pageRect, frameDoc, activeElement, checkArea, textInArea, assertPage, pointInArea: (x, y) => (AREA ? pointInArea(x, y) : true),
   };
 }
 
@@ -540,19 +600,19 @@ export function pageInfo() {
 
 /** One-line label of the selected element (for the "$0" chip). */
 export function selectedLabel(h, selected) {
-  if (!(selected instanceof Element)) return null;
+  if (!(selected && selected.nodeType === 1)) return null;
   return { label: h.label(selected), selector: h.cssPath(selected) };
 }
 
 /** The visible text of the selected element ($0), for "Copy text"; null if nothing is selected. */
 export function selectedText(h, selected) {
-  if (!(selected instanceof Element)) return null;
+  if (!(selected && selected.nodeType === 1)) return null;
   return (selected.innerText ?? selected.textContent ?? '').trim();
 }
 
 /** The small default context for the selected element ($0). */
 export function describeSelected(h, selected) {
-  if (!(selected instanceof Element)) return null;
+  if (!(selected && selected.nodeType === 1)) return null;
   if (!h.inArea(selected)) return h.area ? 'The selected element is outside the area the user marked (or this is another page), so it is not shared' : null;
   const el = selected;
   const parent = el.parentElement && h.inArea(el.parentElement) ? el.parentElement : null;
@@ -763,7 +823,8 @@ export function pageOutline(h, selected, input = {}) {
     return bits.join(' ');
   };
 
-  const focused = document.activeElement && document.activeElement !== document.body && h.inArea(document.activeElement) ? document.activeElement : null;
+  const active = h.activeElement();
+  const focused = active && active !== document.body && active.localName !== 'body' && h.inArea(active) ? active : null;
   const headings = h.queryAll('h1, h2, h3, [role=heading]', scope).filter((el) => h.visible(el) && where(el))
     .slice(0, 12).map((el) => el.innerText.replace(/\s+/g, ' ').trim().slice(0, 100)).filter(Boolean);
   // (With an area: the frames it reaches into, which the tools can then work in, limited to the area there too.)
@@ -968,17 +1029,17 @@ export function prepareScreenshot(h, selected, input) {
       label: 'the marked area',
     };
   }
-  if (input.fullViewport || (!input.ref && !input.selector && !(selected instanceof Element))) {
+  if (input.fullViewport || (!input.ref && !input.selector && !(selected && selected.nodeType === 1))) {
     return { viewport, scroll, scrolled: false, rect: null, label: 'the visible page' };
   }
   const el = h.target(input.selector, selected, input.ref);
-  let r = el.getBoundingClientRect();
+  let r = h.pageRect(el);
   if (!r.width || !r.height) throw new Error(`${h.cssPath(el)} has no visible size (hidden or empty)`);
   let scrolled = false;
   if (r.bottom <= 0 || r.top >= viewport.height || r.right <= 0 || r.left >= viewport.width) {
     el.scrollIntoView({ block: r.height > viewport.height ? 'start' : 'center', inline: 'nearest' });
     scrolled = true;
-    r = el.getBoundingClientRect();
+    r = h.pageRect(el);
   }
   return {
     viewport, scroll, scrolled,

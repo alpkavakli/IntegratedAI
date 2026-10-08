@@ -61,6 +61,7 @@ const PAGE = `<!doctype html><html><head><title>Agent test page</title><style>
     <input type="hidden" name="csrf" value="abc123def456ghi789jkl012mno345pqr678"></div>
   <div id="outside" style="position:absolute;left:300px;top:0;width:250px;height:100px">Ahmet Yılmaz <button id="out-btn">Outside button</button></div>
 </div>
+<iframe id="h5p" title="Quiz" style="position:absolute;left:20px;top:3100px;width:420px;height:170px;border:0"></iframe>
 <iframe id="player" src="/player.html" title="Course player" style="position:absolute;left:20px;top:2850px;width:400px;height:200px;border:0"></iframe>
 <iframe id="xframe" src="http://localhost:${PORTS.page}/launch?course=1" title="Quiz" style="position:absolute;left:20px;top:2700px;width:300px;height:100px;border:0"></iframe>
 <div id="scroller" style="position:absolute;left:20px;top:2400px;width:300px;height:150px;overflow:auto">
@@ -68,6 +69,14 @@ const PAGE = `<!doctype html><html><head><title>Agent test page</title><style>
 </div>
 <script>
   window.log = [];
+  // Like H5P: an empty frame the page writes the quiz into (no address of its own).
+  const h5p = document.getElementById('h5p').contentDocument;
+  h5p.open();
+  h5p.write('<!doctype html><body style="margin:0;font:14px system-ui"><p>Which berries can you pick in the wild?</p>'
+    + '<label><input type="checkbox" id="rasp"> Raspberry</label><br><label><input type="checkbox" id="halle"> Halle Berry</label><br>'
+    + '<button id="check" onclick="parent.log.push(\\'checked \\' + [...document.querySelectorAll(\\'input:checked\\')].map((i) => i.id).join(\\',\\'))">Check</button>'
+    + '<p style="margin-top:400px">Scrolled out of view</p></body>');
+  h5p.close();
   document.querySelectorAll('a.Link--primary').forEach((a) => a.addEventListener('click', (e) => { e.preventDefault(); log.push('open ' + a.getAttribute('href')); }));
   document.getElementById('covered').addEventListener('click', () => log.push('covered clicked'));
   document.getElementById('in-btn').addEventListener('click', () => log.push('inside clicked'));
@@ -407,6 +416,20 @@ try {
   const quizRead = await cdp('Runtime.evaluate', { expression: `(${readText.toString()})((${pageHelpers.toString()})(${JSON.stringify(quizScope)}), undefined, {})`, returnByValue: true }, quizSession);
   const quizText = quizRead.result.result?.value?.text ?? JSON.stringify(quizRead.result);
   check('nested frames: the quiz inside the player can be read (its dropdown)', /online|Please select/.test(quizText), quizText);
+
+  // A same-site frame with no address of its own (H5P writes its quizzes into one): part of the page for the tools.
+  const hf = await ev('(() => { const r = document.getElementById("h5p").getBoundingClientRect(); return { l: r.left + scrollX, t: r.top + scrollY, r: r.right + scrollX, b: r.bottom + scrollY }; })()');
+  const hArea = { area: box([hf.l - 10, hf.t - 10, hf.r + 10, hf.b + 10]), url };
+  const hText = (await callArea(readText, hArea)).text;
+  check('frame written by the page: the question is read with the page', hText.includes('Which berries can you pick') && hText.includes('Raspberry'), hText);
+  check('frame written by the page: what is scrolled out of view in it is not read', !hText.includes('Scrolled out of view'), hText);
+  const rasp = await callArea(findElements, hArea, { text: 'Raspberry' });
+  check('frame written by the page: its elements are found (no frame needed)', rasp.total >= 1, rasp);
+  await callArea(interactStep, hArea, { actionId: 'check', step: { action: 'check', text: 'Raspberry' } });
+  await callArea(interactStep, hArea, { actionId: 'check', step: { action: 'click', text: 'Check' } });
+  check('frame written by the page: the agent ticks a box and clicks Check in it', (await ev('log')).includes('checked rasp'), await ev('log'));
+  const away = await callArea(findElements, area, { text: 'Raspberry' });
+  check('frame written by the page: not reachable when the area does not cover it', away.total === 0, away);
 
   // ── "Keep on this site": the area applies on every page of the site (checked by origin), not on another site.
   const origin = await ev('location.origin');

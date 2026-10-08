@@ -45,7 +45,8 @@ export function interactStep(h, selected, { actionId, step, dry = false, hold = 
   /** Where a person would point: the middle of the element. */
   const pointAt = (target) => {
     const r = target.getBoundingClientRect();
-    return { clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, view: window };
+    // (In the element's own document: a frame's elements get their frame's window and coordinates.)
+    return { clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, view: target.ownerDocument.defaultView };
   };
   /** Move the (virtual) mouse onto the element: what hover menus and tooltips listen to. */
   const hoverOver = (target) => {
@@ -76,9 +77,9 @@ export function interactStep(h, selected, { actionId, step, dry = false, hold = 
    * an overlay), or null. The click still goes to the element; the AI is told.
    */
   const coveredBy = (target) => {
-    const { clientX: x, clientY: y } = pointAt(target);
-    if (x < 0 || y < 0 || x >= innerWidth || y >= innerHeight) return null;
-    let top = document.elementFromPoint(x, y);
+    const { clientX: x, clientY: y, view } = pointAt(target);
+    if (x < 0 || y < 0 || x >= view.innerWidth || y >= view.innerHeight) return null;
+    let top = target.ownerDocument.elementFromPoint(x, y);
     while (top && top.shadowRoot) {
       const inner = top.shadowRoot.elementFromPoint(x, y);
       if (!inner || inner === top) break;
@@ -109,16 +110,17 @@ export function interactStep(h, selected, { actionId, step, dry = false, hold = 
   const insertText = (target, value) => {
     target.focus({ preventScroll: true });
     if (target.isContentEditable) {
-      const range = document.createRange();
+      const range = target.ownerDocument.createRange();
       range.selectNodeContents(target);
-      const selection = getSelection();
+      const selection = target.ownerDocument.getSelection();
       selection.removeAllRanges();
       selection.addRange(range);
     } else if (typeof target.select === 'function') {
       target.select();
     }
     try {
-      if (!(value ? document.execCommand('insertText', false, value) : document.execCommand('delete'))) return false;
+      const doc = target.ownerDocument;
+      if (!(value ? doc.execCommand('insertText', false, value) : doc.execCommand('delete'))) return false;
     } catch {
       return false;
     }
@@ -164,7 +166,7 @@ export function interactStep(h, selected, { actionId, step, dry = false, hold = 
     document.getElementById(ID)?.remove();
     const box = document.createElement('div');
     box.id = ID;
-    const r = target ? target.getBoundingClientRect() : { left: 8, top: 8, width: innerWidth - 16, height: innerHeight - 16 };
+    const r = target ? h.pageRect(target) : { left: 8, top: 8, width: innerWidth - 16, height: innerHeight - 16 };
     box.style.cssText = `position:fixed;z-index:2147483647;pointer-events:none;left:${r.left - 3}px;top:${r.top - 3}px;`
       + `width:${r.width + 6}px;height:${r.height + 6}px;border:2px solid #1a73e8;border-radius:6px;`
       + 'box-shadow:0 0 0 4px rgba(26,115,232,.25);transition:opacity .3s';
@@ -222,18 +224,18 @@ export function interactStep(h, selected, { actionId, step, dry = false, hold = 
   const targetless = !step.selector && !step.text && !step.ref;
   if (targetless && ['scroll', 'press', 'wait'].includes(step.action)) {
     // With a marked area, a key goes only to something inside it.
-    if (step.action === 'press' && h.area && !h.inArea(document.activeElement)) {
+    if (step.action === 'press' && h.area && !h.inArea(h.activeElement())) {
       throw new Error('What has focus is outside the area the user marked: press the key in a field inside it (give its ref)');
     }
     if (dry) {
-      const focused = document.activeElement;
+      const focused = h.activeElement();
       const what = step.action === 'scroll' ? `scroll the page ${step.value}`
         : step.action === 'press' ? `press ${step.value}${focused && focused !== document.body ? ` in ${humanName(focused)}` : ''}` : `wait ${step.value} s`;
-      if (step.action !== 'wait') highlight(step.action === 'press' ? document.activeElement : null, what);
-      return { found: true, what, risky: riskOf(document.activeElement) };
+      if (step.action !== 'wait') highlight(step.action === 'press' ? focused : null, what);
+      return { found: true, what, risky: riskOf(focused) };
     }
     if (step.action === 'wait') return { found: true, did: `waited ${step.value} s`, undoable: true };
-    if (step.action === 'press') return pressKey(document.activeElement && document.activeElement !== document.body ? document.activeElement : document.body);
+    if (step.action === 'press') { const active = h.activeElement(); return pressKey(active && active.localName !== 'body' ? active : document.body); }
     return scrollBy(document.scrollingElement || document.documentElement);
   }
 
