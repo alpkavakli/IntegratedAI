@@ -333,6 +333,67 @@ try {
   const anchored = await call(areaStatus);
   check('area editor: drawn on a scrolling panel, it is attached to the panel', anchored?.anchor === '#scroller' && anchored.points[0].y < 20, anchored);
   await call(areaOverlay, { mode: 'off' });
+
+  // ── The editor with a real mouse (many small moves) on a page that takes over drags to swipe (like slide shows),
+  //    and keys while marking.
+  await ev('scrollTo(0, 0)');
+  await ev(`(() => {
+    window.swipes = 0; window.pageKeys = [];
+    let start = null;
+    document.addEventListener('pointerdown', (e) => { start = { x: e.clientX, y: e.clientY }; }, true);
+    document.addEventListener('pointermove', (e) => {
+      if (start && Math.hypot(e.clientX - start.x, e.clientY - start.y) > 20) { e.stopPropagation(); e.preventDefault(); window.swipes++; }
+    }, true);
+    document.addEventListener('pointerup', () => { start = null; }, true);
+    document.addEventListener('keydown', (e) => pageKeys.push(e.key), true);
+    document.getElementById('name').focus();
+    return true;
+  })()`);
+  const realDrag = async (/** @type {number} */ x0, /** @type {number} */ y0, /** @type {number} */ x1, /** @type {number} */ y1) => {
+    await mouse('mousePressed', x0, y0);
+    for (let i = 1; i <= 30; i++) await mouse('mouseMoved', x0 + ((x1 - x0) * i) / 30, y0 + ((y1 - y0) * i) / 30);
+    await mouse('mouseReleased', x1, y1);
+  };
+  const key = async (/** @type {string} */ k, /** @type {number} */ code, modifiers = 0) => {
+    await cdp('Input.dispatchKeyEvent', { type: 'keyDown', key: k, code: k.length === 1 ? `Key${k.toUpperCase()}` : k, windowsVirtualKeyCode: code, modifiers, ...(k.length === 1 && !modifiers ? { text: k } : {}) }, session);
+    await cdp('Input.dispatchKeyEvent', { type: 'keyUp', key: k, windowsVirtualKeyCode: code, modifiers }, session);
+  };
+  const rect = box([100, 100, 400, 300]);
+  await call(areaOverlay, { mode: 'edit', points: rect });
+  await realDrag(404, 303, 600, 500); // grabbed a little off the corner: it still takes the corner
+  await key('Enter', 13);
+  const far = await call(areaStatus);
+  check('area editor: a long drag with a real mouse goes all the way, though the page takes over drags', far?.points[2].x === 600 && far.points[2].y === 500, far);
+  await call(areaOverlay, { mode: 'edit', points: rect });
+  await realDrag(250, 200, 0, 0); // move 250 up-left: stops at the edge, same shape
+  await key('Enter', 13);
+  const kept = await call(areaStatus);
+  const size = (/** @type {any[]} */ p) => [Math.max(...p.map((q) => q.x)) - Math.min(...p.map((q) => q.x)), Math.max(...p.map((q) => q.y)) - Math.min(...p.map((q) => q.y))].join('×');
+  check('area editor: moving it to the edge keeps its shape', size(kept.points) === '300×200' && kept.points[0].x === 0 && kept.points[0].y === 0, kept);
+  // Undo, redo.
+  await call(areaOverlay, { mode: 'edit', points: rect });
+  await realDrag(400, 300, 500, 400);
+  await key('z', 90, 2); // Ctrl+Z
+  await key('Enter', 13);
+  const undone = await call(areaStatus);
+  check('area editor: Ctrl+Z undoes the last change', undone?.points[2].x === 400 && undone.points[2].y === 300, undone);
+  await call(areaOverlay, { mode: 'edit', points: rect });
+  await realDrag(400, 300, 500, 400);
+  await key('z', 90, 2);
+  await key('y', 89, 2); // Ctrl+Y
+  await key('Enter', 13);
+  const redone = await call(areaStatus);
+  check('area editor: Ctrl+Y redoes it', redone?.points[2].x === 500 && redone.points[2].y === 400, redone);
+  // Esc cancels; typing while marking doesn't reach the page.
+  await ev('pageKeys.length = 0; document.getElementById("name").value = ""; document.getElementById("name").focus()');
+  await call(areaOverlay, { mode: 'edit', points: rect });
+  for (const [k, code] of [['h', 72], ['i', 73]]) await key(k, code);
+  await key('Escape', 27);
+  const cancelled = await call(areaStatus);
+  check('area editor: Esc cancels', cancelled?.result === 'cancel', cancelled);
+  const typed = await ev('({ keys: pageKeys, field: document.getElementById("name").value })');
+  check('area editor: keys typed while marking reach neither the page nor its fields', typed.keys.length === 0 && typed.field === '', typed);
+  check('area editor: the drags were not swiped by the page', (await ev('swipes')) === 0, await ev('swipes'));
 } catch (err) {
   console.log(`FAIL ${err instanceof Error ? err.stack : err}`);
   failures++;

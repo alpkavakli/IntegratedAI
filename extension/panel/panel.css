@@ -243,7 +243,9 @@ button.send.busy .i-stop { display: block; }
 .composer-hint { color: var(--fg-muted); font-size: 10px; margin-top: 3px; }
 .chips { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 2px; }
 /* Page access: a marked area, or "Just answer" (no page at all: nothing to attach) */
-.area-row { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; font-size: 11px; color: var(--accent-text); }
+.area-row { display: flex; align-items: center; gap: 8px; margin: 0 0 4px; padding: 4px 8px; border: 1px solid var(--accent); border-radius: 4px;
+  background: var(--bg-alt); font-size: 12px; font-weight: 600; color: var(--accent-text); }
+.area-row::before { content: ""; flex: none; width: 10px; height: 10px; border: 2px solid var(--accent); border-radius: 2px; }
 .area-row[hidden] { display: none; }
 body[data-page-access="area"] select#page-access, body[data-page-access="none"] select#page-access { border-color: var(--accent); color: var(--accent-text); }
 body[data-page-access="none"] .chips { display: none; }

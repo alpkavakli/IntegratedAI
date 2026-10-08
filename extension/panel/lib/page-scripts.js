@@ -995,7 +995,7 @@ export function areaOverlay(h, selected, { mode, points = [], anchor = '', label
   state.areaResult = null;
   if (mode === 'off') return true;
   const L = { draw: 'Drag to mark the area the AI may see, or click an element', edit: 'Drag the corners to shape it. Drag a dot between corners to add one, drag inside to move it, double-click a corner to remove it.',
-    done: 'Done', redraw: 'Redraw', cancel: 'Cancel', shown: 'The AI sees only this', ...labels };
+    done: 'Done', redraw: 'Redraw', cancel: 'Cancel', undo: 'Undo', redo: 'Redo', shown: 'The AI sees only this', ...labels };
   const BLUE = '#1a73e8';
   const editing = mode === 'edit';
   let pts = points.map((p) => ({ x: p.x, y: p.y }));
@@ -1007,14 +1007,17 @@ export function areaOverlay(h, selected, { mode, points = [], anchor = '', label
 
   const host = document.createElement('div');
   host.id = 'integratedai-area';
-  host.style.cssText = `all:initial;position:fixed;inset:0;z-index:2147483645;pointer-events:${editing ? 'auto' : 'none'}`;
+  // touch-action: none, so a finger drag shapes the area instead of scrolling the page.
+  host.style.cssText = `all:initial;position:fixed;inset:0;z-index:2147483645;pointer-events:${editing ? 'auto' : 'none'};touch-action:none`;
   const root = host.attachShadow({ mode: 'closed' });
   root.innerHTML = `<style>
     svg { position: fixed; inset: 0; width: 100vw; height: 100vh; overflow: visible; }
-    .dim { fill: rgba(32, 33, 36, ${editing ? 0.35 : 0.12}); fill-rule: evenodd; }
-    .shape { fill: transparent; stroke: ${BLUE}; stroke-width: 2; cursor: ${editing ? 'move' : 'default'}; }
+    .dim { fill: rgba(32, 33, 36, ${editing ? 0.5 : 0.28}); fill-rule: evenodd; }
+    .halo { fill: none; stroke: #fff; stroke-width: 7; stroke-linejoin: round; opacity: .9; }
+    .shape { fill: transparent; stroke: ${BLUE}; stroke-width: 3.5; stroke-linejoin: round; }
     .rubber { fill: rgba(26, 115, 232, .12); stroke: ${BLUE}; stroke-width: 1.5; stroke-dasharray: 4 3; }
     .corner { fill: #fff; stroke: ${BLUE}; stroke-width: 2; cursor: grab; }
+    .corner.active { fill: ${BLUE}; }
     .mid { fill: ${BLUE}; opacity: .55; cursor: copy; }
     .mid:hover { opacity: 1; }
     .bar { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 8px;
@@ -1024,13 +1027,13 @@ export function areaOverlay(h, selected, { mode, points = [], anchor = '', label
     .bar button { font: inherit; padding: 3px 10px; border-radius: 4px; border: 1px solid #5f6368; background: #303134; color: #e8eaed; cursor: pointer; }
     .bar button.primary { background: ${BLUE}; border-color: ${BLUE}; color: #fff; }
     .bar button:disabled { opacity: .5; cursor: default; }
-    .tag { position: fixed; padding: 1px 8px; border-radius: 4px; background: ${BLUE}; color: #fff; white-space: nowrap;
-      font: 600 12px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    .tag { position: fixed; padding: 2px 10px; border-radius: 4px; background: ${BLUE}; color: #fff; white-space: nowrap;
+      font: 600 13px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; box-shadow: 0 0 0 2px #fff; }
     .pick { position: fixed; border: 2px solid ${BLUE}; background: rgba(26, 115, 232, .1); border-radius: 2px; pointer-events: none; display: none; }
   </style>
   <svg xmlns="http://www.w3.org/2000/svg"></svg>
   <div class="pick"></div>
-  ${editing ? `<div class="bar" role="toolbar"><span></span><button type="button" data-do="redraw"></button><button type="button" data-do="cancel"></button><button type="button" class="primary" data-do="done"></button></div>` : '<div class="tag"></div>'}`;
+  ${editing ? `<div class="bar" role="toolbar"><span></span><button type="button" data-do="undo"></button><button type="button" data-do="redo"></button><button type="button" data-do="redraw"></button><button type="button" data-do="cancel"></button><button type="button" class="primary" data-do="done"></button></div>` : '<div class="tag"></div>'}`;
   document.documentElement.append(host);
   const svg = root.querySelector('svg');
   const pick = root.querySelector('.pick');
@@ -1038,6 +1041,10 @@ export function areaOverlay(h, selected, { mode, points = [], anchor = '', label
   const tag = root.querySelector('.tag');
   if (bar) {
     bar.querySelector('[data-do=redraw]').textContent = L.redraw;
+    bar.querySelector('[data-do=undo]').textContent = L.undo;
+    bar.querySelector('[data-do=undo]').title = 'Ctrl+Z';
+    bar.querySelector('[data-do=redo]').textContent = L.redo;
+    bar.querySelector('[data-do=redo]').title = 'Ctrl+Y';
     bar.querySelector('[data-do=cancel]').textContent = L.cancel;
     bar.querySelector('[data-do=done]').textContent = L.done;
   }
@@ -1088,6 +1095,14 @@ export function areaOverlay(h, selected, { mode, points = [], anchor = '', label
   };
 
   let rubber = null; // the rectangle being drawn, in screen coordinates
+  // Undo / redo (Ctrl+Z, Ctrl+Y): the shape before each change.
+  const past = [];
+  const future = [];
+  const current = () => ({ pts: pts.map((p) => ({ ...p })), anchorEl, phase });
+  const restore = (snap) => { pts = snap.pts; anchorEl = snap.anchorEl; phase = snap.phase; };
+  const remember = () => { past.push(current()); if (past.length > 100) past.shift(); future.length = 0; };
+  const undo = () => { if (!past.length) return; future.push(current()); restore(past.pop()); drag = null; rubber = null; render(); };
+  const redo = () => { if (!future.length) return; past.push(current()); restore(future.pop()); render(); };
   function render() {
     svg.replaceChildren();
     const W = innerWidth;
@@ -1096,13 +1111,14 @@ export function areaOverlay(h, selected, { mode, points = [], anchor = '', label
     if (phase === 'edit' && screenPts.length >= 3) {
       const poly = screenPts.map((p) => `${p.x},${p.y}`).join(' ');
       svg.append(make('path', { class: 'dim', d: `M0,0H${W}V${H}H0Z M${screenPts.map((p) => `${p.x},${p.y}`).join(' L')}Z` }));
+      svg.append(make('polygon', { class: 'halo', points: poly }));
       svg.append(make('polygon', { class: 'shape', points: poly, 'data-part': 'shape' }));
       if (editing) {
         screenPts.forEach((p, i) => {
           const q = screenPts[(i + 1) % screenPts.length];
           svg.append(make('circle', { class: 'mid', cx: (p.x + q.x) / 2, cy: (p.y + q.y) / 2, r: 4.5, 'data-part': 'mid', 'data-i': i }));
         });
-        screenPts.forEach((p, i) => svg.append(make('circle', { class: 'corner', cx: p.x, cy: p.y, r: 6.5, 'data-part': 'corner', 'data-i': i })));
+        screenPts.forEach((p, i) => svg.append(make('circle', { class: drag?.kind === 'corner' && drag.i === i ? 'corner active' : 'corner', cx: p.x, cy: p.y, r: 7, 'data-part': 'corner', 'data-i': i })));
       }
       if (tag) {
         const top = Math.min(...screenPts.map((p) => p.y));
@@ -1122,6 +1138,12 @@ export function areaOverlay(h, selected, { mode, points = [], anchor = '', label
       bar.querySelector('span').textContent = phase === 'draw' ? L.draw : L.edit;
       bar.querySelector('[data-do=done]').disabled = pts.length < 3;
       bar.querySelector('[data-do=redraw]').hidden = phase === 'draw';
+      // Out of the way: at the bottom when the area reaches up to where the toolbar is.
+      const ys = pts.map((p) => toScreen(p).y);
+      const low = ys.length >= 3 && Math.min(...ys) < bar.offsetHeight + 24 && Math.max(...ys) < innerHeight - bar.offsetHeight - 24;
+      Object.assign(bar.style, low ? { top: 'auto', bottom: '12px' } : { top: '12px', bottom: 'auto' });
+      bar.querySelector('[data-do=undo]').disabled = !past.length;
+      bar.querySelector('[data-do=redo]').disabled = !future.length;
     }
     host.style.cursor = phase === 'draw' ? 'crosshair' : '';
   }
@@ -1149,12 +1171,37 @@ export function areaOverlay(h, selected, { mode, points = [], anchor = '', label
     scrollBy({ left: e.deltaX, top: e.deltaY });
   };
 
+  /** Is the point on the toolbar (its buttons work as buttons)? */
+  const onBar = (x, y) => {
+    if (!bar) return false;
+    const r = bar.getBoundingClientRect();
+    return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+  };
+  /**
+   * What's under the pointer, by distance (easier to grab than the small circles themselves): a corner within
+   * 12px, else a dot between corners within 10px.
+   */
+  const partAt = (x, y) => {
+    const screenPts = pts.map(toScreen);
+    const near = (p, r) => Math.hypot(p.x - x, p.y - y) <= r;
+    let best = -1;
+    screenPts.forEach((p, i) => { if (near(p, 12) && (best < 0 || Math.hypot(p.x - x, p.y - y) < Math.hypot(screenPts[best].x - x, screenPts[best].y - y))) best = i; });
+    if (best >= 0) return { part: 'corner', i: best };
+    for (let i = 0; i < screenPts.length; i++) {
+      const p = screenPts[i];
+      const q = screenPts[(i + 1) % screenPts.length];
+      if (near({ x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 }, 10)) return { part: 'mid', i };
+    }
+    return { part: inside(x, y) ? 'shape' : '', i: -1 };
+  };
+
   let drag = null;
   const down = (e) => {
-    if (e.button !== 0 || e.composedPath().some((n) => n === bar)) return;
+    if (e.button !== 0 || onBar(e.clientX, e.clientY) || e.target?.id === 'integratedai-card') return;
     e.preventDefault();
-    const part = e.target.getAttribute?.('data-part');
-    const i = Number(e.target.getAttribute?.('data-i'));
+    e.stopImmediatePropagation(); // the page's own drag handling (swiping between slides, …) doesn't get it
+    const { part, i } = phase === 'draw' ? { part: '', i: -1 } : partAt(e.clientX, e.clientY);
+    if (phase === 'draw' || part) remember();
     if (phase === 'draw') {
       drag = { kind: 'draw' };
       rubber = { x0: e.clientX, y0: e.clientY, x1: e.clientX, y1: e.clientY };
@@ -1163,16 +1210,21 @@ export function areaOverlay(h, selected, { mode, points = [], anchor = '', label
     } else if (part === 'mid') {
       pts.splice(i + 1, 0, fromScreen(e.clientX, e.clientY));
       drag = { kind: 'corner', i: i + 1 };
-    } else if (inside(e.clientX, e.clientY)) {
+    } else if (part === 'shape') {
       drag = { kind: 'move', x: e.clientX, y: e.clientY, from: pts.map((p) => ({ ...p })) };
     } else {
       return;
     }
-    svg.setPointerCapture?.(e.pointerId);
+    try { host.setPointerCapture(e.pointerId); } catch { /* not a pointer we can capture */ }
     render();
   };
   const move = (e) => {
+    if (drag) { e.preventDefault(); e.stopImmediatePropagation(); }
     if (!drag) {
+      if (phase === 'edit') {
+        const { part } = partAt(e.clientX, e.clientY);
+        host.style.cursor = part === 'corner' ? 'grab' : part === 'mid' ? 'copy' : part === 'shape' ? 'move' : '';
+      }
       // Drawing: show which element a click would take.
       if (phase === 'draw') {
         const el = elementAt(e.clientX, e.clientY);
@@ -1188,14 +1240,22 @@ export function areaOverlay(h, selected, { mode, points = [], anchor = '', label
     } else if (drag.kind === 'corner') {
       pts[drag.i] = fromScreen(e.clientX, e.clientY);
     } else if (drag.kind === 'move') {
-      const dx = e.clientX - drag.x;
-      const dy = e.clientY - drag.y;
-      pts = drag.from.map((p) => clamp({ x: p.x + dx, y: p.y + dy })); // (same scale: only moved)
+      // The whole shape, kept as it is: it stops when its edge reaches the side (instead of bending).
+      let dx = e.clientX - drag.x;
+      let dy = e.clientY - drag.y;
+      const xs = drag.from.map((p) => p.x);
+      const ys = drag.from.map((p) => p.y);
+      const limit = page();
+      dx = Math.min(Math.max(dx, -Math.min(...xs)), limit.scrollWidth - Math.max(...xs));
+      dy = Math.min(Math.max(dy, -Math.min(...ys)), limit.scrollHeight - Math.max(...ys));
+      pts = drag.from.map((p) => ({ x: Math.round(p.x + dx), y: Math.round(p.y + dy) }));
     }
     render();
   };
   const up = (e) => {
     if (!drag) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
     if (drag.kind === 'draw') {
       const wide = Math.abs(rubber.x1 - rubber.x0) > 6 && Math.abs(rubber.y1 - rubber.y0) > 6;
       let box = null;
@@ -1220,38 +1280,68 @@ export function areaOverlay(h, selected, { mode, points = [], anchor = '', label
     render();
   };
   const dbl = (e) => {
-    if (e.target.getAttribute?.('data-part') !== 'corner' || pts.length <= 3) return;
-    pts.splice(Number(e.target.getAttribute('data-i')), 1);
+    const { part, i } = partAt(e.clientX, e.clientY);
+    if (part !== 'corner' || pts.length <= 3) return;
+    e.preventDefault();
+    pts.splice(i, 1);
     render();
   };
-  const key = (e) => {
-    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); finish('cancel'); }
-    else if (e.key === 'Enter' && pts.length >= 3 && phase === 'edit') { e.preventDefault(); e.stopPropagation(); finish('done'); }
+  // The browser took the pointer away (a touch scroll, the window lost focus): keep what was done so far.
+  const cancel = () => { if (drag) { if (drag.kind === 'draw') rubber = null; drag = null; render(); } };
+  const command = (cmd) => {
+    if (cmd === 'cancel') finish('cancel');
+    else if (cmd === 'done') { if (pts.length >= 3 && phase === 'edit') finish('done'); }
+    else if (cmd === 'undo') undo();
+    else if (cmd === 'redo') redo();
   };
+  /** Keys while marking: the shortcuts, and nothing else reaches the page (not its handlers, not its fields). */
+  const key = (e) => {
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    if (e.type !== 'keydown') return;
+    const mod = e.ctrlKey || e.metaKey;
+    const k = String(e.key || '').toLowerCase();
+    if (k === 'escape') command('cancel');
+    else if (k === 'enter') command('done');
+    else if (mod && !e.shiftKey && k === 'z') command('undo');
+    else if (mod && (k === 'y' || (e.shiftKey && k === 'z'))) command('redo');
+  };
+  const KEY_EVENTS = ['keydown', 'keypress', 'keyup', 'beforeinput', 'input', 'compositionstart'];
   const click = (e) => {
     const action = e.target.closest?.('button')?.dataset.do;
     if (action === 'done') finish('done');
     else if (action === 'cancel') finish('cancel');
-    else if (action === 'redraw') { pts = []; anchorEl = null; phase = 'draw'; render(); }
+    else if (action === 'redraw') { remember(); pts = []; anchorEl = null; phase = 'draw'; render(); }
+    else if (action === 'undo') undo();
+    else if (action === 'redo') redo();
   };
   const redraw = () => requestAnimationFrame(render);
 
   if (editing) {
-    // On the (closed) shadow root: outside it, every event looks like it came from the host.
-    root.addEventListener('pointerdown', down);
-    root.addEventListener('pointermove', move);
-    root.addEventListener('pointerup', up);
-    root.addEventListener('dblclick', dbl);
+    // On the window, in the capture phase: before the page's own handlers (a slide show that takes over any drag
+    // to swipe, …), which then don't see the drag at all. What's grabbed is found by position (partAt).
+    addEventListener('pointerdown', down, true);
+    addEventListener('pointermove', move, true);
+    addEventListener('pointerup', up, true);
+    addEventListener('pointercancel', cancel, true);
+    host.addEventListener('dblclick', dbl);
     root.addEventListener('click', click);
     // (The wheel goes to the overlay itself, not into its shadow root.)
     host.addEventListener('wheel', wheel, { passive: false });
-    addEventListener('keydown', key, true);
+    for (const type of KEY_EVENTS) addEventListener(type, key, true);
+    // Nothing on the page keeps the keyboard while marking (typing can't end up in its fields).
+    if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur?.();
   }
   addEventListener('scroll', redraw, true);
   addEventListener('resize', redraw);
   state.areaUi = {
+    command,
     stop() {
-      removeEventListener('keydown', key, true);
+      removeEventListener('pointerdown', down, true);
+      removeEventListener('pointermove', move, true);
+      removeEventListener('pointerup', up, true);
+      removeEventListener('pointercancel', cancel, true);
+      for (const type of KEY_EVENTS) removeEventListener(type, key, true);
       removeEventListener('scroll', redraw, true);
       removeEventListener('resize', redraw);
       host.remove();
@@ -1259,6 +1349,12 @@ export function areaOverlay(h, selected, { mode, points = [], anchor = '', label
     },
   };
   render();
+  return true;
+}
+
+/** The area editor's keys, from the panel (where the keyboard usually is): cancel, done, undo, redo. */
+export function areaCommand(h, selected, { command }) {
+  h.state().areaUi?.command?.(command);
   return true;
 }
 

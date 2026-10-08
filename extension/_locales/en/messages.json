@@ -1037,6 +1037,9 @@
   "readyStep3": {
     "message": "You're ready: see step 3."
   },
+  "redo": {
+    "message": "Redo"
+  },
   "refFound": {
     "message": "the element the AI found ($1)"
   },

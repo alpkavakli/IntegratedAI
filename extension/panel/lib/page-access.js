@@ -12,7 +12,7 @@
  */
 
 import { callInPage, setPageArea } from './inspected.js';
-import { areaOverlay, areaRoots, areaStatus } from './page-scripts.js';
+import { areaCommand, areaOverlay, areaRoots, areaStatus } from './page-scripts.js';
 import { t } from '../../shared/i18n.js';
 
 /** @typedef {{ x: number, y: number }} Point */
@@ -145,6 +145,14 @@ export class PageAccess {
     this.pollTimer = undefined;
   }
 
+  /**
+   * A key for the editor on the page, pressed in the panel (where the keyboard usually is while marking: clicks
+   * on the page don't take it). @param {'cancel' | 'done' | 'undo' | 'redo'} command
+   */
+  async command(command) {
+    if (this.editing) await callInPage(areaCommand, { command }).catch(() => {});
+  }
+
   /** The outline of the confirmed area on the page (after a reload, it is drawn again). */
   async show() {
     if (this.points.length < 3) return;
@@ -193,6 +201,8 @@ export class PageAccess {
       done: t('done', 'Done'),
       redraw: t('areaRedraw', 'Redraw'),
       cancel: t('cancel', 'Cancel'),
+      undo: t('undo', 'Undo'),
+      redo: t('redo', 'Redo'),
       shown: t('areaTag', 'The AI sees only this'),
     };
   }

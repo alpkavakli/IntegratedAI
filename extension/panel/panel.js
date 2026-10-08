@@ -134,6 +134,22 @@ export class App {
     this.chat.setPageLang(page.lang ?? '');
     $('page-access').addEventListener('change', () => this.access.setMode($('page-access').value).catch((err) => this.showError(err.message)));
     $('area-change').addEventListener('click', () => this.access.edit().catch((err) => this.showError(err.message)));
+    // While the area is being marked: Esc cancels, Ctrl+Z / Ctrl+Y undo and redo the shape (the message box keeps its
+    // own undo while it has text), Enter outside the message box is Done.
+    document.addEventListener('keydown', (e) => {
+      if (!this.access.editing) return;
+      const k = e.key.toLowerCase();
+      const mod = e.ctrlKey || e.metaKey;
+      const inPrompt = e.target === $('prompt') && $('prompt').value;
+      const cmd = k === 'escape' ? 'cancel'
+        : k === 'enter' && e.target !== $('prompt') ? 'done'
+          : mod && !inPrompt && !e.shiftKey && k === 'z' ? 'undo'
+            : mod && !inPrompt && (k === 'y' || (e.shiftKey && k === 'z')) ? 'redo' : null;
+      if (!cmd) return;
+      e.preventDefault();
+      e.stopPropagation();
+      this.access.command(/** @type {any} */ (cmd));
+    }, true);
     await this.access.load(page.url).catch(() => {});
     this.renderAccess();
     await this.changes.load(page.timeOrigin);

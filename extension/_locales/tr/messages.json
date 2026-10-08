@@ -1037,6 +1037,9 @@
   "readyStep3": {
     "message": "Hazırsın: 3. adıma bak."
   },
+  "redo": {
+    "message": "Yinele"
+  },
   "refFound": {
     "message": "yapay zekânın bulduğu öğe ($1)"
   },
