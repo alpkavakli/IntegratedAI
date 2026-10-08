@@ -1442,8 +1442,12 @@ export function areaInFrame(h, selected, { url, real }) {
     const pick = frames.find((x) => wants.some((w) => w.href === x.at.href))
       || frames.find((x) => wants.some((w) => w.path === x.at.path))
       || (() => { const same = frames.filter((x) => wants.some((w) => w.origin === x.at.origin)); return same.length === 1 ? same[0] : null; })();
-    const el = pick?.fr;
-    if (!el) throw new Error(`No frame with the URL ${u} on the page`);
+    // None fits by address (its src moved on, or two frames share the site): the one frame the area reaches into.
+    const touching = frames.filter((x) => hh.rectTouchesArea(x.fr.getBoundingClientRect()));
+    const el = pick?.fr ?? (touching.length === 1 ? touching[0].fr : null);
+    if (!el) {
+      throw new Error(`No frame with the URL ${u} here. Frames the marked area reaches into: ${touching.map((x) => x.at.href).join(', ') || 'none'}`);
+    }
     const r = el.getBoundingClientRect();
     const cs = getComputedStyle(el);
     const left = parseFloat(cs.paddingLeft) || 0;

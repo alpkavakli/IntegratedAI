@@ -58,7 +58,7 @@ const handlers = {
   'css.insert': async ({ tabId, css, frame }) => insertCss(tabId, css, frame),
   // The tab's frames with their real addresses (a frame from another site may have moved on from its src).
   'frames.list': async ({ tabId }) => ((await chrome.webNavigation.getAllFrames({ tabId })) ?? [])
-    .filter((f) => f.frameId !== 0).map((f) => ({ url: f.url, parentFrameId: f.parentFrameId })),
+    .map((f) => ({ frameId: f.frameId, parentFrameId: f.parentFrameId, url: f.url })),
   'css.remove': async ({ tabId, css, frame }) => removeCss(tabId, css, frame),
 
   'patches.list': async () => getPatches(),

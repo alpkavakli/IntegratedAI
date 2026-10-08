@@ -61,6 +61,7 @@ const PAGE = `<!doctype html><html><head><title>Agent test page</title><style>
     <input type="hidden" name="csrf" value="abc123def456ghi789jkl012mno345pqr678"></div>
   <div id="outside" style="position:absolute;left:300px;top:0;width:250px;height:100px">Ahmet Yılmaz <button id="out-btn">Outside button</button></div>
 </div>
+<iframe id="player" src="/player.html" title="Course player" style="position:absolute;left:20px;top:2850px;width:400px;height:200px;border:0"></iframe>
 <iframe id="xframe" src="http://localhost:${PORTS.page}/launch?course=1" title="Quiz" style="position:absolute;left:20px;top:2700px;width:300px;height:100px;border:0"></iframe>
 <div id="scroller" style="position:absolute;left:20px;top:2400px;width:300px;height:150px;overflow:auto">
   <div style="height:600px"><p id="sp-top" style="margin:4px">Panel top text</p><p id="sp-low" style="margin:300px 4px 0">Panel low text</p></div>
@@ -89,6 +90,8 @@ const PAGE = `<!doctype html><html><head><title>Agent test page</title><style>
 
 const server = http.createServer((req, res) => {
   res.setHeader('content-type', 'text/html; charset=utf-8');
+  // A course player (same site) with the quiz (another site, reached through a redirect) inside it.
+  if (req.url === '/player.html') { res.end(`<!doctype html><body style="margin:0"><p style="margin:0;height:40px">Player menu</p><iframe id="inner" src="http://localhost:${PORTS.page}/launch?course=2" style="border:0;width:300px;height:100px"></iframe></body>`); return; }
   if (req.url?.startsWith('/launch')) { res.writeHead(302, { location: '/quiz.html?id=7' }); res.end(); return; }
   if (req.url?.startsWith('/quiz.html')) { res.end('<!doctype html><body style="margin:0"><select id="answer"><option>Please select</option><option>online</option></select></body>'); return; }
   if (req.url === '/frame.html') res.end('<!doctype html><title>Frame</title><body style="margin:0"><button id="pay" onclick="top.log && top.log.push(\'paid\')">Pay</button><button id="low" style="position:absolute;left:0;top:60px">Low</button></body>');
@@ -379,6 +382,31 @@ try {
   // (A frame from another site runs on its own: it's one of Chrome's targets, under the address after the redirect.)
   const xTarget = (await cdp('Target.getTargets')).result.targetInfos.find((/** @type {any} */ t) => t.type === 'iframe' && t.url.includes('/quiz.html'));
   check('cross-site frame: Chrome knows it by the address after the redirect, not its src', xTarget?.url === realUrl, xTarget?.url);
+
+  // Frames inside frames (a quiz inside a course player): the area's part, level by level, as callInPage does.
+  const pl = await ev('(() => { const r = document.getElementById("player").getBoundingClientRect(); return { l: r.left + scrollX, t: r.top + scrollY, r: r.right + scrollX, b: r.bottom + scrollY }; })()');
+  const playerArea = { area: box([pl.l - 10, pl.t + 30, pl.r + 10, pl.b + 10]), url }; // below the player's menu
+  const playerUrl = `http://127.0.0.1:${PORTS.page}/player.html`;
+  const playerScope = await callArea(areaInFrame, playerArea, { url: playerUrl, real: playerUrl });
+  const playerTree = (await cdp('Page.getFrameTree', {}, session)).result.frameTree;
+  const playerId = playerTree.childFrames.find((/** @type {any} */ c) => c.frame.url === playerUrl).frame.id;
+  const playerCtx = (await cdp('Page.createIsolatedWorld', { frameId: playerId, worldName: 'check' }, session)).result.executionContextId;
+  const inPlayer = async (/** @type {Function} */ fn, /** @type {any} */ scope, args = {}) => {
+    const r = await cdp('Runtime.evaluate', { expression: `(${fn.toString()})((${pageHelpers.toString()})(${JSON.stringify(scope)}), undefined, ${JSON.stringify(args)})`, contextId: playerCtx, returnByValue: true }, session);
+    if (r.result.exceptionDetails) throw new Error(r.result.exceptionDetails.exception?.description ?? 'exception');
+    return r.result.result.value;
+  };
+  const playerText = (await inPlayer(readText, playerScope)).text;
+  check('nested frames: the player\'s menu, outside the area, is not read', !playerText.includes('Player menu'), playerText);
+  const quizUrl = `http://localhost:${PORTS.page}/quiz.html?id=7`;
+  // The AI names the quiz by an address that fits nothing (its old src): the one frame the area covers there.
+  const quizScope = await inPlayer(areaInFrame, playerScope, { url: `http://localhost:${PORTS.page}/launch?course=2`, real: `http://localhost:${PORTS.page}/elsewhere` });
+  check('nested frames: the quiz frame inside the player gets its part of the area', quizScope?.frame === true && quizScope.area.length === 4, quizScope);
+  const quizTarget = (await cdp('Target.getTargets')).result.targetInfos.find((/** @type {any} */ t) => t.type === 'iframe' && t.url === quizUrl);
+  const quizSession = (await cdp('Target.attachToTarget', { targetId: quizTarget.targetId, flatten: true })).result.sessionId;
+  const quizRead = await cdp('Runtime.evaluate', { expression: `(${readText.toString()})((${pageHelpers.toString()})(${JSON.stringify(quizScope)}), undefined, {})`, returnByValue: true }, quizSession);
+  const quizText = quizRead.result.result?.value?.text ?? JSON.stringify(quizRead.result);
+  check('nested frames: the quiz inside the player can be read (its dropdown)', /online|Please select/.test(quizText), quizText);
 
   // ── "Keep on this site": the area applies on every page of the site (checked by origin), not on another site.
   const origin = await ev('location.origin');

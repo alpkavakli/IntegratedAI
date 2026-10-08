@@ -78,34 +78,67 @@ export function evalInPage(expression, frame) {
  */
 export async function callInPage(fn, args = {}, frame = undefined) {
   if (IN_CARD) return callInCard(fn, args, frame);
-  // The page knows a frame from another site only by its src; DevTools needs its address now.
+  // The page knows a frame from another site only by its src; DevTools needs its address now (Chrome's list).
   const asked = frame;
-  if (frame) frame = await realFrameUrl(frame);
   let scope = pageScope;
-  if (scope && frame) {
-    // With a marked area: the part of it in this frame, worked out by the page around the frame (which also checks
-    // that it's still the page the area belongs to). In the frame, only that part exists for the tools.
-    scope = await evalInPage(`(${areaInFrame.toString()})((${pageHelpers.toString()})(${JSON.stringify(scope)}), undefined, ${JSON.stringify({ url: asked, real: frame })})`);
+  if (frame) {
+    const frames = await frameList();
+    const target = frames.find((f) => f.frameId !== 0 && f.url === pickFrameUrl(frames.filter((x) => x.frameId !== 0).map((x) => x.url), frame));
+    frame = target?.url ?? frame;
+    if (scope) {
+      // With a marked area: its part in the frame, worked out level by level from the page down (frames can sit
+      // inside frames, like a quiz in a course player). The page checks it's still the page the area belongs to;
+      // in each frame only its part of the area exists for the tools.
+      const chain = [];
+      for (let f = target; f && f.frameId !== 0; f = frames.find((p) => p.frameId === f?.parentFrameId)) chain.unshift(f);
+      if (!chain.length) chain.push({ url: frame, frameId: -1, parentFrameId: 0 });
+      /** @type {string | undefined} */
+      let parent; // undefined: the page
+      for (const [i, f] of chain.entries()) {
+        const last = i === chain.length - 1;
+        scope = await evalInFrame(`(${areaInFrame.toString()})((${pageHelpers.toString()})(${JSON.stringify(scope)}), undefined, ${JSON.stringify({ url: last ? asked : f.url, real: f.url })})`, parent);
+        parent = f.url;
+      }
+    }
   }
   const expression = `(${fn.toString()})((${pageHelpers.toString()})(${JSON.stringify(scope)}), typeof $0 === 'undefined' ? undefined : $0, ${JSON.stringify(args)})`;
-  return evalInPage(expression, frame);
+  return evalInFrame(expression, frame);
+}
+
+/** The tab's frames as Chrome lists them (an empty list if it can't be asked). */
+async function frameList() {
+  try {
+    return /** @type {{ frameId: number, parentFrameId: number, url: string }[]} */ (await bg('frames.list', { tabId: TAB_ID }));
+  } catch {
+    return [];
+  }
 }
 
 /**
- * The address DevTools knows a frame by (inspectedWindow.eval's frameURL must match it exactly): the frame
+ * evalInPage in a frame, also trying its address without (or with) the part after # when DevTools doesn't know it
+ * as given (an app that moves around inside one page changes only that part).
+ * @param {string} expression
+ * @param {string} [frame]
+ */
+async function evalInFrame(expression, frame) {
+  try {
+    return await evalInPage(expression, frame);
+  } catch (err) {
+    const other = frame && (frame.includes('#') ? frame.split('#')[0] : null);
+    if (!other || !/^No frame with the URL/.test(String(/** @type {any} */ (err)?.message))) throw err;
+    return evalInPage(expression, other);
+  }
+}
+
+/**
+ * (pickFrameUrl) The address DevTools knows a frame by (inspectedWindow.eval's frameURL must match it exactly): the frame
  * whose address is the one given, or has the same site and path, or the only frame from that site (its address
  * changed after it loaded, e.g. a redirect). Chrome lists the real addresses (webNavigation).
  * @param {string} frame
  */
-async function realFrameUrl(frame) {
-  /** @type {{ url: string }[]} */
-  let frames = [];
-  try { frames = await bg('frames.list', { tabId: TAB_ID }); } catch { return frame; }
-  return pickFrameUrl(frames.map((f) => f.url), frame);
-}
 
 /**
- * Which of the tab's frame addresses is meant (see realFrameUrl); the address given when none fits.
+ * Which of the tab's frame addresses is meant; the address given when none fits.
  * @param {string[]} urls
  * @param {string} frame
  */

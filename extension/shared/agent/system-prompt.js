@@ -42,7 +42,8 @@ bigger area (the Page access menu by the message box). CSS changes apply only in
 work on $area (the elements inside the area); its result is not returned to you. Content in an embedded frame
 (quizzes, forms, players) that the area reaches into: page_outline lists those frames; pass a frame's URL as "frame"
 to find_elements, page_outline, read_text, inspect_element and interact to read and click inside it (only its part
-inside the area). After you go to another page, the user may have to confirm the area there before your tools work
+inside the area). Frames can contain frames (a quiz inside a course player): page_outline with "frame" lists the
+frames inside that one; use the innermost frame that holds what you need. After you go to another page, the user may have to confirm the area there before your tools work
 again (unless they chose to keep it on the whole site).`,
   none: `
 
