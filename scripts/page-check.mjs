@@ -61,6 +61,9 @@ const PAGE = `<!doctype html><html><head><title>Agent test page</title><style>
     <input type="hidden" name="csrf" value="abc123def456ghi789jkl012mno345pqr678"></div>
   <div id="outside" style="position:absolute;left:300px;top:0;width:250px;height:100px">Ahmet Yılmaz <button id="out-btn">Outside button</button></div>
 </div>
+<div id="scroller" style="position:absolute;left:20px;top:2400px;width:300px;height:150px;overflow:auto">
+  <div style="height:600px"><p id="sp-top" style="margin:4px">Panel top text</p><p id="sp-low" style="margin:300px 4px 0">Panel low text</p></div>
+</div>
 <script>
   window.log = [];
   document.querySelectorAll('a.Link--primary').forEach((a) => a.addEventListener('click', (e) => { e.preventDefault(); log.push('open ' + a.getAttribute('href')); }));
@@ -303,6 +306,32 @@ try {
   const moved = await call(areaStatus);
   check('area editor: drag inside moves it', moved?.points.every((/** @type {any} */ p, /** @type {number} */ i) => p.x === shaped.points[i].x + 30 && p.y === shaped.points[i].y + 20), moved);
   check('area editor: the page is not clicked meanwhile, and the outline stays', (await ev('log')).length === logBefore && (await ev('!!document.getElementById("integratedai-area")')) === true);
+  await call(areaOverlay, { mode: 'off' });
+
+  // ── An area in a panel that scrolls by itself (apps like Gmail or Blackboard): it moves with the content.
+  const panelArea = { area: box([0, 0, 280, 60]), url, anchor: '#scroller' }; // the top of the panel's content
+  const panelText = (await callArea(readText, panelArea)).text;
+  check('scrolling panel: the area has the text at its top, not the text further down', panelText.includes('Panel top') && !panelText.includes('Panel low'), panelText);
+  await ev('document.getElementById("scroller").scrollTop = 300');
+  const scrolledText = (await callArea(readText, panelArea)).text;
+  check('scrolling panel: after the panel scrolls, still the same text (the area moved with it)', scrolledText.includes('Panel top') && !scrolledText.includes('Panel low'), scrolledText);
+  const gone = await refused(callArea(readText, { ...panelArea, anchor: '#no-such-panel' }));
+  check('scrolling panel: if the panel is gone, nothing is shown', /different page/.test(gone), gone);
+  // The editor: the wheel scrolls the panel under the pointer, and a rectangle drawn on the panel is attached to it.
+  await ev('document.getElementById("scroller").scrollTop = 0; document.getElementById("scroller").scrollIntoView({ block: "center" })');
+  const panelBox = await ev('(() => { const r = document.getElementById("scroller").getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom }; })()');
+  await call(areaOverlay, { mode: 'edit' });
+  await cdp('Input.dispatchMouseEvent', { type: 'mouseWheel', x: panelBox.l + 100, y: panelBox.t + 60, deltaX: 0, deltaY: 120 }, session);
+  await sleep(150);
+  const wheeled = await ev('document.getElementById("scroller").scrollTop');
+  check('area editor: the wheel scrolls the panel under the pointer', wheeled > 0, wheeled);
+  await ev('document.getElementById("scroller").scrollTop = 0');
+  await mouse('mousePressed', panelBox.l + 10, panelBox.t + 10);
+  await mouse('mouseMoved', panelBox.l + 200, panelBox.t + 60);
+  await mouse('mouseReleased', panelBox.l + 200, panelBox.t + 60);
+  await enter();
+  const anchored = await call(areaStatus);
+  check('area editor: drawn on a scrolling panel, it is attached to the panel', anchored?.anchor === '#scroller' && anchored.points[0].y < 20, anchored);
   await call(areaOverlay, { mode: 'off' });
 } catch (err) {
   console.log(`FAIL ${err instanceof Error ? err.stack : err}`);

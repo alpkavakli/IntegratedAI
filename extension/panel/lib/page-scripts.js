@@ -16,7 +16,9 @@
  * Helpers available to every page function as `h`.
  *
  * `scope` is the page access the user chose, sent by the panel with every call (so the page can't change it):
- *   { area: [{x, y}, …], url }  only what lies inside this polygon (document coordinates) exists for the AI:
+ *   { area: [{x, y}, …], url, anchor }  only what lies inside this polygon exists for the AI. Its coordinates
+ *                          are in the content of `anchor` (a selector: the panel that scrolls around it, so the
+ *                          area moves with the content), or of the page when there's no anchor:
  *                          the element lookups and the readable text below leave everything else out, and
  *                          anything named outside it is refused. When in doubt (partly inside, no size), it's left
  *                          out. url: the page it was marked on; on any other page (the AI went elsewhere) nothing
@@ -25,7 +27,19 @@
 export function pageHelpers(scope = null) {
   const MAX_HTML = 1500;
   const AREA = scope && Array.isArray(scope.area) && scope.area.length >= 3 ? scope.area : null;
-  const WRONG_PAGE = Boolean(AREA && scope.url && location.href.split('#')[0] !== scope.url);
+  let anchorEl = null;
+  if (AREA && typeof scope.anchor === 'string' && scope.anchor) {
+    try { anchorEl = document.querySelector(scope.anchor); } catch { /* not a selector */ }
+  }
+  // Another page, or its scrolling panel is gone: nothing is shown until the user confirms the area again.
+  const WRONG_PAGE = Boolean(AREA && ((scope.url && location.href.split('#')[0] !== scope.url) || (scope.anchor && !anchorEl)));
+
+  /** Where the area's coordinates start, on screen: the top-left of the content it is attached to. */
+  function areaOrigin() {
+    if (!anchorEl) return { x: -scrollX, y: -scrollY };
+    const r = anchorEl.getBoundingClientRect();
+    return { x: r.left + anchorEl.clientLeft - anchorEl.scrollLeft, y: r.top + anchorEl.clientTop - anchorEl.scrollTop };
+  }
   const WRONG_PAGE_TEXT = 'This is a different page from the one the user marked the area on: nothing here can be shown until the user confirms the area on this page. Tell the user, and wait for their next message.';
 
   /** With an area: stop right away on a page it wasn't marked on. */
@@ -65,10 +79,11 @@ export function pageHelpers(scope = null) {
    */
   function rectInArea(r) {
     if (WRONG_PAGE || (!r.width && !r.height)) return false;
-    const left = r.left + scrollX + 1;
-    const top = r.top + scrollY + 1;
-    const right = Math.max(left, r.right + scrollX - 1);
-    const bottom = Math.max(top, r.bottom + scrollY - 1);
+    const o = areaOrigin();
+    const left = r.left - o.x + 1;
+    const top = r.top - o.y + 1;
+    const right = Math.max(left, r.right - o.x - 1);
+    const bottom = Math.max(top, r.bottom - o.y - 1);
     if (![[left, top], [right, top], [left, bottom], [right, bottom]].every(([x, y]) => pointInArea(x, y))) return false;
     for (let i = 0, j = AREA.length - 1; i < AREA.length; j = i++) {
       if (segmentCrossesBox(AREA[j], AREA[i], left, top, right, bottom)) return false;
@@ -482,7 +497,7 @@ export function pageHelpers(scope = null) {
   return {
     KEY_PROPERTIES, cssPath, label, computed, rect, overflowInfo, htmlExcerpt, toJson, target, state,
     refOf, byRef, queryAll, visible, onScreen, humanName, readable,
-    area: AREA, inArea, checkArea, textInArea, assertPage, pointInArea: (x, y) => (AREA ? pointInArea(x, y) : true),
+    area: AREA, anchor: anchorEl, areaOrigin, inArea, checkArea, textInArea, assertPage, pointInArea: (x, y) => (AREA ? pointInArea(x, y) : true),
   };
 }
 
@@ -898,20 +913,33 @@ export function prepareScreenshot(h, selected, input) {
   const viewport = { width: innerWidth, height: innerHeight };
   const scroll = { x: scrollX, y: scrollY };
   if (h.area) {
-    // The area, whatever was asked: brought into view, and its outline (viewport coordinates) so the panel can
-    // grey out everything outside it before the picture goes anywhere.
-    const xs = h.area.map((p) => p.x);
-    const ys = h.area.map((p) => p.y);
-    const box = { left: Math.min(...xs), top: Math.min(...ys), right: Math.max(...xs), bottom: Math.max(...ys) };
+    // The area, whatever was asked: brought into view (its scrolling panel first, then the page), and its outline
+    // on screen so the panel can grey out everything outside it before the picture goes anywhere.
+    const onScreen = () => {
+      const o = h.areaOrigin();
+      const polygon = h.area.map((p) => ({ x: p.x + o.x, y: p.y + o.y }));
+      const xs = polygon.map((p) => p.x);
+      const ys = polygon.map((p) => p.y);
+      return { polygon, box: { left: Math.min(...xs), top: Math.min(...ys), right: Math.max(...xs), bottom: Math.max(...ys) } };
+    };
+    let { polygon, box } = onScreen();
     let scrolled = false;
-    if (box.top < scrollY || box.bottom > scrollY + innerHeight || box.left < scrollX || box.right > scrollX + innerWidth) {
-      scrollTo({ left: Math.max(0, box.left - 16), top: Math.max(0, box.top - 16), behavior: 'instant' });
-      scrolled = true;
+    const outside = (b, r) => b.top < r.top || b.bottom > r.bottom || b.left < r.left || b.right > r.right;
+    if (h.anchor) {
+      const r = h.anchor.getBoundingClientRect();
+      if (outside(box, r)) {
+        h.anchor.scrollBy({ left: box.left - r.left - 16, top: box.top - r.top - 16, behavior: 'instant' });
+        ({ polygon, box } = onScreen());
+      }
     }
-    const polygon = h.area.map((p) => ({ x: p.x - scrollX, y: p.y - scrollY }));
+    if (outside(box, { top: 0, left: 0, right: innerWidth, bottom: innerHeight })) {
+      scrollBy({ left: box.left - 16, top: box.top - 16, behavior: 'instant' });
+      scrolled = true;
+      ({ polygon, box } = onScreen());
+    }
     return {
       viewport, scroll, scrolled, polygon,
-      rect: { x: box.left - scrollX, y: box.top - scrollY, width: box.right - box.left, height: box.bottom - box.top },
+      rect: { x: box.left, y: box.top, width: box.right - box.left, height: box.bottom - box.top },
       label: 'the marked area',
     };
   }
@@ -961,7 +989,7 @@ export function setCardHidden(h, selected, { hidden }) {
  * it sends it with every call, so what the page does with this outline can't widen it).
  * @param {{ mode: 'edit' | 'show' | 'off', points?: {x: number, y: number}[], labels?: Record<string, string> }} args
  */
-export function areaOverlay(h, selected, { mode, points = [], labels = {} }) {
+export function areaOverlay(h, selected, { mode, points = [], anchor = '', labels = {} }) {
   const state = h.state();
   state.areaUi?.stop();
   state.areaResult = null;
@@ -972,6 +1000,10 @@ export function areaOverlay(h, selected, { mode, points = [], labels = {} }) {
   const editing = mode === 'edit';
   let pts = points.map((p) => ({ x: p.x, y: p.y }));
   let phase = editing && pts.length < 3 ? 'draw' : 'edit';
+  // The panel that scrolls around the area (null: the page). Points are in its content's coordinates, so the area
+  // moves with the content (apps like Gmail or Blackboard scroll a panel, not the page).
+  let anchorEl = null;
+  if (anchor) { try { anchorEl = document.querySelector(anchor); } catch { /* gone */ } }
 
   const host = document.createElement('div');
   host.id = 'integratedai-area';
@@ -1016,13 +1048,35 @@ export function areaOverlay(h, selected, { mode, points = [], labels = {} }) {
     for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, String(v));
     return node;
   };
-  // Document ↔ screen coordinates.
-  const toScreen = (p) => ({ x: p.x - scrollX, y: p.y - scrollY });
-  const page = () => document.scrollingElement || document.documentElement;
+  // Area ↔ screen coordinates (as areaOrigin in pageHelpers).
+  const origin = () => {
+    if (!anchorEl) return { x: -scrollX, y: -scrollY };
+    const r = anchorEl.getBoundingClientRect();
+    return { x: r.left + anchorEl.clientLeft - anchorEl.scrollLeft, y: r.top + anchorEl.clientTop - anchorEl.scrollTop };
+  };
+  const toScreen = (p) => { const o = origin(); return { x: p.x + o.x, y: p.y + o.y }; };
+  const page = () => anchorEl || document.scrollingElement || document.documentElement;
   const clamp = (p) => ({
     x: Math.round(Math.min(Math.max(p.x, 0), page().scrollWidth)),
     y: Math.round(Math.min(Math.max(p.y, 0), page().scrollHeight)),
   });
+  /** A point on screen, in area coordinates. */
+  const fromScreen = (x, y) => { const o = origin(); return clamp({ x: x - o.x, y: y - o.y }); };
+  const scrolls = (el, dx, dy) => {
+    const cs = getComputedStyle(el);
+    const canY = /(auto|scroll|overlay)/.test(cs.overflowY) && el.scrollHeight > el.clientHeight + 1;
+    const canX = /(auto|scroll|overlay)/.test(cs.overflowX) && el.scrollWidth > el.clientWidth + 1;
+    if (dx === undefined) return canY || canX;
+    return (dy && canY && (dy < 0 ? el.scrollTop > 0 : el.scrollTop + el.clientHeight < el.scrollHeight - 1))
+      || (dx && canX && (dx < 0 ? el.scrollLeft > 0 : el.scrollLeft + el.clientWidth < el.scrollWidth - 1));
+  };
+  /** The panel that scrolls around an element, or null for the page. */
+  const scrollerOf = (el) => {
+    for (let node = el; node && node !== document.body && node !== document.documentElement; node = node.parentElement) {
+      if (scrolls(node)) return node;
+    }
+    return null;
+  };
   const inside = (x, y) => {
     let hit = false;
     for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
@@ -1079,11 +1133,20 @@ export function areaOverlay(h, selected, { mode, points = [], labels = {} }) {
     host.style.display = '';
     return el && el !== document.documentElement && el !== document.body && el.id !== 'integratedai-card' ? el : null;
   };
+  const anchorSelector = () => (anchorEl ? h.cssPath(anchorEl) : '');
   const finish = (result) => {
     state.areaUi?.stop();
-    if (result === 'done') areaOverlay(h, selected, { mode: 'show', points: pts, labels }); // keep the outline
+    if (result === 'done') areaOverlay(h, selected, { mode: 'show', points: pts, anchor: anchorSelector(), labels }); // keep the outline
     // (after that: showing the outline starts with a clean result)
-    state.areaResult = { result, points: pts, url: location.href.split('#')[0] };
+    state.areaResult = { result, points: pts, anchor: anchorSelector(), url: location.href.split('#')[0] };
+  };
+  // The wheel scrolls what's under the pointer, as without the overlay (the page, or a panel in it).
+  const wheel = (e) => {
+    e.preventDefault();
+    for (let node = elementAt(e.clientX, e.clientY); node && node !== document.documentElement; node = node.parentElement) {
+      if (node !== document.body && scrolls(node, e.deltaX, e.deltaY)) { node.scrollBy({ left: e.deltaX, top: e.deltaY }); return; }
+    }
+    scrollBy({ left: e.deltaX, top: e.deltaY });
   };
 
   let drag = null;
@@ -1098,7 +1161,7 @@ export function areaOverlay(h, selected, { mode, points = [], labels = {} }) {
     } else if (part === 'corner') {
       drag = { kind: 'corner', i };
     } else if (part === 'mid') {
-      pts.splice(i + 1, 0, { x: e.clientX + scrollX, y: e.clientY + scrollY });
+      pts.splice(i + 1, 0, fromScreen(e.clientX, e.clientY));
       drag = { kind: 'corner', i: i + 1 };
     } else if (inside(e.clientX, e.clientY)) {
       drag = { kind: 'move', x: e.clientX, y: e.clientY, from: pts.map((p) => ({ ...p })) };
@@ -1123,11 +1186,11 @@ export function areaOverlay(h, selected, { mode, points = [], labels = {} }) {
       rubber.y1 = e.clientY;
       pick.style.display = 'none';
     } else if (drag.kind === 'corner') {
-      pts[drag.i] = clamp({ x: e.clientX + scrollX, y: e.clientY + scrollY });
+      pts[drag.i] = fromScreen(e.clientX, e.clientY);
     } else if (drag.kind === 'move') {
       const dx = e.clientX - drag.x;
       const dy = e.clientY - drag.y;
-      pts = drag.from.map((p) => clamp({ x: p.x + dx, y: p.y + dy }));
+      pts = drag.from.map((p) => clamp({ x: p.x + dx, y: p.y + dy })); // (same scale: only moved)
     }
     render();
   };
@@ -1146,8 +1209,10 @@ export function areaOverlay(h, selected, { mode, points = [], labels = {} }) {
       rubber = null;
       pick.style.display = 'none';
       if (box) {
+        // Attached to the panel that scrolls around its middle (or the page).
+        anchorEl = scrollerOf(elementAt((box.left + box.right) / 2, (box.top + box.bottom) / 2));
         pts = [[box.left, box.top], [box.right, box.top], [box.right, box.bottom], [box.left, box.bottom]]
-          .map(([x, y]) => clamp({ x: x + scrollX, y: y + scrollY }));
+          .map(([x, y]) => fromScreen(x, y));
         phase = 'edit';
       }
     }
@@ -1167,7 +1232,7 @@ export function areaOverlay(h, selected, { mode, points = [], labels = {} }) {
     const action = e.target.closest?.('button')?.dataset.do;
     if (action === 'done') finish('done');
     else if (action === 'cancel') finish('cancel');
-    else if (action === 'redraw') { pts = []; phase = 'draw'; render(); }
+    else if (action === 'redraw') { pts = []; anchorEl = null; phase = 'draw'; render(); }
   };
   const redraw = () => requestAnimationFrame(render);
 
@@ -1178,6 +1243,8 @@ export function areaOverlay(h, selected, { mode, points = [], labels = {} }) {
     root.addEventListener('pointerup', up);
     root.addEventListener('dblclick', dbl);
     root.addEventListener('click', click);
+    // (The wheel goes to the overlay itself, not into its shadow root.)
+    host.addEventListener('wheel', wheel, { passive: false });
     addEventListener('keydown', key, true);
   }
   addEventListener('scroll', redraw, true);
@@ -1195,7 +1262,7 @@ export function areaOverlay(h, selected, { mode, points = [], labels = {} }) {
   return true;
 }
 
-/** What happened in the area editor since the last look: { result: 'done' | 'cancel', points } or null (still editing). */
+/** What happened in the area editor since the last look: { result: 'done' | 'cancel', points, anchor, url } or null (still editing). */
 export function areaStatus(h) {
   const state = h.state();
   const result = state.areaResult;

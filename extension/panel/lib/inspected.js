@@ -16,19 +16,21 @@ import { pageHelpers } from './page-scripts.js';
 import { IN_CARD, TAB_ID } from './surface.js';
 
 /**
- * The area the user marked ({ area: [{x, y}, …], url }: document coordinates, and the page it was marked on), or
+ * The area the user marked ({ area: [{x, y}, …], url, anchor }: coordinates in the content of `anchor`, the panel
+ * that scrolls around it (or of the page), and the page it was marked on), or
  * null for the whole page. It goes with every call into the page, where the helpers leave out everything outside
  * it, and show nothing at all on another page (see pageHelpers).
- * @type {{ area: { x: number, y: number }[], url: string } | null}
+ * @type {{ area: { x: number, y: number }[], url: string, anchor: string } | null}
  */
 let pageScope = null;
 
 /**
  * @param {{ x: number, y: number }[] | null} area
  * @param {string} [url]  the page's address (without #…)
+ * @param {string} [anchor]  selector of the panel that scrolls around the area ('' = the page)
  */
-export function setPageArea(area, url = '') {
-  pageScope = area && area.length >= 3 ? { area: area.map(({ x, y }) => ({ x: Number(x), y: Number(y) })), url } : null;
+export function setPageArea(area, url = '', anchor = '') {
+  pageScope = area && area.length >= 3 ? { area: area.map(({ x, y }) => ({ x: Number(x), y: Number(y) })), url, anchor } : null;
 }
 
 /**

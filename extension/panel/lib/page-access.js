@@ -34,6 +34,8 @@ export class PageAccess {
     this.points = [];
     /** The page the area was marked on. */
     this.url = '';
+    /** The panel that scrolls around the area (a selector; '' = the page): the area moves with its content. */
+    this.anchor = '';
     /** The outermost elements inside the area (selectors): CSS changes are limited to them, scripts get them as $area. */
     this.roots = /** @type {string[]} */ ([]);
     /** The area needs the user's OK on this page (marked on another page, or not marked yet). */
@@ -59,6 +61,7 @@ export class PageAccess {
     if (this.mode === 'area') {
       this.points = Array.isArray(saved.points) ? saved.points : [];
       this.url = saved.url ?? '';
+      this.anchor = saved.anchor ?? '';
       this.roots = saved.roots ?? [];
       await this.pageChanged(currentUrl);
     }
@@ -66,7 +69,7 @@ export class PageAccess {
   }
 
   async save() {
-    await chrome.storage.session.set({ [this.key]: { mode: this.mode, points: this.points, url: this.url, roots: this.roots } }).catch(() => {});
+    await chrome.storage.session.set({ [this.key]: { mode: this.mode, points: this.points, url: this.url, anchor: this.anchor, roots: this.roots } }).catch(() => {});
   }
 
   /** @param {'full' | 'area' | 'none'} mode */
@@ -82,6 +85,7 @@ export class PageAccess {
     // Whole page or Just answer: no area any more.
     this.points = [];
     this.url = '';
+    this.anchor = '';
     this.roots = [];
     this.pending = false;
     setPageArea(null);
@@ -97,7 +101,7 @@ export class PageAccess {
     this.editing = true;
     this.onChange();
     try {
-      await callInPage(areaOverlay, { mode: 'edit', points: this.points, labels: this.labels() });
+      await callInPage(areaOverlay, { mode: 'edit', points: this.points, anchor: this.anchor, labels: this.labels() });
     } catch (err) {
       this.editing = false;
       this.onChange();
@@ -119,8 +123,9 @@ export class PageAccess {
     if (status.result === 'done' && status.points?.length >= 3) {
       this.points = status.points;
       this.url = pageOf(status.url);
+      this.anchor = status.anchor ?? '';
       this.pending = false;
-      setPageArea(this.points, this.url);
+      setPageArea(this.points, this.url, this.anchor);
       this.roots = await callInPage(areaRoots).catch(() => []);
     } else if (this.points.length >= 3 && !this.pending) {
       // Cancelled while changing it: the area stays as it was, outline included.
@@ -128,6 +133,7 @@ export class PageAccess {
     } else if (!this.points.length) {
       // Cancelled before marking anything: back to the whole page.
       this.mode = 'full';
+      this.anchor = '';
       setPageArea(null);
     }
     await this.save();
@@ -142,7 +148,7 @@ export class PageAccess {
   /** The outline of the confirmed area on the page (after a reload, it is drawn again). */
   async show() {
     if (this.points.length < 3) return;
-    await callInPage(areaOverlay, { mode: 'show', points: this.points, labels: this.labels() }).catch(() => {});
+    await callInPage(areaOverlay, { mode: 'show', points: this.points, anchor: this.anchor, labels: this.labels() }).catch(() => {});
   }
 
   /**
@@ -155,11 +161,11 @@ export class PageAccess {
     if (this.mode !== 'area') return;
     if (this.points.length >= 3 && pageOf(url) === this.url) {
       this.pending = false;
-      setPageArea(this.points, this.url);
+      setPageArea(this.points, this.url, this.anchor);
       await this.show();
     } else {
       this.pending = true;
-      setPageArea(this.points, this.url); // still the old page's: refused here
+      setPageArea(this.points, this.url, this.anchor); // still the old page's: refused here
       this.onChange();
       await this.edit().catch(() => {}); // the page may still be loading; Send opens it again
     }
