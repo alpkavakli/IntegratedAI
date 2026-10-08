@@ -81,3 +81,13 @@ test('pasted keys: the provider from the prefix, only when it is certain', () =>
   assert.equal(providerForKey('sk-ant-'), null, 'too short: still typing');
   assert.equal(providerForKey('  sk-ant-api03-abcdefghijklmnopqrstuvwxyz  '), 'anthropic', 'spaces around a paste');
 });
+
+test('frames: the address DevTools knows a frame by, from Chrome\'s list', async () => {
+  globalThis.chrome ??= /** @type {any} */ ({});
+  const { pickFrameUrl } = await import('../../extension/panel/lib/inspected.js');
+  const urls = ['https://www.netacad.com/content/i2cs/1.0/courses/content/m1/en-US/assets/quiz.html?id=7&s=abc', 'https://ads.example/x'];
+  assert.equal(pickFrameUrl(urls, urls[0]), urls[0], 'exact');
+  assert.equal(pickFrameUrl(urls, 'https://www.netacad.com/content/i2cs/1.0/courses/content/m1/en-US/assets/quiz.html'), urls[0], 'same site and path, other query');
+  assert.equal(pickFrameUrl(urls, 'https://www.netacad.com/launch?course=1'), urls[0], 'its src redirected: the only frame from that site');
+  assert.equal(pickFrameUrl([...urls, 'https://www.netacad.com/other'], 'https://www.netacad.com/launch'), 'https://www.netacad.com/launch', 'two frames from the site: no guessing');
+});

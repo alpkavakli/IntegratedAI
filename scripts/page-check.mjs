@@ -61,6 +61,7 @@ const PAGE = `<!doctype html><html><head><title>Agent test page</title><style>
     <input type="hidden" name="csrf" value="abc123def456ghi789jkl012mno345pqr678"></div>
   <div id="outside" style="position:absolute;left:300px;top:0;width:250px;height:100px">Ahmet Yılmaz <button id="out-btn">Outside button</button></div>
 </div>
+<iframe id="xframe" src="http://localhost:${PORTS.page}/launch?course=1" title="Quiz" style="position:absolute;left:20px;top:2700px;width:300px;height:100px;border:0"></iframe>
 <div id="scroller" style="position:absolute;left:20px;top:2400px;width:300px;height:150px;overflow:auto">
   <div style="height:600px"><p id="sp-top" style="margin:4px">Panel top text</p><p id="sp-low" style="margin:300px 4px 0">Panel low text</p></div>
 </div>
@@ -88,6 +89,8 @@ const PAGE = `<!doctype html><html><head><title>Agent test page</title><style>
 
 const server = http.createServer((req, res) => {
   res.setHeader('content-type', 'text/html; charset=utf-8');
+  if (req.url?.startsWith('/launch')) { res.writeHead(302, { location: '/quiz.html?id=7' }); res.end(); return; }
+  if (req.url?.startsWith('/quiz.html')) { res.end('<!doctype html><body style="margin:0"><select id="answer"><option>Please select</option><option>online</option></select></body>'); return; }
   if (req.url === '/frame.html') res.end('<!doctype html><title>Frame</title><body style="margin:0"><button id="pay" onclick="top.log && top.log.push(\'paid\')">Pay</button><button id="low" style="position:absolute;left:0;top:60px">Low</button></body>');
   else res.end(PAGE);
 }).listen(PORTS.page);
@@ -362,6 +365,20 @@ try {
   check('frame outside the area: refused', /outside the area/.test(farFrame), farFrame);
   const otherPageFrame = await refused(callArea(areaInFrame, { ...frameArea, url: 'http://127.0.0.1:1/other' }, { url: frameUrl }));
   check('frame: refused when the page around it is not the one the area was marked on', /different page/.test(otherPageFrame), otherPageFrame);
+
+  // A frame from another site whose address changed after loading (its src redirected): the page knows only the
+  // src, Chrome the new address; the area finds the frame either way.
+  const xf = await ev('(() => { const r = document.getElementById("xframe").getBoundingClientRect(); return { l: r.left + scrollX, t: r.top + scrollY, r: r.right + scrollX, b: r.bottom + scrollY }; })()');
+  const xArea = { area: box([xf.l - 10, xf.t - 10, xf.r + 10, xf.b + 10]), url };
+  const src = `http://localhost:${PORTS.page}/launch?course=1`;
+  const realUrl = `http://localhost:${PORTS.page}/quiz.html?id=7`;
+  const bySrc = await refused(callArea(areaInFrame, xArea, { url: src, real: realUrl }));
+  check('cross-site frame that redirected: found by its src and real address', /"frame":true/.test(bySrc), bySrc);
+  const byReal = await refused(callArea(areaInFrame, xArea, { url: realUrl }));
+  check('cross-site frame that redirected: found by its real address alone', /"frame":true/.test(byReal), byReal);
+  // (A frame from another site runs on its own: it's one of Chrome's targets, under the address after the redirect.)
+  const xTarget = (await cdp('Target.getTargets')).result.targetInfos.find((/** @type {any} */ t) => t.type === 'iframe' && t.url.includes('/quiz.html'));
+  check('cross-site frame: Chrome knows it by the address after the redirect, not its src', xTarget?.url === realUrl, xTarget?.url);
 
   // ── "Keep on this site": the area applies on every page of the site (checked by origin), not on another site.
   const origin = await ev('location.origin');

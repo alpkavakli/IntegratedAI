@@ -13,6 +13,7 @@
  */
 
 import { areaInFrame, pageHelpers } from './page-scripts.js';
+import { bg } from './bg.js';
 import { IN_CARD, TAB_ID } from './surface.js';
 
 /**
@@ -54,7 +55,7 @@ export function evalInPage(expression, frame) {
     chrome.devtools.inspectedWindow.eval(expression, frame ? { frameURL: frame } : {}, (result, exceptionInfo) => {
       // The message only: page exceptions arrive as "Error: …" plus a stack trace nobody needs in the chat.
       if (exceptionInfo?.isException) reject(new Error(String(exceptionInfo.value).split(/\r?\n/)[0].replace(/^(Error|TypeError|RangeError): /, '')));
-      else if (exceptionInfo?.isError && frame && /frame/i.test(`${exceptionInfo.code} ${exceptionInfo.description}`)) {
+      else if (exceptionInfo?.isError && frame && /frame|not found/i.test(`${exceptionInfo.code} ${exceptionInfo.description}`)) {
         reject(new Error(`No frame with the URL ${frame} (page_outline lists the frames and their URLs)`));
       } else if (exceptionInfo?.isError) reject(new Error(exceptionInfo.description || exceptionInfo.code || 'Evaluation failed'));
       else resolve(result);
@@ -77,14 +78,45 @@ export function evalInPage(expression, frame) {
  */
 export async function callInPage(fn, args = {}, frame = undefined) {
   if (IN_CARD) return callInCard(fn, args, frame);
+  // The page knows a frame from another site only by its src; DevTools needs its address now.
+  const asked = frame;
+  if (frame) frame = await realFrameUrl(frame);
   let scope = pageScope;
   if (scope && frame) {
     // With a marked area: the part of it in this frame, worked out by the page around the frame (which also checks
     // that it's still the page the area belongs to). In the frame, only that part exists for the tools.
-    scope = await evalInPage(`(${areaInFrame.toString()})((${pageHelpers.toString()})(${JSON.stringify(scope)}), undefined, ${JSON.stringify({ url: frame })})`);
+    scope = await evalInPage(`(${areaInFrame.toString()})((${pageHelpers.toString()})(${JSON.stringify(scope)}), undefined, ${JSON.stringify({ url: asked, real: frame })})`);
   }
   const expression = `(${fn.toString()})((${pageHelpers.toString()})(${JSON.stringify(scope)}), typeof $0 === 'undefined' ? undefined : $0, ${JSON.stringify(args)})`;
   return evalInPage(expression, frame);
+}
+
+/**
+ * The address DevTools knows a frame by (inspectedWindow.eval's frameURL must match it exactly): the frame
+ * whose address is the one given, or has the same site and path, or the only frame from that site (its address
+ * changed after it loaded, e.g. a redirect). Chrome lists the real addresses (webNavigation).
+ * @param {string} frame
+ */
+async function realFrameUrl(frame) {
+  /** @type {{ url: string }[]} */
+  let frames = [];
+  try { frames = await bg('frames.list', { tabId: TAB_ID }); } catch { return frame; }
+  return pickFrameUrl(frames.map((f) => f.url), frame);
+}
+
+/**
+ * Which of the tab's frame addresses is meant (see realFrameUrl); the address given when none fits.
+ * @param {string[]} urls
+ * @param {string} frame
+ */
+export function pickFrameUrl(urls, frame) {
+  if (urls.includes(frame)) return frame;
+  const parts = (/** @type {string} */ u) => { try { const x = new URL(u); return { origin: x.origin, path: x.origin + x.pathname }; } catch { return { origin: u, path: u }; } };
+  const want = parts(frame);
+  const samePath = urls.filter((u) => parts(u).path === want.path);
+  if (samePath.length) return samePath[0];
+  const sameSite = urls.filter((u) => parts(u).origin === want.origin);
+  return sameSite.length === 1 ? sameSite[0] : frame;
 }
 
 /**

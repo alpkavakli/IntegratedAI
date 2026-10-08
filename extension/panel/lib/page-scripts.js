@@ -1421,9 +1421,9 @@ export function areaRoots(h) {
  * calls made in the frame (see callInPage). Runs in the page around the frame, with its area, so it is checked here
  * that this is still the page the area belongs to. Throws when the area doesn't reach into the frame.
  */
-export function areaInFrame(h, selected, { url }) {
+export function areaInFrame(h, selected, { url, real }) {
   h.assertPage();
-  const box = frameBox(h, selected, { url, noScroll: true }).box;
+  const box = frameBox(h, selected, { url, real }).box;
   if (!h.rectTouchesArea({ left: box.x, top: box.y, right: box.x + box.width, bottom: box.y + box.height, width: box.width, height: box.height })) {
     throw new Error('That frame is outside the area the user marked');
   }
@@ -1431,19 +1431,18 @@ export function areaInFrame(h, selected, { url }) {
   return { area: h.area.map((p) => ({ x: p.x + o.x - box.x, y: p.y + o.y - box.y })), frame: true };
 
   // (frameBox, inlined: page functions are sent on their own)
-  function frameBox(hh, sel, { url: u }) {
-    const same = (a, b) => {
-      try {
-        const x = new URL(a, location.href);
-        const y = new URL(b);
-        return x.origin === y.origin && x.pathname === y.pathname;
-      } catch { return false; }
-    };
-    const el = [...document.querySelectorAll('iframe, frame')].find((fr) => {
+  function frameBox(hh, sel, { url: u, real: realUrl }) {
+    const parts = (a) => { try { const x = new URL(a, location.href); return { href: x.href, origin: x.origin, path: x.origin + x.pathname }; } catch { return null; } };
+    const frames = [...document.querySelectorAll('iframe, frame')].map((fr) => {
       let src = fr.src;
       try { src = fr.contentWindow.location.href; } catch { /* cross-origin: its src */ }
-      return same(src, u);
-    });
+      return { fr, at: parts(src) };
+    }).filter((x) => x.at);
+    const wants = [u, realUrl].filter(Boolean).map(parts).filter(Boolean);
+    const pick = frames.find((x) => wants.some((w) => w.href === x.at.href))
+      || frames.find((x) => wants.some((w) => w.path === x.at.path))
+      || (() => { const same = frames.filter((x) => wants.some((w) => w.origin === x.at.origin)); return same.length === 1 ? same[0] : null; })();
+    const el = pick?.fr;
     if (!el) throw new Error(`No frame with the URL ${u} on the page`);
     const r = el.getBoundingClientRect();
     const cs = getComputedStyle(el);
