@@ -12,7 +12,7 @@
  * user's approval in the panel.
  */
 
-import { pageHelpers } from './page-scripts.js';
+import { areaInFrame, pageHelpers } from './page-scripts.js';
 import { IN_CARD, TAB_ID } from './surface.js';
 
 /**
@@ -20,17 +20,26 @@ import { IN_CARD, TAB_ID } from './surface.js';
  * that scrolls around it (or of the page), and the page it was marked on), or
  * null for the whole page. It goes with every call into the page, where the helpers leave out everything outside
  * it, and show nothing at all on another page (see pageHelpers).
- * @type {{ area: { x: number, y: number }[], url: string, anchor: string } | null}
+ * site: instead of url, when the user keeps the area on every page of the site (checked by origin).
+ * @type {{ area: { x: number, y: number }[], url: string, anchor: string, site?: string } | null}
  */
 let pageScope = null;
+
+/** Is an area marked (the tools are limited to it)? */
+export const hasPageArea = () => Boolean(pageScope);
 
 /**
  * @param {{ x: number, y: number }[] | null} area
  * @param {string} [url]  the page's address (without #…)
  * @param {string} [anchor]  selector of the panel that scrolls around the area ('' = the page)
+ * @param {boolean} [keepOnSite]  the same area on every page of the site (checked by origin instead of address)
  */
-export function setPageArea(area, url = '', anchor = '') {
-  pageScope = area && area.length >= 3 ? { area: area.map(({ x, y }) => ({ x: Number(x), y: Number(y) })), url, anchor } : null;
+export function setPageArea(area, url = '', anchor = '', keepOnSite = false) {
+  let site = '';
+  try { site = new URL(url).origin; } catch { /* not a web address */ }
+  pageScope = area && area.length >= 3
+    ? { area: area.map(({ x, y }) => ({ x: Number(x), y: Number(y) })), anchor, ...(keepOnSite && site ? { url: '', site } : { url }) }
+    : null;
 }
 
 /**
@@ -66,9 +75,15 @@ export function evalInPage(expression, frame) {
  * @param {unknown} [args]
  * @param {string} [frame] run it in this iframe (URL) instead of the page itself
  */
-export function callInPage(fn, args = {}, frame = undefined) {
+export async function callInPage(fn, args = {}, frame = undefined) {
   if (IN_CARD) return callInCard(fn, args, frame);
-  const expression = `(${fn.toString()})((${pageHelpers.toString()})(${JSON.stringify(pageScope)}), typeof $0 === 'undefined' ? undefined : $0, ${JSON.stringify(args)})`;
+  let scope = pageScope;
+  if (scope && frame) {
+    // With a marked area: the part of it in this frame, worked out by the page around the frame (which also checks
+    // that it's still the page the area belongs to). In the frame, only that part exists for the tools.
+    scope = await evalInPage(`(${areaInFrame.toString()})((${pageHelpers.toString()})(${JSON.stringify(scope)}), undefined, ${JSON.stringify({ url: frame })})`);
+  }
+  const expression = `(${fn.toString()})((${pageHelpers.toString()})(${JSON.stringify(scope)}), typeof $0 === 'undefined' ? undefined : $0, ${JSON.stringify(args)})`;
   return evalInPage(expression, frame);
 }
 

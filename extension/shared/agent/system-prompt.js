@@ -39,8 +39,11 @@ The user marked one area of the page and lets you see and work on only that. You
 inside it, and refuse elements outside it; the page's address and title are not given. Don't try to find out
 what's outside it or guess it. If what the user asks for is outside the area, say so and ask them to mark a
 bigger area (the Page access menu by the message box). CSS changes apply only inside the area. In a script,
-work on $area (the elements inside the area); its result is not returned to you. After you go to another page,
-the user confirms the area on the new page before your tools work again.`,
+work on $area (the elements inside the area); its result is not returned to you. Content in an embedded frame
+(quizzes, forms, players) that the area reaches into: page_outline lists those frames; pass a frame's URL as "frame"
+to find_elements, page_outline, read_text, inspect_element and interact to read and click inside it (only its part
+inside the area). After you go to another page, the user may have to confirm the area there before your tools work
+again (unless they chose to keep it on the whole site).`,
   none: `
 
 ## Just answer

@@ -12,13 +12,17 @@
  */
 
 import { callInPage, setPageArea } from './inspected.js';
-import { areaCommand, areaOverlay, areaRoots, areaStatus } from './page-scripts.js';
+import { areaCheck, areaCommand, areaOverlay, areaRoots, areaStatus } from './page-scripts.js';
 import { t } from '../../shared/i18n.js';
 
 /** @typedef {{ x: number, y: number }} Point */
 
 /** The address without #…: the same page. @param {string} url */
 const pageOf = (url) => String(url || '').split('#')[0];
+/** Both addresses on the same site (origin). @param {string} a @param {string} b */
+const sameSite = (a, b) => {
+  try { return new URL(a).origin === new URL(b).origin; } catch { return false; }
+};
 
 export class PageAccess {
   /**
@@ -42,6 +46,10 @@ export class PageAccess {
     this.pending = false;
     /** The editor is open on the page. */
     this.editing = false;
+    /** "Keep on this site": the same area on every page of the site, without asking again (the user's choice). */
+    this.keep = false;
+    /** The tab's current address. */
+    this.currentUrl = '';
     this.pollTimer = /** @type {ReturnType<typeof setInterval> | undefined} */ (undefined);
   }
 
@@ -63,13 +71,14 @@ export class PageAccess {
       this.url = saved.url ?? '';
       this.anchor = saved.anchor ?? '';
       this.roots = saved.roots ?? [];
+      this.keep = saved.keep === true;
       await this.pageChanged(currentUrl);
     }
     this.onChange();
   }
 
   async save() {
-    await chrome.storage.session.set({ [this.key]: { mode: this.mode, points: this.points, url: this.url, anchor: this.anchor, roots: this.roots } }).catch(() => {});
+    await chrome.storage.session.set({ [this.key]: { mode: this.mode, points: this.points, url: this.url, anchor: this.anchor, roots: this.roots, keep: this.keep } }).catch(() => {});
   }
 
   /** @param {'full' | 'area' | 'none'} mode */
@@ -125,7 +134,7 @@ export class PageAccess {
       this.url = pageOf(status.url);
       this.anchor = status.anchor ?? '';
       this.pending = false;
-      setPageArea(this.points, this.url, this.anchor);
+      setPageArea(this.points, this.url, this.anchor, this.keep);
       this.roots = await callInPage(areaRoots).catch(() => []);
     } else if (this.points.length >= 3 && !this.pending) {
       // Cancelled while changing it: the area stays as it was, outline included.
@@ -166,17 +175,58 @@ export class PageAccess {
    * @param {string} url
    */
   async pageChanged(url) {
+    this.currentUrl = url;
     if (this.mode !== 'area') return;
-    if (this.points.length >= 3 && pageOf(url) === this.url) {
+    const kept = this.keep && sameSite(url, this.url);
+    if (this.points.length >= 3 && (pageOf(url) === this.url || kept)) {
+      if (kept) this.url = pageOf(url);
       this.pending = false;
-      setPageArea(this.points, this.url, this.anchor);
+      setPageArea(this.points, this.url, this.anchor, this.keep);
       await this.show();
+      // Kept on a new page: its scrolling panel must be there too (a moment to load), or the user marks it again.
+      if (kept && !(await this.applies())) {
+        this.pending = true;
+        this.onChange();
+        await this.edit().catch(() => {});
+      }
+      await this.save();
     } else {
       this.pending = true;
-      setPageArea(this.points, this.url, this.anchor); // still the old page's: refused here
+      setPageArea(this.points, this.url, this.anchor, this.keep); // still the old page's: refused here
       this.onChange();
       await this.edit().catch(() => {}); // the page may still be loading; Send opens it again
     }
+    this.onChange();
+  }
+
+  /** Does the area apply on the page now? Asked a few times while the page loads. */
+  async applies() {
+    for (let i = 0; i < 6; i++) {
+      if (await callInPage(areaCheck).catch(() => false)) return true;
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    return false;
+  }
+
+  /**
+   * "Keep on this site", ticked or not. Ticked while the area waits to be confirmed on another page of the site:
+   * it applies there right away.
+   * @param {boolean} keep
+   */
+  async setKeep(keep) {
+    this.keep = keep;
+    if (keep && this.pending && this.points.length >= 3 && sameSite(this.currentUrl, this.url)) {
+      this.stopPolling();
+      this.editing = false;
+      this.url = pageOf(this.currentUrl);
+      this.pending = false;
+      setPageArea(this.points, this.url, this.anchor, true);
+      await this.show();
+      if (!(await this.applies())) { this.pending = true; await this.edit().catch(() => {}); }
+    } else if (this.points.length >= 3) {
+      setPageArea(this.points, this.url, this.anchor, keep);
+    }
+    await this.save();
     this.onChange();
   }
 

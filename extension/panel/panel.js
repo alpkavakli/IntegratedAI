@@ -134,6 +134,7 @@ export class App {
     this.chat.setPageLang(page.lang ?? '');
     $('page-access').addEventListener('change', () => this.access.setMode($('page-access').value).catch((err) => this.showError(err.message)));
     $('area-change').addEventListener('click', () => this.access.edit().catch((err) => this.showError(err.message)));
+    $('area-keep').addEventListener('change', () => this.access.setKeep($('area-keep').checked).catch((err) => this.showError(err.message)));
     // While the area is being marked: Esc cancels, Ctrl+Z / Ctrl+Y undo and redo the shape (the message box keeps its
     // own undo while it has text), Enter outside the message box is Done.
     document.addEventListener('keydown', (e) => {
@@ -261,6 +262,7 @@ export class App {
       : pending || points.length < 3 ? t('areaConfirm', 'This is another page: confirm the area here before the AI sees anything')
         : t('areaShared', 'The AI sees only the marked area');
     $('area-change').hidden = editing;
+    $('area-keep').checked = this.access.keep;
     $('area-change').textContent = pending || points.length < 3 ? t('areaMark', 'Mark it') : t('areaChange', 'Change');
   }
 

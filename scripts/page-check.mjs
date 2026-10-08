@@ -18,7 +18,7 @@ import fs from 'node:fs';
 import http from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { pageHelpers, findElements, frameBox, pageOutline, readText, inspectElement, areaOverlay, areaStatus, areaRoots, describeSelected } from '../extension/panel/lib/page-scripts.js';
+import { pageHelpers, findElements, frameBox, pageOutline, readText, inspectElement, areaOverlay, areaStatus, areaRoots, describeSelected, areaInFrame, areaCheck } from '../extension/panel/lib/page-scripts.js';
 import { interactStep, quietFor } from '../extension/panel/lib/page-interact.js';
 
 const CHROME = process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
@@ -88,7 +88,7 @@ const PAGE = `<!doctype html><html><head><title>Agent test page</title><style>
 
 const server = http.createServer((req, res) => {
   res.setHeader('content-type', 'text/html; charset=utf-8');
-  if (req.url === '/frame.html') res.end('<!doctype html><title>Frame</title><button>Pay</button>');
+  if (req.url === '/frame.html') res.end('<!doctype html><title>Frame</title><body style="margin:0"><button id="pay" onclick="top.log && top.log.push(\'paid\')">Pay</button><button id="low" style="position:absolute;left:0;top:60px">Low</button></body>');
   else res.end(PAGE);
 }).listen(PORTS.page);
 
@@ -333,6 +333,41 @@ try {
   const anchored = await call(areaStatus);
   check('area editor: drawn on a scrolling panel, it is attached to the panel', anchored?.anchor === '#scroller' && anchored.points[0].y < 20, anchored);
   await call(areaOverlay, { mode: 'off' });
+
+  // ── A frame inside the area (quizzes, forms): the tools work in it, limited to the area's part there.
+  await ev('scrollTo(0, 0)');
+  const iframe = await ev('(() => { const r = document.querySelector("iframe").getBoundingClientRect(); return { l: r.left + scrollX, t: r.top + scrollY, r: r.right + scrollX, b: r.bottom + scrollY }; })()');
+  // Around the top of the frame only: "Pay" (top) is inside, "Low" (60px down) is not.
+  const frameArea = { area: box([iframe.l - 10, iframe.t - 10, iframe.r + 10, iframe.t + 40]), url };
+  const listed = await callArea(pageOutline, frameArea, { all: true });
+  check('frame in the area: page_outline lists it', (listed.frames ?? []).some((/** @type {any} */ fr) => fr.url.endsWith('/frame.html')), listed);
+  const frameUrl = `http://127.0.0.1:${PORTS.page}/frame.html`;
+  const frameScope = await callArea(areaInFrame, frameArea, { url: frameUrl });
+  // Run in the frame, the way inspectedWindow.eval does with frameURL.
+  const tree = (await cdp('Page.getFrameTree', {}, session)).result.frameTree;
+  const childId = tree.childFrames.find((/** @type {any} */ c) => c.frame.url.endsWith('/frame.html')).frame.id;
+  const frameCtx = (await cdp('Page.createIsolatedWorld', { frameId: childId, worldName: 'check' }, session)).result.executionContextId;
+  const inFrame = async (/** @type {Function} */ fn, /** @type {any} */ scope, args = {}) => {
+    const r = await cdp('Runtime.evaluate', { expression: `(${fn.toString()})((${pageHelpers.toString()})(${JSON.stringify(scope)}), undefined, ${JSON.stringify(args)})`, contextId: frameCtx, returnByValue: true, awaitPromise: true }, session);
+    if (r.result.exceptionDetails) throw new Error(r.result.exceptionDetails.exception?.description ?? 'exception');
+    return r.result.result.value;
+  };
+  const frameText = (await inFrame(readText, frameScope)).text;
+  check('frame in the area: its part inside the area can be read', frameText.includes('Pay') && !frameText.includes('Low'), frameText);
+  await inFrame(interactStep, frameScope, { actionId: 'check', step: { action: 'click', text: 'Pay' } });
+  check('frame in the area: the agent can click inside it', (await ev('log')).includes('paid'), await ev('log'));
+  const lowClick = await inFrame(interactStep, frameScope, { actionId: 'check', step: { action: 'click', text: 'Low' } });
+  check('frame in the area: not what lies outside the area', !lowClick.found, lowClick);
+  const farFrame = await refused(callArea(areaInFrame, area, { url: frameUrl }));
+  check('frame outside the area: refused', /outside the area/.test(farFrame), farFrame);
+  const otherPageFrame = await refused(callArea(areaInFrame, { ...frameArea, url: 'http://127.0.0.1:1/other' }, { url: frameUrl }));
+  check('frame: refused when the page around it is not the one the area was marked on', /different page/.test(otherPageFrame), otherPageFrame);
+
+  // ── "Keep on this site": the area applies on every page of the site (checked by origin), not on another site.
+  const origin = await ev('location.origin');
+  check('keep on this site: applies on another page of the site', (await callArea(areaCheck, { area: area.area, url: '', site: origin })) === true);
+  const otherSite = await refused(callArea(readText, { area: area.area, url: '', site: 'https://example.org' }));
+  check('keep on this site: refused on another site', /different page/.test(otherSite), otherSite);
 
   // ── The editor with a real mouse (many small moves) on a page that takes over drags to swipe (like slide shows),
   //    and keys while marking.

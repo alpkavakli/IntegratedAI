@@ -131,6 +131,12 @@
   "areaEdit": {
     "message": "Drag the corners to shape it. Drag a dot between corners to add one, drag inside to move it, double-click a corner to remove it."
   },
+  "areaKeep": {
+    "message": "Keep on this site"
+  },
+  "areaKeepTitle": {
+    "message": "Use the same area on every page of this site, without asking again"
+  },
   "areaMark": {
     "message": "Mark it"
   },

@@ -247,6 +247,7 @@ button.send.busy .i-stop { display: block; }
   background: var(--bg-alt); font-size: 12px; font-weight: 600; color: var(--accent-text); }
 .area-row::before { content: ""; flex: none; width: 10px; height: 10px; border: 2px solid var(--accent); border-radius: 2px; }
 .area-row[hidden] { display: none; }
+.area-keep { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; font-weight: 400; color: var(--fg); cursor: pointer; }
 body[data-page-access="area"] select#page-access, body[data-page-access="none"] select#page-access { border-color: var(--accent); color: var(--accent-text); }
 body[data-page-access="none"] .chips { display: none; }
 body[data-page-access="area"] label.chip:has(#ctx-console), body[data-page-access="area"] label.chip:has(#ctx-network) { display: none; }

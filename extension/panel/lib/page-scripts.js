@@ -32,10 +32,16 @@ export function pageHelpers(scope = null) {
     try { anchorEl = document.querySelector(scope.anchor); } catch { /* not a selector */ }
   }
   // Another page, or its scrolling panel is gone: nothing is shown until the user confirms the area again.
-  const WRONG_PAGE = Boolean(AREA && ((scope.url && location.href.split('#')[0] !== scope.url) || (scope.anchor && !anchorEl)));
+  // (site: "keep on this site", checked by origin; url: this page only. A frame's scope has neither: the page
+  // around it was checked when the frame's part of the area was worked out, see areaInFrame.)
+  const WRONG_PAGE = Boolean(AREA && ((scope.url && location.href.split('#')[0] !== scope.url)
+    || (scope.site && location.origin !== scope.site) || (scope.anchor && !anchorEl)));
+  // In a frame: the points are on the frame's screen (its viewport), and only what the frame shows counts.
+  const IN_FRAME = Boolean(AREA && scope.frame);
 
   /** Where the area's coordinates start, on screen: the top-left of the content it is attached to. */
   function areaOrigin() {
+    if (IN_FRAME) return { x: 0, y: 0 };
     if (!anchorEl) return { x: -scrollX, y: -scrollY };
     const r = anchorEl.getBoundingClientRect();
     return { x: r.left + anchorEl.clientLeft - anchorEl.scrollLeft, y: r.top + anchorEl.clientTop - anchorEl.scrollTop };
@@ -79,6 +85,8 @@ export function pageHelpers(scope = null) {
    */
   function rectInArea(r) {
     if (WRONG_PAGE || (!r.width && !r.height)) return false;
+    // In a frame, what is scrolled out of its view isn't on the user's screen: outside.
+    if (IN_FRAME && (r.left < -1 || r.top < -1 || r.right > innerWidth + 1 || r.bottom > innerHeight + 1)) return false;
     const o = areaOrigin();
     const left = r.left - o.x + 1;
     const top = r.top - o.y + 1;
@@ -89,6 +97,22 @@ export function pageHelpers(scope = null) {
       if (segmentCrossesBox(AREA[j], AREA[i], left, top, right, bottom)) return false;
     }
     return true;
+  }
+
+  /** Does the box (viewport coordinates) overlap the area at all? */
+  function rectTouchesArea(r) {
+    if (!AREA || WRONG_PAGE || !r.width || !r.height) return Boolean(!AREA);
+    const o = areaOrigin();
+    const left = r.left - o.x;
+    const top = r.top - o.y;
+    const right = r.right - o.x;
+    const bottom = r.bottom - o.y;
+    if ([[left, top], [right, top], [left, bottom], [right, bottom]].some(([x, y]) => pointInArea(x, y))) return true;
+    if (AREA.some((p) => p.x >= left && p.x <= right && p.y >= top && p.y <= bottom)) return true;
+    for (let i = 0, j = AREA.length - 1; i < AREA.length; j = i++) {
+      if (segmentCrossesBox(AREA[j], AREA[i], left, top, right, bottom)) return true;
+    }
+    return false;
   }
 
   /** Without an area: everything. With one: only elements whose whole box is inside it. */
@@ -497,7 +521,7 @@ export function pageHelpers(scope = null) {
   return {
     KEY_PROPERTIES, cssPath, label, computed, rect, overflowInfo, htmlExcerpt, toJson, target, state,
     refOf, byRef, queryAll, visible, onScreen, humanName, readable,
-    area: AREA, anchor: anchorEl, areaOrigin, inArea, checkArea, textInArea, assertPage, pointInArea: (x, y) => (AREA ? pointInArea(x, y) : true),
+    area: AREA, anchor: anchorEl, wrongPage: WRONG_PAGE, areaOrigin, rectTouchesArea, inArea, checkArea, textInArea, assertPage, pointInArea: (x, y) => (AREA ? pointInArea(x, y) : true),
   };
 }
 
@@ -742,7 +766,8 @@ export function pageOutline(h, selected, input = {}) {
   const focused = document.activeElement && document.activeElement !== document.body && h.inArea(document.activeElement) ? document.activeElement : null;
   const headings = h.queryAll('h1, h2, h3, [role=heading]', scope).filter((el) => h.visible(el) && where(el))
     .slice(0, 12).map((el) => el.innerText.replace(/\s+/g, ' ').trim().slice(0, 100)).filter(Boolean);
-  const frames = h.area ? [] : [...document.querySelectorAll('iframe, frame')].filter((f) => h.visible(f)).slice(0, 10).map((f) => {
+  // (With an area: the frames it reaches into, which the tools can then work in, limited to the area there too.)
+  const frames = [...document.querySelectorAll('iframe, frame')].filter((f) => (h.area ? h.rectTouchesArea(f.getBoundingClientRect()) : h.visible(f))).slice(0, 10).map((f) => {
     let url = f.src;
     try { url = f.contentWindow.location.href; } catch { /* cross-origin: its src is the best we know */ }
     return { url, title: f.title || undefined, onScreen: h.onScreen(f) };
@@ -1352,6 +1377,11 @@ export function areaOverlay(h, selected, { mode, points = [], anchor = '', label
   return true;
 }
 
+/** Does the marked area apply here (the right page or site, and its scrolling panel is there)? */
+export function areaCheck(h) {
+  return Boolean(h.area) && !h.wrongPage;
+}
+
 /** The area editor's keys, from the panel (where the keyboard usually is): cancel, done, undo, redo. */
 export function areaCommand(h, selected, { command }) {
   h.state().areaUi?.command?.(command);
@@ -1386,6 +1416,48 @@ export function areaRoots(h) {
  * screenshot of something inside an iframe: where the frame's content area is on the page (scrolled into view
  * if it's off-screen; restoreScroll puts the page back). The element's position inside the frame is added to it.
  */
+/**
+ * With a marked area: the part of it that lies in a frame, as points on that frame's screen (its viewport), for the
+ * calls made in the frame (see callInPage). Runs in the page around the frame, with its area, so it is checked here
+ * that this is still the page the area belongs to. Throws when the area doesn't reach into the frame.
+ */
+export function areaInFrame(h, selected, { url }) {
+  h.assertPage();
+  const box = frameBox(h, selected, { url, noScroll: true }).box;
+  if (!h.rectTouchesArea({ left: box.x, top: box.y, right: box.x + box.width, bottom: box.y + box.height, width: box.width, height: box.height })) {
+    throw new Error('That frame is outside the area the user marked');
+  }
+  const o = h.areaOrigin();
+  return { area: h.area.map((p) => ({ x: p.x + o.x - box.x, y: p.y + o.y - box.y })), frame: true };
+
+  // (frameBox, inlined: page functions are sent on their own)
+  function frameBox(hh, sel, { url: u }) {
+    const same = (a, b) => {
+      try {
+        const x = new URL(a, location.href);
+        const y = new URL(b);
+        return x.origin === y.origin && x.pathname === y.pathname;
+      } catch { return false; }
+    };
+    const el = [...document.querySelectorAll('iframe, frame')].find((fr) => {
+      let src = fr.src;
+      try { src = fr.contentWindow.location.href; } catch { /* cross-origin: its src */ }
+      return same(src, u);
+    });
+    if (!el) throw new Error(`No frame with the URL ${u} on the page`);
+    const r = el.getBoundingClientRect();
+    const cs = getComputedStyle(el);
+    const left = parseFloat(cs.paddingLeft) || 0;
+    const top = parseFloat(cs.paddingTop) || 0;
+    return {
+      box: {
+        x: r.left + el.clientLeft + left, y: r.top + el.clientTop + top,
+        width: el.clientWidth - left - (parseFloat(cs.paddingRight) || 0), height: el.clientHeight - top - (parseFloat(cs.paddingBottom) || 0),
+      },
+    };
+  }
+}
+
 export function frameBox(h, selected, { url }) {
   const same = (a, b) => {
     try {

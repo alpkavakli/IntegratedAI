@@ -5,7 +5,7 @@
  */
 
 import { bg } from './bg.js';
-import { callInPage } from './inspected.js';
+import { callInPage, hasPageArea } from './inspected.js';
 import { findElements, frameBox, inspectElement, pageOutline, prepareScreenshot, readConsole, readText, restoreScroll, setCardHidden } from './page-scripts.js';
 
 // Headers that must never be sent to the AI.
@@ -69,6 +69,8 @@ export function screenshot(input, ctx) {
  * @param {{ selectedSelector?: string, tabId: number }} ctx
  */
 async function takeScreenshot(input, ctx) {
+  // With a marked area the picture is always the area (frames in it included, as they show on screen).
+  if (hasPageArea()) input = { ...input, frame: undefined, ref: undefined, selector: undefined, fullViewport: false };
   const selector = input.fullViewport ? undefined : input.selector || (input.ref || input.frame ? undefined : ctx.selectedSelector) || undefined;
   const target = input.frame ? await frameTarget(input, selector) : await callInPage(prepareScreenshot, { ...input, selector });
   let dataUrl;

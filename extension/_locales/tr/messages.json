@@ -131,6 +131,12 @@
   "areaEdit": {
     "message": "Şeklini köşeleri sürükleyerek ayarla. Köşe eklemek için aradaki noktayı sürükle, taşımak için içini sürükle, köşeyi silmek için çift tıkla."
   },
+  "areaKeep": {
+    "message": "Bu sitede koru"
+  },
+  "areaKeepTitle": {
+    "message": "Bu sitenin her sayfasında aynı alanı kullan, tekrar sorma"
+  },
   "areaMark": {
     "message": "İşaretle"
   },
