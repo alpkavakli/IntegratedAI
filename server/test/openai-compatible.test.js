@@ -333,6 +333,28 @@ test('the model menu: built-in suggestions, then the models the provider listed 
   assert.deepEqual(deepseek.models, ['deepseek-flash', 'deepseek-v4-pro', 'deepseek-v5']);
 });
 
+test('a busy service while answering: the provider says so (for the panel), then goes on', async () => {
+  const { RETRY_WAITS_MS } = await import('../../extension/shared/providers/openai-compatible.js');
+  const saved = [...RETRY_WAITS_MS];
+  RETRY_WAITS_MS.fill(1);
+  try {
+    let calls = 0;
+    const Glm = openAICompatibleProvider('glm');
+    const provider = new Glm(directConfig(/** @type {any} */ ({ providerKeys: { glm: 'k' }, providerModels: {} })), {
+      fetch: async () => (++calls < 3
+        ? { ok: false, status: 429, headers: new Map(), text: async () => JSON.stringify({ error: { message: 'The service may be temporarily overloaded' } }) }
+        : sseResponse(sse([{ choices: [{ delta: { content: 'ok' } }] }, { choices: [{ delta: {}, finish_reason: 'stop' }] }]))),
+    });
+    const events = await collect(provider.turn({ messages: [{ role: 'user', ts: 0, content: [{ type: 'text', text: 'hi' }] }], system: 'S', actionNames: [], model: 'glm-4.7-flash', state: {}, signal: new AbortController().signal }));
+    const busy = events.filter((e) => e.type === 'status');
+    assert.equal(busy.length, 2, 'one notice per wait');
+    assert.deepEqual({ status: busy[0].status, provider: busy[0].provider }, { status: 'busy', provider: 'GLM' });
+    assert.ok(events.some((e) => e.type === 'text_delta' && e.text === 'ok'));
+  } finally {
+    RETRY_WAITS_MS.splice(0, RETRY_WAITS_MS.length, ...saved);
+  }
+});
+
 test('a busy service (503) is tried again before it counts as an error', async () => {
   const { RETRY_WAITS_MS, presetFetch } = await import('../../extension/shared/providers/openai-compatible.js');
   const saved = [...RETRY_WAITS_MS];

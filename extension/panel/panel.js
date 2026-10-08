@@ -495,6 +495,9 @@ export class App {
       case 'session.state':
         await this.setSession(msg.session);
         break;
+      case 'turn.status':
+        if (msg.status === 'busy') this.chat.showBusyProvider(msg.provider, msg.waitMs);
+        break;
       case 'turn.started':
         this.agent.reset();
         if (this.agentMode() !== 'suggest') this.watchPageStop();

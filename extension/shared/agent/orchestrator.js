@@ -400,6 +400,13 @@ export class Orchestrator {
           case 'raw':
             raw = ev.content;
             break;
+          case 'status':
+            // A busy service being tried again: the panel says so instead of just "Thinking…".
+            this.panel.send(session.id, {
+              type: 'turn.status', conversationId: session.id,
+              status: String(ev.status ?? ''), provider: String(ev.provider ?? '').slice(0, 60), waitMs: Math.min(Number(ev.waitMs) || 0, 60_000),
+            });
+            break;
           case 'done':
             stopReason = ev.stopReason;
             break;

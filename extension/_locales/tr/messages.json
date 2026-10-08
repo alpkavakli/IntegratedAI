@@ -167,6 +167,9 @@
   "askWhy": {
     "message": "Neden soruluyor: $1."
   },
+  "busyRetry": {
+    "message": "$1 meşgul, $2 sn sonra yeniden deneniyor…"
+  },
   "cancel": {
     "message": "İptal"
   },

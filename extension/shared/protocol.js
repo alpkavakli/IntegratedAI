@@ -17,6 +17,7 @@
  *   session.config   { conversationId, provider?, model? }     → session.state
  *   providers.list   { id }                                    → providers
  *   chat.send        { conversationId, text, context, settings (incl. pageAccess), pageUrl }
+ * (server → panel) turn.status { conversationId, status: 'busy', provider, waitMs }  a busy service is tried again
  *   chat.cancel      { conversationId }
  *   tool.result      { requestId, ok, result?, error? }        (answer to tool.request)
  *   action.status    { conversationId, actionId, status, detail? }

@@ -801,7 +801,8 @@ export function pageOutline(h, selected, input = {}) {
     + '[role=button], [role=link], [role=tab], [role=menuitem], [role=menuitemcheckbox], [role=menuitemradio], [role=option], [role=checkbox], '
     + '[role=radio], [role=switch], [role=textbox], [role=searchbox], [role=combobox], [role=treeitem], [role=slider]';
   const CLICKABLE = 'a[href], button, [role=button], [role=link]';
-  const where = (el) => input.all || h.onScreen(el);
+  // (With an area: all of it, on screen or not; it moves with the content, so scrolling shows nothing more.)
+  const where = (el) => input.all || h.area || h.onScreen(el);
 
   // An open dialog takes over the page: outline only that.
   // (Only modal ones: some sites keep a non-modal role=dialog, like a chat widget, open all the time.)
@@ -851,7 +852,7 @@ export function pageOutline(h, selected, input = {}) {
   }).filter((f) => /^https?:/.test(f.url));
 
   const page = document.scrollingElement || document.documentElement;
-  const text = textChars > 0 ? h.readable(scope, { onScreenOnly: !input.all, max: textChars + 1 }) : '';
+  const text = textChars > 0 ? h.readable(scope, { onScreenOnly: !input.all && !h.area, max: textChars + 1 }) : '';
   return {
     // With an area, the page's address and title stay out (a title can hold exactly what the user keeps hidden).
     ...(h.area ? { area: 'Only the area the user marked is shown; the rest of the page is hidden from you.' } : { url: location.href, title: document.title }),

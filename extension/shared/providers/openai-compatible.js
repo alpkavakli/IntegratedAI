@@ -182,8 +182,9 @@ function sleepUnlessAborted(ms, signal) {
  * @param {(url: string, init: RequestInit) => Promise<Response>} doFetch
  * @param {string} url
  * @param {RequestInit} init
+ * @param {{ retry?: boolean }} [opts]  retry: false → a busy answer throws at once, with busy: true and the wait to use
  */
-export async function presetFetch(id, doFetch, url, init) {
+export async function presetFetch(id, doFetch, url, init, { retry = true } = {}) {
   const preset = PRESETS[id];
   let res;
   // A hosted service that's busy for a moment (503/502/529), or too many requests at once (429, common on free
@@ -197,16 +198,23 @@ export async function presetFetch(id, doFetch, url, init) {
       if (!preset.local) throw err;
       throw new Error(`Can't reach ${preset.label} at ${new URL(url).origin}. Is it running? Start the Ollama app (or run "ollama serve").`);
     }
-    if (preset.local || ![429, 502, 503, 529].includes(res.status) || attempt >= RETRY_WAITS_MS.length) break;
-    const after = Number(res.headers?.get?.('retry-after'));
-    await sleepUnlessAborted(after > 0 ? Math.min(after * 1000, 10_000) : RETRY_WAITS_MS[attempt], init?.signal);
+    if (preset.local || !retry || ![429, 502, 503, 529].includes(res.status) || attempt >= RETRY_WAITS_MS.length) break;
+    await sleepUnlessAborted(retryWait(res, attempt), init?.signal);
   }
   if (!res.ok) {
     const text = await res.text();
     if (id === 'ollama' && res.status === 403) throw new Error(OLLAMA_ORIGINS_HELP);
-    throw httpError(preset.label, res.status, text);
+    const err = /** @type {any} */ (httpError(preset.label, res.status, text));
+    if (!preset.local && [429, 502, 503, 529].includes(res.status)) { err.busy = true; err.retryAfterMs = retryWait(res, -1); }
+    throw err;
   }
   return res;
+}
+
+/** How long to wait before trying a busy service again: its Retry-After (at most 10 s), or our own steps. @param {any} res @param {number} attempt */
+function retryWait(res, attempt) {
+  const after = Number(res.headers?.get?.('retry-after'));
+  return after > 0 ? Math.min(after * 1000, 10_000) : attempt >= 0 ? RETRY_WAITS_MS[attempt] : 0;
 }
 
 /**
@@ -296,10 +304,22 @@ export function openAICompatibleProvider(id) {
         },
         body: JSON.stringify(body),
         signal,
-      });
+      }, { retry: false });
       let res;
       try {
-        res = await send();
+        // A busy service is tried twice more; the panel shows it ("GLM is busy, trying again in 5 s…").
+        for (let attempt = 0; ; attempt++) {
+          try {
+            res = await send();
+            break;
+          } catch (err) {
+            const e = /** @type {any} */ (err);
+            if (!e?.busy || attempt >= RETRY_WAITS_MS.length) throw err;
+            const waitMs = e.retryAfterMs || RETRY_WAITS_MS[attempt];
+            yield { type: 'status', status: 'busy', provider: preset.label, waitMs };
+            await sleepUnlessAborted(waitMs, signal);
+          }
+        }
       } catch (err) {
         // A text-only model (GLM's flash models, …) refuses the screenshots: the same request without them, and no
         // images for the rest of this conversation (the model is told a screenshot was taken but can't be shown).

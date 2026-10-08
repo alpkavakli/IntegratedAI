@@ -346,12 +346,30 @@ export class ChatView extends HTMLElement {
     this.thinkingEl = null;
     if (!busy) return;
     const started = Date.now();
+    this.busyUntil = 0;
     this.thinkingEl = h('div', { class: 'thinking' }, t('thinking', 'Thinking…'));
     this.append(this.thinkingEl);
-    this.thinkingTimer = setInterval(() => {
-      if (this.thinkingEl) this.thinkingEl.textContent = t('thinkingFor', 'Thinking… $1s', Math.round((Date.now() - started) / 1000));
-    }, 1000);
+    const tick = () => {
+      if (!this.thinkingEl) return;
+      const left = Math.ceil((this.busyUntil - Date.now()) / 1000);
+      this.thinkingEl.textContent = left > 0
+        ? t('busyRetry', '$1 is busy, trying again in $2 s…', this.busyProvider, left)
+        : t('thinkingFor', 'Thinking… $1s', Math.round((Date.now() - started) / 1000));
+    };
+    this.thinkingTimer = setInterval(tick, 1000);
+    this.tickThinking = tick;
     this.scrollToBottom();
+  }
+
+  /**
+   * A busy AI service is being tried again (the provider said so): a countdown instead of "Thinking…".
+   * @param {string} provider  its name, e.g. "GLM"
+   * @param {number} waitMs
+   */
+  showBusyProvider(provider, waitMs) {
+    this.busyProvider = provider;
+    this.busyUntil = Date.now() + waitMs;
+    this.tickThinking?.();
   }
 
   /** Re-render all action cards (after status or settings changes). */

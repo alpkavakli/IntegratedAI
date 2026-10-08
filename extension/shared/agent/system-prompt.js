@@ -37,7 +37,9 @@ const ACCESS_TEXT = {
 ## Only a marked area
 The user marked one area of the page and lets you see and work on only that. Your tools return only what lies
 inside it, and refuse elements outside it; the page's address and title are not given. Don't try to find out
-what's outside it or guess it. If what the user asks for is outside the area, say so and ask them to mark a
+what's outside it or guess it. Your tools give you all of the area, also parts scrolled off the screen, and the
+area moves with the content: don't scroll the page to look around, it shows you nothing more (scroll only when a
+page step needs it, e.g. a list inside the area that loads more). If what the user asks for is outside the area, say so and ask them to mark a
 bigger area (the Page access menu by the message box). CSS changes apply only inside the area. In a script,
 work on $area (the elements inside the area); its result is not returned to you. Embedded frames from the same
 site (many quiz and course players) are part of the page: their content inside the area shows up in your tools like
