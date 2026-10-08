@@ -133,7 +133,7 @@
       <div data-i18n="optForDevelopers" class="choice-group">For developers.</div>
       <div data-i18n-aria-label="optDevSetup" class="providers" role="radiogroup" aria-label="Developer setup">
         <label class="provider-card"><input type="radio" name="provider" value="server">
-          <strong>Claude Code</strong><span data-i18n="pvServer">your Claude subscription · needs this project from GitHub</span></label>
+          <strong data-i18n="pvServerName">Claude Code or ChatGPT</strong><span data-i18n="pvServer">your Claude or ChatGPT subscription · needs this project from GitHub</span></label>
         <label class="provider-card"><input type="radio" name="provider" value="custom">
           <strong data-i18n="custom">Custom</strong><span data-i18n="pvCustom">any OpenAI-compatible service or your own server: Groq, Mistral, LM Studio, vLLM…</span></label>
       </div>
@@ -179,7 +179,7 @@
 
       <div id="server-setup" hidden>
         <ol>
-          <li data-i18n-html="optServer1">Install <a href="https://nodejs.org" target="_blank" rel="noopener">Node.js</a> and Claude Code, then start the
+          <li data-i18n-html="optServer1">Install <a href="https://nodejs.org" target="_blank" rel="noopener">Node.js</a> and Claude Code (for Claude) or Codex CLI (for ChatGPT: <code>npm install -g @openai/codex</code>, then <code>codex login</code>), then start the
             agent server (<a href="https://github.com/alpkavakli/IntegratedAI#setup" target="_blank" rel="noopener">setup guide</a>).</li>
           <li data-i18n="optServer2">Paste the pairing token it prints:</li>
         </ol>

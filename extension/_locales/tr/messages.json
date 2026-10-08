@@ -903,7 +903,7 @@
     "message": "Bunlar panelde açık başlar. Orada her mesaj için değiştirebilirsin."
   },
   "optServer1": {
-    "message": "<a href=\"https://nodejs.org\" target=\"_blank\" rel=\"noopener\">Node.js</a> ve Claude Code'u kur, sonra ajan sunucusunu başlat (<a href=\"https://github.com/alpkavakli/IntegratedAI#setup\" target=\"_blank\" rel=\"noopener\">kurulum rehberi</a>)."
+    "message": "<a href=\"https://nodejs.org\" target=\"_blank\" rel=\"noopener\">Node.js</a> ile Claude Code'u (Claude için) ya da Codex CLI'ı (ChatGPT için: <code>npm install -g @openai/codex</code>, sonra <code>codex login</code>) kur, sonra ajan sunucusunu başlat (<a href=\"https://github.com/alpkavakli/IntegratedAI#setup\" target=\"_blank\" rel=\"noopener\">kurulum rehberi</a>)."
   },
   "optServer2": {
     "message": "Yazdırdığı eşleştirme belirtecini yapıştır:"
@@ -1047,7 +1047,10 @@
     "message": "Alibaba Cloud Model Studio · API anahtarı"
   },
   "pvServer": {
-    "message": "Claude aboneliğin · bu projenin GitHub'dan indirilmesi gerekir"
+    "message": "Claude veya ChatGPT aboneliğin · bu projenin GitHub'dan indirilmesi gerekir"
+  },
+  "pvServerName": {
+    "message": "Claude Code veya ChatGPT"
   },
   "readyStep3": {
     "message": "Hazırsın: 3. adıma bak."

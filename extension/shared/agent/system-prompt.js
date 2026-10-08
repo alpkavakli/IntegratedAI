@@ -79,12 +79,12 @@ function buildFullPrompt({ actionNames, webTools = false, structuredEnvelope = f
   const howToAct = structuredEnvelope && pageTools
     ? `## How to respond
 Inspections are real tools: call find_elements, page_outline, read_text, inspect_element, inspect_console,
-inspect_network, inspect_resources and screenshot directly (their full names start with mcp__page__). They run in the user's page right away and
+inspect_network, inspect_resources and screenshot directly (they come from the "page" tool server; their full names may start with mcp__page__ or page). They run in the user's page right away and
 return data, so look things up before answering instead of guessing.
 Then answer with the JSON object required by the output schema:
 - "reply": your message to the user (Markdown).
 - "actions": changes to propose and memory updates ([] if none).
-${agent ? `In this conversation ${liveTools.join(' and ')} are real tools too (${liveTools.map((n) => `mcp__page__${n}`).join(', ')}):
+${agent ? `In this conversation ${liveTools.join(' and ')} are real tools too (on the "page" tool server: ${liveTools.join(', ')}):
 call them to operate the page (see "Working on the page yourself"); never list them in "actions".
 ` : ''}IMPORTANT: ${agent ? 'other ' : ''}changes and memory updates (inject_css, modify_element, remember, forget, define_page_group, …) are NOT
 tools. The ONLY way to use them is to list them in the "actions" array of your JSON answer,

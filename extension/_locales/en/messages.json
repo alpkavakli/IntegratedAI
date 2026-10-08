@@ -903,7 +903,7 @@
     "message": "These start switched on in the panel. You can switch them per message there."
   },
   "optServer1": {
-    "message": "Install <a href=\"https://nodejs.org\" target=\"_blank\" rel=\"noopener\">Node.js</a> and Claude Code, then start the agent server (<a href=\"https://github.com/alpkavakli/IntegratedAI#setup\" target=\"_blank\" rel=\"noopener\">setup guide</a>)."
+    "message": "Install <a href=\"https://nodejs.org\" target=\"_blank\" rel=\"noopener\">Node.js</a> and Claude Code (for Claude) or Codex CLI (for ChatGPT: <code>npm install -g @openai/codex</code>, then <code>codex login</code>), then start the agent server (<a href=\"https://github.com/alpkavakli/IntegratedAI#setup\" target=\"_blank\" rel=\"noopener\">setup guide</a>)."
   },
   "optServer2": {
     "message": "Paste the pairing token it prints:"
@@ -1047,7 +1047,10 @@
     "message": "Alibaba Cloud Model Studio · API key"
   },
   "pvServer": {
-    "message": "your Claude subscription · needs this project from GitHub"
+    "message": "your Claude or ChatGPT subscription · needs this project from GitHub"
+  },
+  "pvServerName": {
+    "message": "Claude Code or ChatGPT"
   },
   "readyStep3": {
     "message": "You're ready: see step 3."

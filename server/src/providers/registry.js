@@ -5,11 +5,12 @@
 
 import { AnthropicProvider } from '../../../extension/shared/providers/anthropic.js';
 import { ClaudeCliProvider } from './claude-cli.js';
+import { CodexCliProvider } from './codex-cli.js';
 
 /** @typedef {typeof import('../../../extension/shared/providers/base.js').Provider} ProviderClass */
 
 /** @type {ProviderClass[]} */
-export const PROVIDERS = [ClaudeCliProvider, AnthropicProvider];
+export const PROVIDERS = [ClaudeCliProvider, CodexCliProvider, AnthropicProvider];
 
 const AVAILABILITY_TTL_MS = 60_000;
 

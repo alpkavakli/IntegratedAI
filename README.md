@@ -22,6 +22,7 @@ Local server mode (for developers)
         ▼
   Local agent server (Node.js, plain ESM JavaScript)
         ├── Claude Code CLI provider   (claude -p, your Claude subscription)   ← default
+        ├── ChatGPT (Codex CLI)        (codex exec, your ChatGPT Plus/Pro plan)
         └── Anthropic API provider     (only if you configure an API key)
 ```
 
@@ -348,6 +349,11 @@ the agent modes only.
 
 **Web search.** The AI can search the web and read web pages (documentation, MDN, browser support). It is on by default; turn it off in Options.
 - **Claude Code CLI provider:** uses Claude Code's `WebSearch`/`WebFetch` tools, and nothing else is enabled.
+- **ChatGPT (Codex CLI) provider:** `codex exec` signed in with your ChatGPT plan (`npm install -g @openai/codex`,
+  `codex login` → Sign in with ChatGPT; usage comes out of the plan's limits, no API key). It runs read-only with its
+  shell tool switched off, in an empty folder, ignoring your own Codex config and rules; the page tools come from this
+  server's /mcp endpoint (the token in an environment variable). See [codex-cli.js](server/src/providers/codex-cli.js).
+  Set `providers.codex-cli.model` in config.json to choose a model (default: Codex's own choice).
 - **Anthropic API** (server or direct mode): uses Anthropic's server-side `web_search`/`web_fetch` tools.
 - **OpenAI, Gemini, OpenRouter, Ollama:** no web search.
 

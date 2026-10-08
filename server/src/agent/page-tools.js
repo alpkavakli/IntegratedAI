@@ -63,6 +63,8 @@ export class PageTools {
       name,
       description: ACTIONS[name].description,
       inputSchema: ACTIONS[name].inputSchema,
+      // (MCP tool annotations: clients like Codex run read-only tools without asking.)
+      annotations: { readOnlyHint: isReadOnly(name), destructiveHint: false, openWorldHint: false },
     }));
   }
 

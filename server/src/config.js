@@ -39,7 +39,7 @@ import { DEFAULT_PORT } from '../../extension/shared/protocol.js';
  * @property {number} maxStepsPerTurn         Max model calls per user message (inspection round-trips)
  * @property {{ name?: string, path: string, urls: string[] }[]} projects  Your own sites' source folders for
  *                                            "Apply to source": pages whose URL starts with one of `urls` map to `path`
- * @property {{ 'claude-cli': CliProviderConfig, anthropic: AnthropicProviderConfig }} providers
+ * @property {{ 'claude-cli': CliProviderConfig, 'codex-cli': { command: string, model: string, timeoutMs: number }, anthropic: AnthropicProviderConfig }} providers
  * @property {string} dataDir                 (computed, not saved)
  */
 
@@ -57,6 +57,12 @@ export const DEFAULTS = {
       model: 'default',
       effort: null,
       maxBudgetUsdPerCall: null,
+      timeoutMs: 5 * 60 * 1000,
+    },
+    // ChatGPT through Codex CLI (signed in with your ChatGPT plan).
+    'codex-cli': {
+      command: 'codex',
+      model: 'default',
       timeoutMs: 5 * 60 * 1000,
     },
     anthropic: {
@@ -93,6 +99,7 @@ export function loadConfig(dir = dataDir()) {
     ...saved,
     providers: {
       'claude-cli': { ...DEFAULTS.providers['claude-cli'], ...saved.providers?.['claude-cli'] },
+      'codex-cli': { ...DEFAULTS.providers['codex-cli'], ...saved.providers?.['codex-cli'] },
       anthropic: { ...DEFAULTS.providers.anthropic, ...saved.providers?.anthropic },
     },
   };

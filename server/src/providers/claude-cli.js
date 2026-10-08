@@ -347,15 +347,15 @@ export function parseCliOutput(stdout) {
  * Run a process, write `input` to stdin, collect output. Never throws.
  * @param {string} command
  * @param {string[]} args
- * @param {{ cwd?: string, input?: string, timeoutMs?: number, signal?: AbortSignal,
- *   onStdout?: (chunk: string) => void }} [opts]  onStdout: called with output as it arrives
+ * @param {{ cwd?: string, input?: string, timeoutMs?: number, signal?: AbortSignal, env?: Record<string, string>,
+ *   onStdout?: (chunk: string) => void }} [opts]  onStdout: called with output as it arrives; env: added variables
  * @returns {Promise<{ code: number | null, stdout: string, stderr: string, spawnError?: string, timedOut?: boolean }>}
  */
 export function runProcess(command, args, opts = {}) {
   return new Promise((resolve) => {
     let child;
     try {
-      child = spawn(command, args, { cwd: opts.cwd, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
+      child = spawn(command, args, { cwd: opts.cwd, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], ...(opts.env ? { env: { ...process.env, ...opts.env } } : {}) });
     } catch (err) {
       resolve({ code: null, stdout: '', stderr: '', spawnError: String(err?.message ?? err) });
       return;
