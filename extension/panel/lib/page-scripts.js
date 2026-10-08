@@ -1037,9 +1037,9 @@ export function areaOverlay(h, selected, { mode, points = [], anchor = '', label
   const root = host.attachShadow({ mode: 'closed' });
   root.innerHTML = `<style>
     svg { position: fixed; inset: 0; width: 100vw; height: 100vh; overflow: visible; }
-    .dim { fill: rgba(32, 33, 36, ${editing ? 0.5 : 0.28}); fill-rule: evenodd; }
-    .halo { fill: none; stroke: #fff; stroke-width: 7; stroke-linejoin: round; opacity: .9; }
-    .shape { fill: transparent; stroke: ${BLUE}; stroke-width: 3.5; stroke-linejoin: round; }
+    .dim { fill: rgba(32, 33, 36, ${editing ? 0.5 : 0}); fill-rule: evenodd; }
+    .halo { fill: none; stroke: #fff; stroke-width: ${editing ? 7 : 4}; stroke-linejoin: round; opacity: .9; }
+    .shape { fill: transparent; stroke: ${BLUE}; stroke-width: ${editing ? 3.5 : 2}; stroke-linejoin: round; }
     .rubber { fill: rgba(26, 115, 232, .12); stroke: ${BLUE}; stroke-width: 1.5; stroke-dasharray: 4 3; }
     .corner { fill: #fff; stroke: ${BLUE}; stroke-width: 2; cursor: grab; }
     .corner.active { fill: ${BLUE}; }

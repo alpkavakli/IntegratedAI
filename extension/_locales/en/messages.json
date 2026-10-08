@@ -143,6 +143,12 @@
   "areaMarking": {
     "message": "Mark the area on the page, then click Done there"
   },
+  "areaOutline": {
+    "message": "Show on page"
+  },
+  "areaOutlineTitle": {
+    "message": "Draw the area's outline on the page (hiding it changes nothing about what the AI sees)"
+  },
   "areaRedraw": {
     "message": "Redraw"
   },

@@ -143,6 +143,12 @@
   "areaMarking": {
     "message": "Alanı sayfada işaretle, sonra oradaki Tamam'a tıkla"
   },
+  "areaOutline": {
+    "message": "Sayfada göster"
+  },
+  "areaOutlineTitle": {
+    "message": "Alanın çerçevesini sayfada çiz (gizlemek yapay zekânın gördüklerini değiştirmez)"
+  },
   "areaRedraw": {
     "message": "Yeniden çiz"
   },

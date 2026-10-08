@@ -50,6 +50,8 @@ export class PageAccess {
     this.keep = false;
     /** The tab's current address. */
     this.currentUrl = '';
+    /** Draw the area's outline on the page after it's marked (the user can hide it; the panel's bar always shows). */
+    this.outline = true;
     this.pollTimer = /** @type {ReturnType<typeof setInterval> | undefined} */ (undefined);
   }
 
@@ -63,6 +65,9 @@ export class PageAccess {
    * @param {string} currentUrl
    */
   async load(currentUrl) {
+    // (Remembered for every tab: how the user likes it.)
+    const prefs = await chrome.storage.local.get('areaOutline').catch(() => ({}));
+    this.outline = prefs.areaOutline !== false;
     const saved = (await chrome.storage.session.get(this.key).catch(() => ({})))[this.key];
     if (!saved || !['area', 'none'].includes(saved.mode)) return;
     this.mode = saved.mode;
@@ -136,6 +141,7 @@ export class PageAccess {
       this.pending = false;
       setPageArea(this.points, this.url, this.anchor, this.keep);
       this.roots = await callInPage(areaRoots).catch(() => []);
+      if (!this.outline) await this.show(); // (the editor leaves its outline; hidden: take it away)
     } else if (this.points.length >= 3 && !this.pending) {
       // Cancelled while changing it: the area stays as it was, outline included.
       await this.show();
@@ -162,10 +168,20 @@ export class PageAccess {
     if (this.editing) await callInPage(areaCommand, { command }).catch(() => {});
   }
 
-  /** The outline of the confirmed area on the page (after a reload, it is drawn again). */
+  /** The outline of the confirmed area on the page (after a reload, it is drawn again), unless the user hid it. */
   async show() {
     if (this.points.length < 3) return;
-    await callInPage(areaOverlay, { mode: 'show', points: this.points, anchor: this.anchor, labels: this.labels() }).catch(() => {});
+    await callInPage(areaOverlay, this.outline
+      ? { mode: 'show', points: this.points, anchor: this.anchor, labels: this.labels() }
+      : { mode: 'off' }).catch(() => {});
+  }
+
+  /** "Show on page": the outline on the page, or nothing there (the area works the same). @param {boolean} shown */
+  async setOutline(shown) {
+    this.outline = shown;
+    await chrome.storage.local.set({ areaOutline: shown }).catch(() => {});
+    if (this.areaReady && !this.editing) await this.show();
+    this.onChange();
   }
 
   /**

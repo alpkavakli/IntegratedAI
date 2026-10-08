@@ -555,6 +555,15 @@ try {
   log(`card: area marked → "${areaLine}"`);
   if (!/sees only the marked area/.test(areaLine)) violations.push(`card: marking the area did not finish (${areaLine})`);
   await shot(cardPage, 'page-17-area-marked', 1280, 800);
+  // "Show on page" off: nothing drawn on the page (the area still applies); on again: the outline is back.
+  const toggleOutline = (/** @type {boolean} */ on) => ev(cardSession, `(() => { const c = document.getElementById('area-outline'); c.checked = ${on}; c.dispatchEvent(new Event('change')); })()`);
+  await toggleOutline(false);
+  await sleep(600);
+  if (await ev(cardPage.session, `!!document.getElementById('integratedai-area')`)) violations.push('card: area: "Show on page" off, but the outline is still drawn');
+  await toggleOutline(true);
+  await sleep(600);
+  if (!(await ev(cardPage.session, `!!document.getElementById('integratedai-area')`))) violations.push('card: area: "Show on page" on again, but no outline');
+  log('card: area outline hidden and shown again');
   const before = chatRequests.length;
   await ev(cardSession, `document.getElementById('prompt').value = 'AREA-TEST what is here?'; document.getElementById('composer').requestSubmit()`);
   await waitAnswer(before);

@@ -135,6 +135,7 @@ export class App {
     $('page-access').addEventListener('change', () => this.access.setMode($('page-access').value).catch((err) => this.showError(err.message)));
     $('area-change').addEventListener('click', () => this.access.edit().catch((err) => this.showError(err.message)));
     $('area-keep').addEventListener('change', () => this.access.setKeep($('area-keep').checked).catch((err) => this.showError(err.message)));
+    $('area-outline').addEventListener('change', () => this.access.setOutline($('area-outline').checked).catch((err) => this.showError(err.message)));
     // While the area is being marked: Esc cancels, Ctrl+Z / Ctrl+Y undo and redo the shape (the message box keeps its
     // own undo while it has text), Enter outside the message box is Done.
     document.addEventListener('keydown', (e) => {
@@ -263,6 +264,7 @@ export class App {
         : t('areaShared', 'The AI sees only the marked area');
     $('area-change').hidden = editing;
     $('area-keep').checked = this.access.keep;
+    $('area-outline').checked = this.access.outline;
     $('area-change').textContent = pending || points.length < 3 ? t('areaMark', 'Mark it') : t('areaChange', 'Change');
   }
 
