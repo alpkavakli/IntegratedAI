@@ -186,7 +186,8 @@ function sleepUnlessAborted(ms, signal) {
 export async function presetFetch(id, doFetch, url, init) {
   const preset = PRESETS[id];
   let res;
-  // A hosted service that's busy for a moment (503/502/529, common on free tiers): try twice more, after a short wait.
+  // A hosted service that's busy for a moment (503/502/529), or too many requests at once (429, common on free
+  // tiers that allow one request at a time): try twice more, after a short wait.
   for (let attempt = 0; ; attempt++) {
     try {
       res = await doFetch(url, init);
@@ -196,7 +197,7 @@ export async function presetFetch(id, doFetch, url, init) {
       if (!preset.local) throw err;
       throw new Error(`Can't reach ${preset.label} at ${new URL(url).origin}. Is it running? Start the Ollama app (or run "ollama serve").`);
     }
-    if (preset.local || ![502, 503, 529].includes(res.status) || attempt >= RETRY_WAITS_MS.length) break;
+    if (preset.local || ![429, 502, 503, 529].includes(res.status) || attempt >= RETRY_WAITS_MS.length) break;
     const after = Number(res.headers?.get?.('retry-after'));
     await sleepUnlessAborted(after > 0 ? Math.min(after * 1000, 10_000) : RETRY_WAITS_MS[attempt], init?.signal);
   }
@@ -504,7 +505,8 @@ export function httpError(label, status, text) {
   }
   if (status === 404) return new Error(`This model is not available on ${label}. Pick another in the settings (Check key lists them).`);
   if (status === 402) return new Error(`Your ${label} account is out of credits.`);
-  if (status === 429) return new Error(`${label} rate limit or quota reached. Wait a moment and try again.`);
+  // (With the service's own words: "too many requests at once", "no balance" and "free model not available" all come as 429.)
+  if (status === 429) return new Error(`${label} rate limit or quota reached${detail ? ` (${label} says: ${detail.slice(0, 200)})` : ''}. Wait a moment and try again.`);
   if (status >= 500) return new Error(`${label} had a temporary problem (${status}). Try again in a moment.`);
   return new Error(`${label} error ${status}${detail ? `: ${detail}` : ''}`);
 }
