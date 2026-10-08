@@ -111,7 +111,7 @@ export const PRESETS = {
   glm: {
     label: 'GLM',
     baseUrl: 'https://api.z.ai/api/paas/v4',
-    models: ['glm-5.3', 'glm-5.2'],
+    models: ['glm-5.3', 'glm-5.2', 'glm-4.7-flash'], // (glm-4.7-flash: free, rate-limited; checked 2026-10-08)
     keyUrl: 'https://z.ai/manage-apikey/apikey-list',
     includeUsage: false,
     sendReasoning: true,
