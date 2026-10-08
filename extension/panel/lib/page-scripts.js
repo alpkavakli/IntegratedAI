@@ -417,6 +417,22 @@ export function pageHelpers(scope = null) {
     return AREA ? found.filter(inArea) : found;
   }
 
+  /** queryAll without the area filter: only to tell the AI what the area's edge cuts (pageOutline's partlyInside). */
+  function queryAllUnlimited(selector) {
+    const all = (r) => {
+      const out = [...r.querySelectorAll(selector)];
+      for (const host of r.querySelectorAll('*')) {
+        if (host.shadowRoot) out.push(...all(host.shadowRoot));
+        if (host.localName === 'iframe' || host.localName === 'frame') {
+          const doc = frameDoc(host);
+          if (doc) out.push(...all(doc));
+        }
+      }
+      return out;
+    };
+    return all(document);
+  }
+
   /** Our own outline, badge, card and element picker are not part of the page. */
   const OWN_IDS = new Set(['integratedai-highlight', 'integratedai-working', 'integratedai-card', 'integratedai-picker', 'integratedai-area']);
   const OWN_SELECTOR = [...OWN_IDS].map((id) => `#${id}`).join(', ');
@@ -581,7 +597,7 @@ export function pageHelpers(scope = null) {
   return {
     KEY_PROPERTIES, cssPath, label, computed, rect, overflowInfo, htmlExcerpt, toJson, target, state,
     refOf, byRef, queryAll, visible, onScreen, humanName, readable,
-    area: AREA, anchor: anchorEl, wrongPage: WRONG_PAGE, areaOrigin, rectTouchesArea, inArea, pageRect, frameDoc, activeElement, checkArea, textInArea, assertPage, pointInArea: (x, y) => (AREA ? pointInArea(x, y) : true),
+    queryAllUnlimited, area: AREA, anchor: anchorEl, wrongPage: WRONG_PAGE, areaOrigin, rectTouchesArea, inArea, pageRect, frameDoc, activeElement, checkArea, textInArea, assertPage, pointInArea: (x, y) => (AREA ? pointInArea(x, y) : true),
   };
 }
 
@@ -846,6 +862,14 @@ export function pageOutline(h, selected, input = {}) {
     ...(focused ? { focused: `${h.refOf(focused)} ${h.humanName(focused)}` } : {}),
     ...(headings.length ? { headings } : {}),
     elements: found.slice(0, limit).map(describe),
+    // With an area: buttons, links and fields that the area's edge cuts through (left out, so the AI can say so).
+    ...(() => {
+      if (!h.area) return {};
+      const cut = h.queryAllUnlimited?.(INTERACTIVE).filter((el) => !h.inArea(el) && h.rectTouchesArea(h.pageRect(el))) ?? [];
+      return cut.length
+        ? { partlyInside: `${cut.length} more (${cut.slice(0, 5).map((el) => h.humanName(el)).join(', ')}) are cut by the edge of the marked area and are left out; if one is needed, ask the user to mark a slightly bigger area` }
+        : {};
+    })(),
     ...(found.length > limit ? { more: `${found.length - limit} more; use find_elements to search them` } : {}),
     ...(frames.length ? { frames } : {}),
     ...(text ? { text: text.length > textChars ? `${text.slice(0, textChars)}… (read_text for all of it)` : text } : {}),

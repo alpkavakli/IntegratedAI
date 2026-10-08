@@ -269,6 +269,33 @@ test('Gemini: thought signatures on tool calls are kept and sent back with them,
   assert.equal(PRESETS.gemini.thoughtSignatures, true);
 });
 
+test('a text-only model that refuses images: the same request without them, and none after that', async () => {
+  const bodies = [];
+  const Glm = openAICompatibleProvider('glm');
+  const provider = new Glm(directConfig(/** @type {any} */ ({ providerKeys: { glm: 'k' }, providerModels: {} })), {
+    fetch: async (_url, init) => {
+      const body = JSON.parse(init.body);
+      bodies.push(body);
+      const hasImage = body.messages.some((m) => Array.isArray(m.content) && m.content.some((p) => p.type === 'image_url'));
+      if (hasImage) return { ok: false, status: 400, text: async () => JSON.stringify({ error: { message: "messages.content.type is invalid, allowed values: ['text']" } }) };
+      return sseResponse(sse([{ choices: [{ delta: { content: 'ok' } }] }, { choices: [{ delta: {}, finish_reason: 'stop' }] }]));
+    },
+  });
+  const history = /** @type {any[]} */ ([
+    { role: 'user', ts: 0, content: [{ type: 'text', text: 'look' }] },
+    { role: 'assistant', ts: 0, content: [{ type: 'tool_call', id: 's1', name: 'screenshot', input: {} }] },
+    { role: 'user', ts: 0, content: [{ type: 'tool_result', toolCallId: 's1', content: 'captured', images: [{ mediaType: 'image/jpeg', data: 'AAAA' }] }] },
+  ]);
+  const state = {};
+  const run = () => collect(provider.turn({ messages: history, system: 'S', actionNames: [], model: 'glm-4.7-flash', state, signal: new AbortController().signal }));
+  const first = await run();
+  assert.ok(first.some((e) => e.type === 'text_delta' && e.text === 'ok'), 'answered after the retry');
+  assert.equal(bodies.length, 2, 'refused once, then sent without the image');
+  assert.match(JSON.stringify(bodies[1].messages), /can't see images/);
+  await run();
+  assert.equal(bodies.length, 3, 'the next call goes without images straight away');
+});
+
 test('providers with other regions or per-account addresses use the address from Options; others never do', () => {
   assert.equal(baseUrlFor('kimi', { baseUrl: '' }), 'https://api.moonshot.ai/v1');
   assert.equal(baseUrlFor('kimi', { baseUrl: 'https://api.moonshot.cn/v1/' }), 'https://api.moonshot.cn/v1');

@@ -267,10 +267,14 @@ export function openAICompatibleProvider(id) {
      * @param {import('./base.js').TurnRequest} req
      * @returns {AsyncGenerator<import('./base.js').ProviderEvent>}
      */
-    async *turn({ messages, system, actionNames, model, signal, compact = false }) {
+    async *turn({ messages, system, actionNames, model, signal, compact = false, state = {} }) {
+      /** @param {boolean} images  screenshots attached (no: the model can't take them, see below) */
+      const messagesFor = (images) => toOpenAIMessages(system, messages, {
+        compact, images, reasoningFor: preset.sendReasoning ? id : undefined, signaturesFor: preset.thoughtSignatures ? id : undefined,
+      });
       const body = {
         model,
-        messages: toOpenAIMessages(system, messages, { compact, reasoningFor: preset.sendReasoning ? id : undefined, signaturesFor: preset.thoughtSignatures ? id : undefined }),
+        messages: messagesFor(!state.noImages),
         // (Left out when there are none: OpenAI refuses an empty list.)
         ...(actionNames.length ? {
           tools: actionNames.map((name) => {
@@ -282,7 +286,7 @@ export function openAICompatibleProvider(id) {
         ...(preset.includeUsage ? { stream_options: { include_usage: true } } : {}),
       };
       const settings = this.config.providers[id];
-      const res = await presetFetch(id, this.fetch, `${baseUrlFor(id, settings)}/chat/completions`, {
+      const send = () => presetFetch(id, this.fetch, `${baseUrlFor(id, settings)}/chat/completions`, {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
@@ -293,6 +297,19 @@ export function openAICompatibleProvider(id) {
         body: JSON.stringify(body),
         signal,
       });
+      let res;
+      try {
+        res = await send();
+      } catch (err) {
+        // A text-only model (GLM's flash models, …) refuses the screenshots: the same request without them, and no
+        // images for the rest of this conversation (the model is told a screenshot was taken but can't be shown).
+        const message = String(/** @type {any} */ (err)?.message ?? '');
+        if (state.noImages || !/error 400/.test(message) || !/image|content\.type|multimodal|vision/i.test(message)
+          || !messages.some((m) => m.content.some((b) => b.type === 'tool_result' && /** @type {any} */ (b).images?.length))) throw err;
+        state.noImages = true;
+        body.messages = messagesFor(false);
+        res = await send();
+      }
 
       /** @type {{ id: string, name: string, args: string, signature?: string }[]} */
       const calls = [];
@@ -379,12 +396,13 @@ const GEMINI_NO_SIGNATURE = 'skip_thought_signature_validator';
  *   step made by another provider (no signatures) get Google's documented stand-in on the first one
  * @param {string} system
  * @param {NeutralMessage[]} messages
- * @param {{ compact?: boolean, reasoningFor?: string, signaturesFor?: string }} [opts]
+ * - images: false for a model that can't take images: screenshots are left out, with a note in their place
+ * @param {{ compact?: boolean, reasoningFor?: string, signaturesFor?: string, images?: boolean }} [opts]
  */
-export function toOpenAIMessages(system, messages, { compact = false, reasoningFor = undefined, signaturesFor = undefined } = {}) {
+export function toOpenAIMessages(system, messages, { compact = false, reasoningFor = undefined, signaturesFor = undefined, images: withImages = true } = {}) {
   /** @type {Set<unknown>} tool_result blocks whose images are still sent */
   const keepImages = new Set();
-  let imagesLeft = MAX_IMAGES_SENT;
+  let imagesLeft = withImages ? MAX_IMAGES_SENT : 0;
   for (const m of [...messages].reverse()) {
     for (const b of m.content) {
       if (b.type === 'tool_result' && b.images?.length && imagesLeft >= b.images.length) {
@@ -442,7 +460,9 @@ export function toOpenAIMessages(system, messages, { compact = false, reasoningF
     for (const b of m.content) {
       if (b.type !== 'tool_result') continue;
       const r = /** @type {any} */ (b);
-      const dropped = r.images?.length && !keepImages.has(b) ? '\n(The screenshot from this result is no longer attached.)' : '';
+      const dropped = !r.images?.length || keepImages.has(b) ? ''
+        : withImages ? '\n(The screenshot from this result is no longer attached.)'
+          : '\n(A screenshot was taken, but this model can\'t see images: use the page text tools instead.)';
       out.push({ role: 'tool', tool_call_id: r.toolCallId, content: (r.isError ? `Error: ${shorten(r)}` : shorten(r)) + dropped });
       if (r.images && keepImages.has(b)) images.push(...r.images);
     }

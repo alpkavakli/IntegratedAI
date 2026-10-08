@@ -274,6 +274,10 @@ try {
   // A cut through an element: it's left out (when in doubt, out).
   const cut = (await callArea(readText, { area: box([10, 2190, 60, 2310]), url })).text;
   check('area: text only partly inside is left out', !cut.includes('Inside text'), cut);
+  // A button the area's edge cuts through: left out, and the outline says so (so the AI can ask for a bigger area).
+  const btn = await ev('(() => { const r = document.getElementById("in-btn").getBoundingClientRect(); return { l: r.left + scrollX, t: r.top + scrollY, r: r.right + scrollX, b: r.bottom + scrollY }; })()');
+  const cutOutline = await callArea(pageOutline, { area: box([10, 2190, (btn.l + btn.r) / 2, 2310]), url }, { all: true });
+  check('area: the outline says which buttons the edge cuts', /Inside button/.test(cutOutline.partlyInside ?? '') && !JSON.stringify(cutOutline.elements).includes('Inside button'), cutOutline);
   // A concave area whose corner pokes into #inside: #inside isn't completely inside, so it's not one of the roots.
   const notch = { area: [{ x: 10, y: 2190 }, { x: 290, y: 2190 }, { x: 290, y: 2310 }, { x: 150, y: 2310 }, { x: 145, y: 2250 }, { x: 140, y: 2310 }, { x: 10, y: 2310 }], url };
   const notchRoots = await callArea(areaRoots, notch);
