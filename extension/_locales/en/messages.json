@@ -906,7 +906,7 @@
     "message": "Install <a href=\"https://nodejs.org\" target=\"_blank\" rel=\"noopener\">Node.js</a> and Claude Code (for Claude) or Codex CLI (for ChatGPT: <code>npm install -g @openai/codex</code>, then <code>codex login</code>), then start the agent server (<a href=\"https://github.com/alpkavakli/IntegratedAI#setup\" target=\"_blank\" rel=\"noopener\">setup guide</a>)."
   },
   "optServer2": {
-    "message": "Paste the pairing token it prints:"
+    "message": "Paste the pairing token it prints (one token for the server: Claude and ChatGPT each use their own login, no keys here):"
   },
   "optServerButton": {
     "message": "No need to run <code>npm start</code> each time: the panel's <strong>Server</strong> button starts and stops the server. It needs a one-time setup in the IntegratedAI folder:"
@@ -1151,11 +1151,20 @@
   "serverNoAnswer": {
     "message": "The agent server did not answer."
   },
+  "serverNoneReady": {
+    "message": "No AI is ready on the server yet:"
+  },
+  "serverNotReady": {
+    "message": "Not set up: $1"
+  },
   "serverNotRunning": {
     "message": "The local server isn't running."
   },
   "serverPermission": {
     "message": "To start the server from here, IntegratedAI needs your OK to talk to its helper program on this computer. Click Server again and allow it, or allow it in the settings."
+  },
+  "serverReady": {
+    "message": "Ready: $1 (choose one in the panel's provider menu)."
   },
   "serverRunningTitle": {
     "message": "The local server is running. Click to stop it"

@@ -423,9 +423,23 @@ function checkServer() {
     ws.onopen = () => ws.send(JSON.stringify({ type: 'hello', token: $('token').value.trim(), protocol: PROTOCOL_VERSION }));
     ws.onmessage = (e) => {
       const msg = JSON.parse(e.data);
+      // Connected: ask which AIs it can use (Claude Code, ChatGPT through Codex CLI, …), each with its own login.
+      if (msg.type === 'welcome') { ws.send(JSON.stringify({ type: 'providers.list', id: 1 })); return; }
       clearTimeout(timer);
       ws.close();
-      resolve(msg.type === 'welcome' ? { ok: true, text: t('connectedServer', 'Connected to the agent server.') } : { ok: false, text: msg.message });
+      if (msg.type !== 'providers') { resolve({ ok: false, text: msg.message }); return; }
+      /** @type {{ label: string, available: boolean, reason?: string }[]} */
+      const list = msg.providers ?? [];
+      const ready = list.filter((p) => p.available).map((p) => p.label);
+      const notReady = list.filter((p) => !p.available).map((p) => `${p.label}: ${p.reason ?? ''}`);
+      resolve({
+        ok: ready.length > 0,
+        text: [
+          t('connectedServer', 'Connected to the agent server.'),
+          ready.length ? t('serverReady', 'Ready: $1 (choose one in the panel\'s provider menu).', ready.join(', ')) : t('serverNoneReady', 'No AI is ready on the server yet:'),
+          ...(notReady.length ? [t('serverNotReady', 'Not set up: $1', notReady.join(' · '))] : []),
+        ].join(' '),
+      });
     };
     ws.onerror = () => {
       clearTimeout(timer);

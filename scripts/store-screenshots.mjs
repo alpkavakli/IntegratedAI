@@ -288,7 +288,7 @@ const SCENARIOS = {
     await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }] }, options.session);
     await sleep(1500);
     const optionsPng = await capture(options, join(WORK, 'options.png'));
-    await compose('05-options', 'Set up in two minutes: your own API key, free local models, or your Claude subscription', optionsPng, null);
+    await compose('05-options', 'Set up in two minutes: your own API key, free local models, or your AI subscription', optionsPng, null);
   },
 };
 

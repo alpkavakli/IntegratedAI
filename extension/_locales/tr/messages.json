@@ -906,7 +906,7 @@
     "message": "<a href=\"https://nodejs.org\" target=\"_blank\" rel=\"noopener\">Node.js</a> ile Claude Code'u (Claude için) ya da Codex CLI'ı (ChatGPT için: <code>npm install -g @openai/codex</code>, sonra <code>codex login</code>) kur, sonra ajan sunucusunu başlat (<a href=\"https://github.com/alpkavakli/IntegratedAI#setup\" target=\"_blank\" rel=\"noopener\">kurulum rehberi</a>)."
   },
   "optServer2": {
-    "message": "Yazdırdığı eşleştirme belirtecini yapıştır:"
+    "message": "Yazdırdığı eşleştirme belirtecini yapıştır (sunucu için tek belirteç: Claude ve ChatGPT kendi girişlerini kullanır, burada anahtar yok):"
   },
   "optServerButton": {
     "message": "Her seferinde <code>npm start</code> çalıştırmana gerek yok: paneldeki <strong>Sunucu</strong> düğmesi sunucuyu başlatır ve durdurur. IntegratedAI klasöründe bir kerelik kurulum gerekir:"
@@ -1151,11 +1151,20 @@
   "serverNoAnswer": {
     "message": "Ajan sunucusu yanıt vermedi."
   },
+  "serverNoneReady": {
+    "message": "Sunucuda henüz hazır bir yapay zekâ yok:"
+  },
+  "serverNotReady": {
+    "message": "Kurulmamış: $1"
+  },
   "serverNotRunning": {
     "message": "Yerel sunucu çalışmıyor."
   },
   "serverPermission": {
     "message": "Sunucuyu buradan başlatmak için IntegratedAI'nin bu bilgisayardaki yardımcı programıyla konuşmasına izin vermen gerekiyor. Sunucu'ya tekrar tıklayıp izin ver ya da ayarlardan izin ver."
+  },
+  "serverReady": {
+    "message": "Hazır: $1 (paneldeki sağlayıcı menüsünden birini seç)."
   },
   "serverRunningTitle": {
     "message": "Yerel sunucu çalışıyor. Durdurmak için tıkla"

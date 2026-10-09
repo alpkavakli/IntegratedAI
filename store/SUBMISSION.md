@@ -15,7 +15,7 @@ AI panel in Chrome DevTools: explains layout and console errors, previews CSS fi
 **Languages:** English (default) and Turkish. The name and summary come from `extension/_locales/<lang>/messages.json`;
 the dashboard takes a description per language (Store listing → language menu), below.
 
-**Description:**
+**Description:** (Don't list AI company names in it: 0.1.0 was rejected as "keyword spam" for a list of nine.)
 
 > An AI assistant inside Chrome DevTools. Select an element in the Elements panel, switch to the **AI** tab and
 > ask: "why is this overflowing?", "make this look better", "add a dark-mode toggle to the nav bar".
@@ -43,14 +43,15 @@ the dashboard takes a description per language (Store listing → language menu)
 > - **Translates the page** into your language, and puts the original text back with one click.
 > - **Remembers each site:** key selectors and your preferences, so the next conversation starts informed.
 > - **Explains console errors** and jumps to the source.
-> - **Your key, your choice:** paste an API key for Anthropic (Claude), OpenAI, Google Gemini, OpenRouter, DeepSeek,
->   Qwen, Kimi, GLM or MiniMax and go, use free local models with Ollama, or connect any OpenAI-compatible service.
->   It talks straight to that provider; conversations and site memory stay in your browser. No account with us,
->   no tracking.
+> - **You decide what it sees:** the whole page, only an area you mark on it, or nothing at all ("just answer").
+>   With an area, the extension itself keeps the AI inside it; secrets in the page's code are never sent.
+> - **Your AI, your choice:** use your own API key from the AI provider you prefer, free models that run on your
+>   own computer, or any OpenAI-compatible service. It talks straight to that provider; conversations and site
+>   memory stay in your browser. No account with us, no tracking.
 > - **Separate memories:** keep a conversation's notes private to it, or share them across the site.
 >
-> Developers can instead run the free local agent server to use a Claude subscription through Claude Code
-> and move CSS into their own project ("Apply to source"): https://github.com/alpkavakli/IntegratedAI
+> Developers can instead run the free local agent server to use their Claude or ChatGPT subscription, and move CSS
+> into their own project ("Apply to source"): https://github.com/alpkavakli/IntegratedAI
 
 **Description in Turkish (Türkçe):**
 
@@ -72,13 +73,15 @@ the dashboard takes a description per language (Store listing → language menu)
 > - **Sayfayı çevirir:** sayfanın metnini istediğin dile çevirir; Geri al ile eski hâline döner.
 > - **Her siteyi hatırlar:** önemli seçicileri ve tercihlerini, böylece bir sonraki sohbet bilgili başlar.
 > - **Konsol hatalarını açıklar** ve kaynağa atlar.
-> - **Senin anahtarın, senin seçimin:** Anthropic (Claude), OpenAI, Google Gemini, OpenRouter, DeepSeek, Qwen, Kimi,
->   GLM veya MiniMax için bir API anahtarı yapıştır ve başla, Ollama ile ücretsiz yerel modeller kullan ya da
->   OpenAI uyumlu herhangi bir hizmeti bağla. Doğrudan o sağlayıcıyla konuşur; sohbetler ve site hafızası
->   tarayıcında kalır. Bizde hesap yok, izleme yok.
+> - **Neyi göreceğine sen karar verirsin:** tüm sayfa, yalnızca sayfada işaretlediğin bir alan ya da hiçbir şey
+>   ("sadece yanıtla"). Alan seçildiğinde yapay zekâyı o alanın içinde eklentinin kendisi tutar; sayfanın kodundaki
+>   gizli bilgiler asla gönderilmez.
+> - **Yapay zekân, senin seçimin:** tercih ettiğin sağlayıcının API anahtarını, kendi bilgisayarında çalışan
+>   ücretsiz modelleri ya da OpenAI uyumlu herhangi bir hizmeti kullan. Doğrudan o sağlayıcıyla konuşur; sohbetler
+>   ve site hafızası tarayıcında kalır. Bizde hesap yok, izleme yok.
 > - **Ayrı hafızalar:** bir sohbetin notlarını ona özel tut ya da site genelinde paylaş.
 >
-> Geliştiriciler bunun yerine ücretsiz yerel ajan sunucusunu çalıştırıp Claude aboneliğini Claude Code üzerinden
+> Geliştiriciler bunun yerine ücretsiz yerel ajan sunucusunu çalıştırıp Claude veya ChatGPT aboneliklerini
 > kullanabilir ve CSS'i kendi projelerine taşıyabilir ("Kaynağa uygula"): https://github.com/alpkavakli/IntegratedAI
 
 The interface follows Chrome's language: Turkish when Chrome is in Turkish, English otherwise. To check it, start
@@ -122,7 +125,7 @@ support URL `https://github.com/alpkavakli/IntegratedAI/issues`.
 |---|---|
 | `storage` | Saves the user's settings, API keys or pairing token, and CSS patches locally, and per-tab conversation/undo state. In direct mode also the site memory notes (conversations are kept in the extension's IndexedDB). |
 | `scripting` | Inserts and removes the CSS changes the user approved (`insertCSS` / `removeCSS`), including saved per-site patches. Shows the AI card on the page when the user clicks the toolbar button (`executeScript` with the packaged `content/card-host.js`), and, while the card is open, runs the extension's own packaged page functions in that tab to read the page or apply an approved change. No code from outside the package is run this way. |
-| `webNavigation` | Detects when a page the user saved a patch for starts loading, to reapply that patch (also in the page's frames, found with `getAllFrames`), and puts the AI card back on the next page of a tab where the user left it open. |
+| `webNavigation` | Detects when a page the user saved a patch for starts loading, to reapply that patch (also in the page's frames, found with `getAllFrames`), puts the AI card back on the next page of a tab where the user left it open, and finds a frame's current address (`getAllFrames`) when the user asks the AI to work inside an embedded frame. |
 | Host permission `<all_urls>` | The tool works on whatever page the user is inspecting in DevTools, so it must be able to read that page (on request), capture its console errors, take screenshots, and apply approved CSS on any site. |
 | Optional permission `nativeMessaging` | Asked for only when a user of the optional local agent server clicks the panel's Server button: it lets the extension ask a helper program the user installed themselves (`npm run services:install`) to start or stop that server. It sends only "status", "start" or "stop". Most users (API key or Ollama) never see this request. |
 | Toolbar button (`action`), `web_accessible_resources` | The toolbar button opens the AI card on the current page. The card is the extension's own panel page shown in a frame on the page; the two page-helper files are loaded into the extension's isolated world to read the page for it. Nothing is loaded from outside the package. |
@@ -170,7 +173,7 @@ If the review still rejects it, the fallback is a store build without `execute_j
 > Choose Ollama (free, runs locally) or paste an API key for one of the listed providers, and click Check. 2) On any
 > page, click the toolbar icon: a card opens on the page. Ask "summarize this page", or pick an element and ask "why is
 > this cut off?". 3) In DevTools (F12), open the AI tab: select an element in the Elements panel and ask about it.
-> Changes appear as cards and only run when you click Apply. Agent modes (menu under the message box) let it click and
+> Changes appear as cards and only run when you click Apply. The "Page access" menu by the message box limits what the AI sees (whole page, a marked area, or nothing). Agent modes (menu under the message box) let it click and
 > type on the page, asking first as configured. The JavaScript feature is off by default: Options → Advanced settings →
 > "Let it suggest JavaScript".
 
