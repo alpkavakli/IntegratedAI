@@ -1645,5 +1645,47 @@
   },
   "yourProject": {
     "message": "projen"
+  },
+  "alSearchChats": {
+    "message": "Eski sohbetlerde ara"
+  },
+  "chatsTitle": {
+    "message": "ChatGPT geçmişin (isteğe bağlı)"
+  },
+  "chatsIntro": {
+    "message": "Eski ChatGPT sohbetlerini buraya getir; sorduğunda yapay zekâ onlarda arama yapabilsin (\"… hakkında ne karar vermiştim\", \"yazdığımız betiği bul\"). ChatGPT'de: <strong>Ayarlar → Veri kontrolleri → Verileri dışa aktar</strong>. ChatGPT sana bir ZIP dosyasının bağlantısını e-postayla gönderir; o dosyayı burada seç (açman gerekmez)."
+  },
+  "chatsUpload": {
+    "message": "ChatGPT'den gelen dışa aktarma dosyasını seç (.zip)…"
+  },
+  "chatsAllow": {
+    "message": "Bir soru gerektirdiğinde yapay zekâ bu sohbetlerde arama yapabilsin"
+  },
+  "chatsRemove": {
+    "message": "Bu sohbetleri kaldır"
+  },
+  "chatsRemoveConfirm": {
+    "message": "Kaldırmak için tekrar tıkla"
+  },
+  "chatsRemoved": {
+    "message": "Kaldırıldı."
+  },
+  "chatsHint": {
+    "message": "Sohbetler bu tarayıcıya kopyalanır ve burada aranır; dışa aktarmadaki resimler ve dosyalar okunmaz. Bu bir anlık görüntüdür: daha yeni sohbetler için yeniden dışa aktar. Yapay zekâ arama yaptığında bulduğu bölümler, konuşmanın geri kalanı gibi seçtiğin yapay zekâya gider. Bu uzantının veri dışa aktarımına asla dahil edilmezler."
+  },
+  "chatsHave": {
+    "message": "Buradaki sohbetler: $1, $2 ile $3 arası ($4 tarihinde getirildi)"
+  },
+  "chatsHaveNoDates": {
+    "message": "Buradaki sohbetler: $1 ($2 tarihinde getirildi)"
+  },
+  "chatsReading": {
+    "message": "$1 okunuyor…"
+  },
+  "chatsProgress": {
+    "message": "$1 okunuyor… şimdiye kadarki sohbet: $2"
+  },
+  "dataChats": {
+    "message": "getirdiğin ChatGPT sohbetleri: $1"
   }
 }

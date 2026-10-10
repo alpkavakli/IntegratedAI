@@ -259,6 +259,25 @@
       <div class="hint" data-i18n="aboutHint">Stays in this browser. It is sent to the AI you chose only with a message you attach it to (the
         "About me" box above the message box, which the Write… menu ticks for you), and is never part of an export.</div>
     </section>
+    <section class="step" id="past-chats">
+      <h2 data-i18n="chatsTitle">Your ChatGPT history (optional)</h2>
+      <p data-i18n-html="chatsIntro">Bring your past ChatGPT chats here, and the AI can look things up in them when you ask
+        ("what did I decide about…", "find the script we wrote"). In ChatGPT: <strong>Settings → Data controls → Export data</strong>.
+        ChatGPT emails you a link to a ZIP file; choose that file here (no need to unpack it).</p>
+      <div class="row-buttons">
+        <label class="button-like"><span data-i18n="chatsUpload">Choose the export from ChatGPT (.zip)…</span>
+          <input type="file" id="chats-file" accept=".zip,.json,application/zip,application/json" hidden></label>
+        <span id="chats-status" role="status"></span>
+      </div>
+      <label class="check"><input type="checkbox" id="pastChats" disabled>
+        <span data-i18n="chatsAllow">Let the AI search these chats when a question needs it</span></label>
+      <div class="row-buttons">
+        <button type="button" id="chats-clear" class="danger" data-i18n="chatsRemove" hidden>Remove these chats</button>
+      </div>
+      <div class="hint" data-i18n="chatsHint">The chats are copied into this browser and searched here; pictures and files in the export are
+        not read. It is a snapshot: export again to bring newer chats. When the AI searches, the parts it finds go to the AI
+        you chose, like the rest of your conversation. They are never part of an export of this extension's data.</div>
+    </section>
     <details class="advanced">
       <summary data-i18n="optAdvanced">Advanced settings</summary>
 

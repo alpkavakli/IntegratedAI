@@ -1645,5 +1645,47 @@
   },
   "yourProject": {
     "message": "your project"
+  },
+  "alSearchChats": {
+    "message": "Search past chats"
+  },
+  "chatsTitle": {
+    "message": "Your ChatGPT history (optional)"
+  },
+  "chatsIntro": {
+    "message": "Bring your past ChatGPT chats here, and the AI can look things up in them when you ask (\"what did I decide about…\", \"find the script we wrote\"). In ChatGPT: <strong>Settings → Data controls → Export data</strong>. ChatGPT emails you a link to a ZIP file; choose that file here (no need to unpack it)."
+  },
+  "chatsUpload": {
+    "message": "Choose the export from ChatGPT (.zip)…"
+  },
+  "chatsAllow": {
+    "message": "Let the AI search these chats when a question needs it"
+  },
+  "chatsRemove": {
+    "message": "Remove these chats"
+  },
+  "chatsRemoveConfirm": {
+    "message": "Click again to remove them"
+  },
+  "chatsRemoved": {
+    "message": "Removed."
+  },
+  "chatsHint": {
+    "message": "The chats are copied into this browser and searched here; pictures and files in the export are not read. It is a snapshot: export again to bring newer chats. When the AI searches, the parts it finds go to the AI you chose, like the rest of your conversation. They are never part of an export of this extension's data."
+  },
+  "chatsHave": {
+    "message": "Chats here: $1, from $2 to $3 (brought in on $4)"
+  },
+  "chatsHaveNoDates": {
+    "message": "Chats here: $1 (brought in on $2)"
+  },
+  "chatsReading": {
+    "message": "Reading $1…"
+  },
+  "chatsProgress": {
+    "message": "Reading $1… chats so far: $2"
+  },
+  "dataChats": {
+    "message": "ChatGPT chats you brought in: $1"
   }
 }

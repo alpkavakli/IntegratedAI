@@ -30,6 +30,14 @@ notes are sent to the AI provider you chose only with a message you attach them 
 message box, which the Write… menu ticks), so it can write a cover letter or an answer from them. They are never
 part of an export, and "Remove my CV and notes" or "Delete extension data" deletes them.
 
+**Your ChatGPT history (optional).** If you choose the data export file you got from ChatGPT on the options page,
+the text of your past chats in it is copied into this browser and kept there (pictures and other files in the export
+are not read). The extension does not sign in to ChatGPT or read anything from it. While "Let the AI search these
+chats" is on, the AI can ask the extension to search them; the search runs on your computer, and the parts it finds
+(titles, dates, excerpts, or a chat it then reads) are sent to the AI provider you chose, as part of that
+conversation. The chats are never part of an export of the extension's data, and "Remove these chats" or "Delete
+extension data" deletes them.
+
 Only when you use the AI panel, and only from the tab you are inspecting:
 
 - **Page content you choose to share.** For example, the element selected in the Elements panel (its HTML

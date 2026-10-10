@@ -19,6 +19,7 @@ import { scopeMatches } from '../shared/url-scope.js';
 import { buildExport, conversationsToWrite, mergeMemory, mergePatches, mergeTasks, parseImport } from '../shared/data-transfer.js';
 import { indexEntry } from '../shared/agent/session-model.js';
 import { DB_NAME as DIRECT_DB, openDb as openDirectDb } from '../panel/direct/stores.js';
+import { chatsInfo, clearChats, searchChats } from '../shared/past-chats.js';
 
 /**
  * @typedef {object} Patch
@@ -86,8 +87,12 @@ const handlers = {
     if ((await sessionGet(`card:${tabId}`))?.open) chrome.tabs.sendMessage(tabId, { type: 'card.devtools' }).catch(() => {});
   },
 
+  // The user's imported ChatGPT chats (Options → Your ChatGPT history): the search_chats tool.
+  'chats.search': async ({ input }) => searchChats(input ?? {}),
+
   // Options → Your data
   'data.summary': async () => ({
+    pastChats: (await chatsInfo())?.count ?? 0,
     patches: (await getPatches()).length,
     tasks: ((await chrome.storage.local.get('tasks')).tasks ?? []).length,
     storageVersion: STORAGE_VERSION,
@@ -474,6 +479,7 @@ async function clearData() {
     const req = indexedDB.deleteDatabase(DIRECT_DB);
     req.onsuccess = req.onerror = req.onblocked = () => resolve(undefined);
   });
+  await clearChats();
   await chrome.storage.local.set({ storageVersion: STORAGE_VERSION });
 }
 

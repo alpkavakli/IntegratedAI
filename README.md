@@ -120,6 +120,20 @@ field** (typed into the field like a person would; Undo restores it). The AI is 
 notes say and never to invent experience. The CV stays in the browser, is not exported, and goes only to the AI you
 chose, only with messages you attach it to. `npm run vendor:pdf` rebuilds the packaged pdf.js after an upgrade.
 
+**Your past ChatGPT chats:** Options → *Your ChatGPT history* takes the data export from ChatGPT (Settings → Data
+controls → Export data; the ZIP as it is, or its `conversations.json`). The conversations file is read out of the
+ZIP as a stream ([zip-read.js](extension/shared/zip-read.js), ZIP64 too: exports with attachments run to several
+GB) and split one conversation at a time ([chatgpt-export.js](extension/shared/chatgpt-export.js)): each becomes
+plain text ("You: … / ChatGPT: …", the thread you saw, without hidden and tool messages) in the extension's
+IndexedDB ([past-chats.js](extension/shared/past-chats.js)); ChatGPT's saved memory and your custom instructions
+are kept too when the export carries them. With "Let the AI search these chats" on (an import switches it on), the
+AI gets a read-only tool, `search_chats`: `query` returns the best-matching chats with excerpts (word matching in
+the service worker, [chat-search.js](extension/shared/chat-search.js); no index, nothing sent anywhere), `id` reads
+one chat in parts. It works with every AI choice, the CLIs on the server included (over the page tool server), in
+the card, with a marked area and with "Just answer" (the chats are yours, not the page's). It is a snapshot: export
+again for newer chats. There is no live access to ChatGPT: it has no official way to read an account's history, and
+this extension does not use unofficial ones.
+
 **Copy text:** the button next to the context chips copies the selected element's text to the clipboard. The extension does this itself; no AI is involved.
 
 ### Quick start (direct mode)

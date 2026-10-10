@@ -43,6 +43,8 @@ export const DEFAULT_SETTINGS = {
   executeJs: false,
   /** Let the model search the web and read web pages (docs, MDN, …). Read-only. */
   webTools: true,
+  /** Let the model search the user's imported ChatGPT chats (Options → Your ChatGPT history; switched on by an import). */
+  pastChats: false,
   /** Ask before running read-only inspections requested by the model. */
   askBeforeInspections: false,
   /**

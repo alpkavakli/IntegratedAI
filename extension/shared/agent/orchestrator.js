@@ -64,7 +64,7 @@ import { buildSystemPrompt } from './system-prompt.js';
  * conversations that haven't chosen one (never "full", see requests.js). surface "card": the message
  * comes from the basic card on the page, which offers only CARD_ACTIONS and never runs page actions.
  * pageAccess: what of the page the user lets the AI see ("full", "area" or "none", see PAGE_ACCESS in actions.js).
- * @typedef {{ executeJs?: boolean, webTools?: boolean, agentMode?: string, surface?: 'card', pageAccess?: 'full' | 'area' | 'none' }} TurnSettings
+ * @typedef {{ executeJs?: boolean, webTools?: boolean, pastChats?: boolean, agentMode?: string, surface?: 'card', pageAccess?: 'full' | 'area' | 'none' }} TurnSettings
  */
 
 /**

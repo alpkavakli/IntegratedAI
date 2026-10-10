@@ -37,7 +37,7 @@ export const MAX_WRITTEN_TEXT = 20000;
  * @property {'none'|'low'|'medium'|'high'} risk
  * @property {string} description    Shown to the model
  * @property {Schema} inputSchema
- * @property {'executeJs'} [requiresSetting]  Only offered when that setting is on
+ * @property {'executeJs' | 'pastChats'} [requiresSetting]  Only offered when that setting is on
  * @property {boolean} [serverSide]  Runs on the server (site memory), never touches the page,
  *                                   needs no approval; shown in the chat and undoable in the Memory tab
  * @property {boolean} [pageAction]  Operates the page like the user (clicks, typing, going to pages);
@@ -164,6 +164,27 @@ export const ACTIONS = {
         levels: { type: 'array', items: { type: 'string', enum: ['error', 'warn', 'info', 'log'] } },
         contains: { type: 'string', description: 'Only messages containing this text.' },
         limit: { type: 'integer', description: 'Max entries (default 20).' },
+      },
+      additionalProperties: false,
+    },
+  },
+
+  search_chats: {
+    label: 'Search past chats',
+    readOnly: true,
+    risk: 'none',
+    requiresSetting: 'pastChats',
+    description: 'Search the user\'s past ChatGPT chats (imported from their ChatGPT data export; a snapshot, kept in their browser), '
+      + 'or read one of them. With "query": the best-matching chats with excerpts around the matches. With "id" (from the matches): '
+      + 'that chat\'s text, in parts (pass offset = nextOffset for more). Use it when the user refers to something they discussed, '
+      + 'decided or wrote before, or asks what they told ChatGPT.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Words to look for: names and distinctive terms work best (matching is by words, not by meaning; try other words if nothing is found).' },
+        id: { type: 'string', description: 'Read this chat (an id from the matches) instead of searching.' },
+        offset: { type: 'integer', description: 'With id: where to continue reading (nextOffset from the last part).' },
+        limit: { type: 'integer', description: 'With query: how many chats to return (default 5, up to 10).' },
       },
       additionalProperties: false,
     },
@@ -491,6 +512,7 @@ const BRIEF = {
   read_text: 'Read the text of the page or one element (ref/selector). Use offset=nextOffset for more.',
   inspect_console: 'Recent console messages and errors.',
   inspect_network: 'Network requests since DevTools opened (redacted).',
+  search_chats: 'Search the user\'s imported past ChatGPT chats by words (query), or read one (id from the matches; offset=nextOffset for more).',
   inspect_resources: 'List page resources, or read one (readContentOf: exact URL).',
   screenshot: 'An image of an element (ref/selector) or of the visible page.',
   remember: 'Save one short, reusable fact about this site (scope "site" or "page_group"). No secrets.',
@@ -512,7 +534,7 @@ const BRIEF = {
  * pages), scripts and the network/resource tools stay in the DevTools panel ("Continue in DevTools").
  */
 export const CARD_ACTIONS = [
-  'find_elements', 'page_outline', 'read_text', 'inspect_element', 'inspect_console', 'screenshot',
+  'find_elements', 'page_outline', 'read_text', 'inspect_element', 'inspect_console', 'screenshot', 'search_chats',
   'remember', 'forget', 'define_page_group', 'inject_css', 'translate_page', 'write_text',
 ];
 
@@ -522,12 +544,16 @@ export const CARD_ACTIONS = [
  *   area → only an area the user marked: the tools that work inside it (the panel limits each one to it);
  *          not the console, network log, page resources or site memory, which are about the whole page
  *   none → "Just answer": no page tools at all, no page context, no memory
+ * (The user's own imported chats, search_chats, are not part of the page: they stay available in every mode.)
  */
 export const PAGE_ACCESS = /** @type {const} */ (['full', 'area', 'none']);
 export const AREA_ACTIONS = [
-  'find_elements', 'page_outline', 'read_text', 'inspect_element', 'screenshot',
+  'find_elements', 'page_outline', 'read_text', 'inspect_element', 'screenshot', 'search_chats',
   'inject_css', 'modify_element', 'translate_page', 'write_text', 'interact', 'navigate', 'execute_js',
 ];
+
+/** Tools that have nothing to do with the page: offered also with "Just answer". */
+export const NO_PAGE_ACTIONS = ['search_chats'];
 
 /**
  * The actions offered for a page access level, from the ones otherwise enabled.
@@ -535,7 +561,7 @@ export const AREA_ACTIONS = [
  * @param {string} [access]
  */
 export function actionsForAccess(names, access) {
-  if (access === 'none') return [];
+  if (access === 'none') return names.filter((name) => NO_PAGE_ACTIONS.includes(name));
   if (access === 'area') return names.filter((name) => AREA_ACTIONS.includes(name));
   return names;
 }
@@ -615,7 +641,7 @@ export function runsLive(name, mode) {
 
 /**
  * Names of the actions the model may use, given the user's settings.
- * @param {{ executeJs?: boolean }} settings
+ * @param {{ executeJs?: boolean, pastChats?: boolean }} settings
  */
 export function enabledActionNames(settings) {
   return ACTION_NAMES.filter((name) => {
@@ -685,7 +711,7 @@ const URL_ATTRS = new Set(['href', 'src', 'action', 'formaction', 'xlink:href', 
  * Used by BOTH the server (before showing the proposal) and the panel (before executing).
  * @param {string} name
  * @param {unknown} input
- * @param {{ executeJs?: boolean }} [settings]  when given, also checks the action is enabled
+ * @param {{ executeJs?: boolean, pastChats?: boolean }} [settings]  when given, also checks the action is enabled
  * @returns {string[]} errors (empty = valid)
  */
 export function validateAction(name, input, settings) {
@@ -752,6 +778,7 @@ export function validateAction(name, input, settings) {
   }
   if (name === 'remember' && (!i.note.trim() || i.note.length > 300)) errors.push('note must be 1–300 characters');
   if (name === 'translate_page' && (!i.language.trim() || i.language.length > 40)) errors.push('language must be 1–40 characters');
+  if (name === 'search_chats' && !String(i.query ?? '').trim() && !String(i.id ?? '').trim()) errors.push('search_chats needs a query, or the id of a chat to read');
   if (name === 'write_text' && (!i.text.trim() || i.text.length > MAX_WRITTEN_TEXT)) errors.push(`text must be 1–${MAX_WRITTEN_TEXT} characters`);
   if (name === 'define_page_group') {
     if (!i.name.trim() || i.name.length > 40) errors.push('name must be 1–40 characters');

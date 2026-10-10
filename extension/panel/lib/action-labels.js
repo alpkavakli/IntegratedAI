@@ -11,6 +11,7 @@ const LABELS = {
   page_outline: t('alOutline', 'Look at the page'),
   read_text: t('alReadText', 'Read text'),
   inspect_console: t('alConsole', 'Read console'),
+  search_chats: t('alSearchChats', 'Search past chats'),
   inspect_network: t('alNetwork', 'Read network log'),
   inspect_resources: t('alResources', 'Read page resources'),
   screenshot: t('alScreenshot', 'Screenshot'),

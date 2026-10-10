@@ -16,7 +16,7 @@
  * DevTools for the rest. Both share the tab's conversation, so DevTools continues where the card was.
  */
 
-import { ACTIONS, AREA_ACTIONS, CARD_ACTIONS, MAX_WRITTEN_TEXT, isPageAction, validateAction } from '../shared/actions.js';
+import { ACTIONS, AREA_ACTIONS, CARD_ACTIONS, MAX_WRITTEN_TEXT, NO_PAGE_ACTIONS, isPageAction, validateAction } from '../shared/actions.js';
 import { aboutMe, hasProfile, loadProfile, onProfileChanged } from './lib/profile.js';
 import { PageAccess } from './lib/page-access.js';
 import { IN_CARD, TAB_ID } from './lib/surface.js';
@@ -604,7 +604,8 @@ export class App {
       const errors = validateAction(name, input);
       if (errors.length) throw new Error(errors.join('; '));
       // The page access the user chose, enforced here too (the agent decides what it offers; this runs it).
-      if (this.access.mode === 'none') throw new Error('The user chose "Just answer": the page is not shared');
+      if (name === 'search_chats' && !this.settings.pastChats) throw new Error('Searching past chats is switched off in the extension settings');
+      if (this.access.mode === 'none' && !NO_PAGE_ACTIONS.includes(name)) throw new Error('The user chose "Just answer": the page is not shared');
       if (this.access.mode === 'area' && !AREA_ACTIONS.includes(name)) throw new Error(`${ACTIONS[name]?.label ?? name} is not available while only a marked area is shared`);
       if (isPageAction(name)) {
         // The panel enforces the mode itself: nothing runs here in Suggest mode.
@@ -663,7 +664,7 @@ export class App {
         context: this.access.limitContext(context),
         pageUrl: this.pageUrl,
         settings: {
-          executeJs: this.settings.executeJs, webTools: this.settings.webTools, agentMode: this.settings.defaultAgentMode,
+          executeJs: this.settings.executeJs, webTools: this.settings.webTools, pastChats: this.settings.pastChats, agentMode: this.settings.defaultAgentMode,
           ...(IN_CARD ? { surface: 'card' } : {}),
           ...(this.access.mode !== 'full' ? { pageAccess: this.access.mode } : {}),
         },

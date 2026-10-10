@@ -37,6 +37,9 @@ export async function runInspection(name, input, ctx) {
       return inspectResources(input);
     case 'screenshot':
       return screenshot(input, ctx);
+    case 'search_chats':
+      // The user's imported ChatGPT chats: kept by the extension, searched in its background page.
+      return bg('chats.search', { input });
     default:
       throw new Error(`Unknown inspection ${name}`);
   }

@@ -521,6 +521,7 @@ function serverDataInfo() {
 async function showDataSummary() {
   const summary = await worker('data.summary');
   $('data-extension').textContent = t('dataExtension', 'saved patches: $1, saved tasks: $2, and your settings (extension $3)', summary.patches, summary.tasks ?? 0, summary.extensionVersion);
+  if (summary.pastChats) $('data-extension').textContent += `; ${t('dataChats', 'ChatGPT chats you brought in: $1', summary.pastChats.toLocaleString())}`;
   if ((await loadSettings()).mode === 'direct') {
     $('data-extension').textContent += `; ${t('dataDirect', 'in direct mode also conversations: $1, sites with memory: $2', summary.conversations, summary.memorySites)}`;
     // The server isn't used in direct mode, so its line is left out.
@@ -663,6 +664,62 @@ $('profile-clear').addEventListener('click', async () => {
   $('profile-notes').value = '';
   profileStatus(t('aboutRemoved', 'Removed.'), 'ok');
 });
+// ───────────────────────── Your ChatGPT history
+const chatsStatus = (text, kind = '') => {
+  $('chats-status').className = kind;
+  $('chats-status').textContent = text;
+};
+const day = (/** @type {number} */ time) => new Date(time).toLocaleDateString();
+/** @param {import('../shared/past-chats.js').ChatsInfo | null} info */
+const showChats = (info) => {
+  $('pastChats').disabled = !info;
+  $('chats-clear').hidden = !info;
+  if (!info) { $('pastChats').checked = false; return; }
+  chatsStatus(info.oldest
+    ? t('chatsHave', 'Chats here: $1, from $2 to $3 (brought in on $4)', info.count.toLocaleString(), day(info.oldest), day(info.newest), day(info.importedAt))
+    : t('chatsHaveNoDates', 'Chats here: $1 (brought in on $2)', info.count.toLocaleString(), day(info.importedAt)), 'ok');
+};
+const pastChats = await import('../shared/past-chats.js');
+$('pastChats').checked = settings.pastChats === true;
+showChats(await pastChats.chatsInfo().catch(() => null));
+$('pastChats').addEventListener('change', () => saveSettings({ pastChats: $('pastChats').checked }));
+$('chats-file').addEventListener('change', async () => {
+  const file = $('chats-file').files?.[0];
+  $('chats-file').value = '';
+  if (!file) return;
+  $('chats-file').disabled = true;
+  try {
+    chatsStatus(t('chatsReading', 'Reading $1…', file.name));
+    const info = await pastChats.importExport(file, (count) => chatsStatus(t('chatsProgress', 'Reading $1… chats so far: $2', file.name, count.toLocaleString())));
+    // Bringing them in is for the AI to search them: switched on, and the box above switches it off.
+    await saveSettings({ pastChats: true });
+    $('pastChats').checked = true;
+    showChats(info);
+  } catch (err) {
+    showChats(null);
+    await saveSettings({ pastChats: false });
+    chatsStatus(String(/** @type {any} */ (err)?.message ?? err), 'bad');
+  } finally {
+    $('chats-file').disabled = false;
+  }
+});
+// Two clicks to remove (no native confirm dialogs).
+$('chats-clear').addEventListener('click', async () => {
+  const button = $('chats-clear');
+  if (!button.dataset.armed) {
+    button.dataset.armed = '1';
+    button.textContent = t('chatsRemoveConfirm', 'Click again to remove them');
+    setTimeout(() => { delete button.dataset.armed; button.textContent = t('chatsRemove', 'Remove these chats'); }, 4000);
+    return;
+  }
+  delete button.dataset.armed;
+  button.textContent = t('chatsRemove', 'Remove these chats');
+  await pastChats.clearChats();
+  await saveSettings({ pastChats: false });
+  showChats(null);
+  chatsStatus(t('chatsRemoved', 'Removed.'), 'ok');
+});
+
 // Opened at this section (the panel's "Add or change my CV…"): bring it into view.
 if (location.hash === '#about-you') $('about-you').scrollIntoView({ block: 'start' });
 

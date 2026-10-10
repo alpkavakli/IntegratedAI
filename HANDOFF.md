@@ -212,8 +212,19 @@ harness) or the owner's GitHub/Telegram test is the next thing to do.
   action **write_text** (a card with the editable text: Copy, Download, Put into the selected field = an interact
   "type" step on $0 / the picked element, undoable). Prompt rules: only facts from the CV, never invent.
   Store: tick "Personally identifiable information" in Data usage from this version (kit updated).
+- **Past ChatGPT chats** (the owner wanted Codex to reach their ChatGPT history and memory). Options → *Your ChatGPT
+  history*: the export ZIP (or conversations.json) is streamed (`shared/zip-read.js`, `shared/chatgpt-export.js`)
+  into IndexedDB `integratedai-chats` (`shared/past-chats.js`; docs `{id, title, time, text}`, plus
+  `chatgpt-memory` / `chatgpt-instructions` when the export has them). Setting `pastChats` (switched on by an
+  import) offers the read-only tool **search_chats** (`query` → matches with excerpts, `id` → the chat in 8,000
+  character parts); it runs in the service worker (`chats.search`) so the panel and the card share it, and goes to
+  the CLIs over the page tool server like the other read-only tools. Available in every page access mode
+  (`NO_PAGE_ACTIONS`). Word matching only (`shared/chat-search.js`): no embeddings. Not in the data export;
+  "Delete extension data" removes it. Store: also tick "Personal communications".
+  Not checked against a real export of the owner's account yet (the format is from public descriptions of it;
+  the unit tests build exports by hand): the first real import is the test.
 - **Not built (decided with the owner):** a formatted PDF résumé generator; reading ChatGPT history live (no
-  official way). Planned next on this branch: importing ChatGPT's own data export and a "search my past chats" tool.
+  official way, and not through chatgpt.com's private requests).
 
 ## Next work, in order
 

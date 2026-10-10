@@ -24,7 +24,7 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import http from 'node:http';
 import { tmpdir } from 'node:os';
-import { makePdf } from '../server/test/helpers.js';
+import { exportedChat, makePdf, makeZip } from '../server/test/helpers.js';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -91,6 +91,19 @@ const ollama = http.createServer((req, res) => {
     chatRequests.push(request);
     // Page access checks: read the page once (whatever the access allows), then answer.
     const lastText = request.messages.findLast((/** @type {any} */ m) => m.role === 'user' && typeof m.content === 'string')?.content ?? '';
+    // Past chats: search them once, then answer with what came back.
+    if (/CHATS-TEST/.test(lastText)) {
+      const sinceAsk = request.messages.slice(request.messages.findLastIndex((/** @type {any} */ m) => m.role === 'user' && typeof m.content === 'string'));
+      const found = sinceAsk.find((/** @type {any} */ m) => m.role === 'tool');
+      if (!found && (request.tools ?? []).some((/** @type {any} */ t) => t.function.name === 'search_chats')) {
+        send({ choices: [{ delta: { tool_calls: [{ index: 0, id: `call_sc_${Date.now()}`, type: 'function', function: { name: 'search_chats', arguments: JSON.stringify({ query: 'Where did I plan to go in May? Lisbon trip' }) } }] } }] });
+        send({ choices: [{ delta: {}, finish_reason: 'tool_calls' }] });
+      } else {
+        send({ choices: [{ delta: { content: found ? 'You planned Lisbon.' : 'I have no past chats to search.' } }] });
+        send({ choices: [{ delta: {}, finish_reason: 'stop' }] });
+      }
+      return res.end('data: [DONE]\n\n');
+    }
     if (/AREA-TEST|NONE-TEST/.test(lastText)) {
       const tools = (request.tools ?? []).map((/** @type {any} */ t) => t.function.name);
       const after = request.messages.slice(request.messages.findLastIndex((/** @type {any} */ m) => m.role === 'user' && typeof m.content === 'string'));
@@ -693,6 +706,47 @@ try {
   if (!/Software Engineer/.test(savedCv)) violations.push('setup: the CV text was not saved');
   await ev(options.session, `document.getElementById('about-you').scrollIntoView()`);
   await shot(options, 'setup-03-about-you', 900, 900);
+
+  // Your ChatGPT history: the export ZIP is read on the page, kept in the browser, and the AI can search it.
+  const zipPath = join(WORK, 'chatgpt-export.zip');
+  fs.writeFileSync(zipPath, makeZip([
+    { name: 'chat.html', data: '<html></html>' },
+    { name: 'conversations.json', data: JSON.stringify([
+      exportedChat('c1', 'Trip plan', [['user', 'Where should I go in May?'], ['assistant', 'Lisbon is lovely in May. Book the flight early.']]),
+      exportedChat('c2', 'Cooking', [['user', 'How long do I boil an egg?'], ['assistant', 'Seven minutes.']]),
+      exportedChat('c3', 'Empty', []),
+    ]) },
+  ]));
+  const chatsInput = (await cdp('DOM.querySelector', { nodeId: optionsDoc.nodeId, selector: '#chats-file' }, options.session)).result.nodeId;
+  await cdp('DOM.setFileInputFiles', { files: [zipPath], nodeId: chatsInput }, options.session);
+  let chatsStatus = '';
+  for (let i = 0; i < 60 && !/Chats here: 2/.test(chatsStatus = await ev(options.session, `document.getElementById('chats-status').textContent`)); i++) await sleep(250);
+  log(`setup: ChatGPT export → "${chatsStatus}"`);
+  if (!/Chats here: 2/.test(chatsStatus)) violations.push(`setup: the ChatGPT export was not brought in (${chatsStatus || 'no status'})`);
+  if (!(await ev(sw, `chrome.storage.local.get('settings').then((r) => r.settings?.pastChats === true)`))) violations.push('setup: bringing in chats did not switch the search on');
+  if (!(await ev(options.session, `document.getElementById('pastChats').checked && !document.getElementById('chats-clear').hidden`))) violations.push('setup: past chats: the box is not ticked, or there is no remove button');
+  await ev(options.session, `document.getElementById('past-chats').scrollIntoView()`);
+  await shot(options, 'setup-04-past-chats', 900, 900);
+  await audit(options.session, 'setup page, past chats');
+  // In the panel: the AI asks for a search, gets the chat with an excerpt, and can read the whole chat.
+  const chats = await openPanel('blog.html', 'article p', 'light');
+  const beforeChats = chatRequests.length;
+  await ev(chats.panel.session, `document.getElementById('prompt').value = 'CHATS-TEST where did I plan to go in May?'; document.getElementById('composer').requestSubmit()`);
+  await waitAnswer(beforeChats);
+  for (let i = 0; i < 40 && chatRequests.length < beforeChats + 2; i++) await sleep(250);
+  const chatsFound = String(chatRequests.slice(beforeChats).flatMap((/** @type {any} */ r) => r.messages).findLast((/** @type {any} */ m) => m.role === 'tool')?.content ?? '');
+  log(`panel: search_chats → ${chatsFound.slice(0, 160)}`);
+  if (!/"title":\s*"Trip plan"/.test(chatsFound) || !/Lisbon is lovely in May/.test(chatsFound)) violations.push(`panel: past chats: the search did not return the chat (${chatsFound.slice(0, 200) || 'no tool result'})`);
+  if (/Cooking/.test(chatsFound)) violations.push('panel: past chats: a chat that does not match came back');
+  const wholeChat = await ev(chats.panel.session, `chrome.runtime.sendMessage({ cmd: 'chats.search', input: { id: 'c1' } }).then((r) => r.value?.text ?? JSON.stringify(r))`);
+  if (wholeChat !== 'You: Where should I go in May?\n\nChatGPT: Lisbon is lovely in May. Book the flight early.') violations.push(`panel: past chats: reading a chat by id gave ${JSON.stringify(String(wholeChat).slice(0, 120))}`);
+  // Removing them: gone, and the search is off.
+  await ev(options.session, `document.getElementById('chats-clear').click(); document.getElementById('chats-clear').click()`);
+  await sleep(800);
+  const afterRemove = await ev(chats.panel.session, `chrome.runtime.sendMessage({ cmd: 'chats.search', input: { query: 'Lisbon' } }).then((r) => r.value?.available)`);
+  if (afterRemove !== false) violations.push('setup: past chats: still searchable after removing them');
+  if (await ev(sw, `chrome.storage.local.get('settings').then((r) => r.settings?.pastChats === true)`)) violations.push('setup: past chats: removing them left the search switched on');
+  log('setup: past chats removed');
 } catch (err) {
   failed = true;
   console.error(err);
