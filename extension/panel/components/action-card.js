@@ -8,6 +8,7 @@
  */
 
 import { ACTIONS, validateAction } from '../../shared/actions.js';
+import { copyToClipboard, downloadText } from '../lib/dom.js';
 import { defaultScopeFor } from '../../shared/url-scope.js';
 import { h, setChildren } from '../lib/dom.js';
 import { IN_CARD } from '../lib/surface.js';
@@ -67,7 +68,7 @@ export class ActionCard extends HTMLElement {
     setChildren(this,
       h('div', { class: 'head' },
         actionLabel(name),
-        h('span', { class: `status ${status}` }, STATUS_LABEL[status] ?? status)),
+        name === 'write_text' && status === 'proposed' ? null : h('span', { class: `status ${status}` }, STATUS_LABEL[status] ?? status)),
       input?.description ? h('div', { class: 'desc' }, input.description) : null,
       this.renderBody(),
       errors.length ? h('ul', { class: 'errors' }, errors.map((e) => h('li', null, e))) : null,
@@ -136,6 +137,19 @@ export class ActionCard extends HTMLElement {
       return h('div', null, input.url ? [t('navOpen', 'Open'), ' ', h('code', null, input.url)] : input.go === 'back' ? t('navBack', 'Go back') : input.go === 'forward' ? t('navForward', 'Go forward') : t('navReload', 'Reload'));
     }
 
+    if (name === 'write_text') {
+      // The text, editable: what's copied, downloaded or put into the field is what's in the box.
+      const text = this.editedText ?? String(input.text ?? '');
+      const count = h('div', { class: 'note' }, wordCount(text));
+      const area = /** @type {HTMLTextAreaElement} */ (h('textarea', {
+        class: 'written', spellcheck: 'true', 'aria-label': t('writtenLabel', 'The text (you can edit it)'),
+        rows: String(Math.min(Math.max(text.split('\n').length + Math.ceil(text.length / 70), 4), 18)),
+        oninput: () => { this.editedText = area.value; count.textContent = wordCount(area.value); },
+      }));
+      area.value = text;
+      return h('div', null, area, count);
+    }
+
     if (name === 'translate_page') {
       return h('div', null,
         h('div', null, t('translateInto', 'Translate the visible text of the page into $1.', input.language)),
@@ -179,6 +193,36 @@ export class ActionCard extends HTMLElement {
     };
 
     if (status === 'invalid' || (invalid && !appliedHere)) return [];
+
+    // A written text: copy it, save it, or put it into the field selected on the page (Undo puts back what was there).
+    if (name === 'write_text') {
+      const text = () => this.editedText ?? String(this.input.text ?? '');
+      const flash = (/** @type {any} */ e, /** @type {string} */ label) => {
+        const button = e.currentTarget;
+        const before = button.textContent;
+        button.textContent = label;
+        setTimeout(() => { button.textContent = before; }, 1500);
+      };
+      return [
+        h('button', {
+          type: 'button', class: 'primary',
+          onclick: async (/** @type {any} */ e) => {
+            try { await copyToClipboard(text()); flash(e, t('copied', 'Copied')); } catch (err) { app.showError(String(/** @type {any} */ (err)?.message ?? err)); }
+          },
+        }, t('copy', 'Copy')),
+        h('button', {
+          type: 'button',
+          onclick: () => downloadText(text(), `${String(this.input.description || 'text').replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '').slice(0, 60) || 'text'}.txt`),
+        }, t('download', 'Download')),
+        status === 'applied' && appliedHere && app.changes.canUndo(actionId)
+          ? h('button', { type: 'button', disabled, onclick: run(() => app.undoAction(actionId)) }, t('undo', 'Undo'))
+          : h('button', {
+            type: 'button', disabled,
+            title: t('fillFieldHelp', 'Types the text into the field you selected on the page. Undo puts back what was there.'),
+            onclick: run(() => app.applyAction(actionId, { text: text() })),
+          }, IN_CARD ? t('fillPicked', 'Put into the picked field') : t('fillSelected', 'Put into the selected field')),
+      ];
+    }
 
     // Ask the AI to look at the result (screenshot) and fix what still looks wrong.
     const check = name === 'execute_js' ? null : h('button', {
@@ -362,6 +406,12 @@ export class ActionCard extends HTMLElement {
 }
 
 customElements.define('ai-action-card', ActionCard);
+
+/** "312 words" under a written text. @param {string} text */
+function wordCount(text) {
+  const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+  return t('wordCount', '$1 words · $2 characters', words.toLocaleString(), text.length.toLocaleString());
+}
 
 /**
  * The message sent by "Check it".

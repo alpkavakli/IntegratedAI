@@ -59,6 +59,8 @@ function toolCall(call, record) {
   const lines = [`- **${ACTIONS[call.name].label}**${input.description ? `: ${input.description}` : ''} _(${outcome})_`];
   if (call.name === 'inject_css') lines.push('', '  ```css', ...String(input.css).split('\n').map((l) => `  ${l}`), '  ```', '');
   if (call.name === 'execute_js') lines.push('', '  ```js', ...String(input.code).split('\n').map((l) => `  ${l}`), '  ```', '');
+  // A written text (cover letter, answer): the text itself, as a quote.
+  if (call.name === 'write_text') lines.push('', ...String(input.text).split('\n').map((l) => `  > ${l}`.trimEnd()), '');
   if (call.name === 'interact') {
     for (const s of input.steps ?? []) {
       const target = s.text ? `"${s.text}"` : s.selector ? `\`${s.selector}\`` : s.ref ?? '';

@@ -24,6 +24,7 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import http from 'node:http';
 import { tmpdir } from 'node:os';
+import { makePdf } from '../server/test/helpers.js';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -98,6 +99,24 @@ const ollama = http.createServer((req, res) => {
         send({ choices: [{ delta: {}, finish_reason: 'tool_calls' }] });
       } else {
         send({ choices: [{ delta: { content: 'Here is what I can tell.' } }] });
+        send({ choices: [{ delta: {}, finish_reason: 'stop' }] });
+      }
+      return res.end('data: [DONE]\n\n');
+    }
+    // The Write… menu: hand over a text, with the first line of the CV in it (so the checks can see the CV arrived).
+    const writing = /Write a cover letter|Write an answer to the question/.exec(lastText);
+    if (writing) {
+      const sinceAsk = request.messages.slice(request.messages.findLastIndex((/** @type {any} */ m) => m.role === 'user' && typeof m.content === 'string'));
+      if (!sinceAsk.some((/** @type {any} */ m) => m.role === 'tool')) {
+        const name = /CV:\n([^\n]*)/.exec(lastText)?.[1] ?? '(no CV)';
+        const answer = /cover letter/.test(writing[0])
+          ? { description: 'Cover letter for Lumen Cloud', text: `Dear Lumen Cloud team,\n\nI am ${name}, and I would like to join you.\n\nKind regards,\n${name}` }
+          : { description: 'Answer for the "Full name" field', text: name };
+        send({ choices: [{ delta: { content: 'Written from your CV.' } }] });
+        send({ choices: [{ delta: { tool_calls: [{ index: 0, id: `call_wt_${Date.now()}`, type: 'function', function: { name: 'write_text', arguments: JSON.stringify(answer) } }] } }] });
+        send({ choices: [{ delta: {}, finish_reason: 'tool_calls' }] });
+      } else {
+        send({ choices: [{ delta: { content: 'Check the names before you send it.' } }] });
         send({ choices: [{ delta: {}, finish_reason: 'stop' }] });
       }
       return res.end('data: [DONE]\n\n');
@@ -331,6 +350,29 @@ try {
   await shot(light.panel, 'panel-07-answer-light-narrow', 360, 700);
   await audit(light.panel.session, 'panel answer (light, narrow)');
   await checkLayout(light.panel.session, 'panel answer (light, narrow)', PANEL_LAYOUT);
+
+  // Write… → "Answer the selected question": a text card; it goes into the selected field, and Undo takes it out.
+  await ev(sw, `chrome.storage.local.set({ profile: { cv: 'Alp Kavakli\\nJava and Spring Boot', notes: 'Backend roles', cvName: 'cv.pdf', updatedAt: 1 } })`);
+  const writer = await openPanel('signup.html', '#name', 'default');
+  if (await writer.ui(`document.getElementById('profile-chip').hidden`)) violations.push('write: the About me chip is not shown though a CV is saved');
+  const beforeAnswer = chatRequests.length;
+  await writer.ui(`(() => { const s = document.getElementById('write-menu'); s.value = 'answer'; s.dispatchEvent(new Event('change')); })()`);
+  for (let i = 0; i < 60 && !(await writer.ui(`!!document.querySelector('ai-action-card textarea.written') && !document.querySelector('.thinking')`)); i++) await sleep(500);
+  await sleep(600);
+  const answerAsk = JSON.stringify(chatRequests[beforeAnswer]?.messages.findLast((/** @type {any} */ m) => m.role === 'user') ?? '');
+  if (!/<about_me/.test(answerAsk) || !/Spring Boot/.test(answerAsk)) violations.push(`write: the CV was not attached to the request (${answerAsk.slice(0, 200)})`);
+  if (await writer.ui(`document.getElementById('ctx-profile').checked`)) violations.push('write: the About me chip stayed ticked after sending');
+  await shot(writer.panel, 'panel-11-written-text-light');
+  await audit(writer.panel.session, 'panel written text (light)');
+  await writer.click('Put into the selected field');
+  await sleep(1000);
+  const filled = await ev(writer.page.session, `document.getElementById('name').value`);
+  log(`write: put into the selected field → "${filled}"`);
+  if (filled !== 'Alp Kavakli') violations.push(`write: the text was not put into the selected field ("${filled}")`);
+  await writer.click('Undo');
+  await sleep(800);
+  const emptied = await ev(writer.page.session, `document.getElementById('name').value`);
+  if (emptied !== '') violations.push(`write: Undo did not take the text out again ("${emptied}")`);
 
   // Agent mode: the AI fills in a form, asks before the risky click, then opens another page.
   const agent = await openPanel('signup.html', '#signup', 'default');
@@ -593,6 +635,19 @@ try {
   else if ((noneRequest.tools ?? []).length) violations.push(`card: just answer: tools were offered (${noneRequest.tools.length})`);
   if (/pricing|Simple, honest|"page"/.test(noneText)) violations.push(`card: just answer: page content was sent (${noneText.slice(0, 300)})`);
   await ev(cardSession, `(() => { const s = document.getElementById('page-access'); s.value = 'full'; s.dispatchEvent(new Event('change')); })()`);
+
+  // The Write… menu in the card: a cover letter from the CV, as a card with the text (editable).
+  await sleep(400);
+  const beforeCover = chatRequests.length;
+  await ev(cardSession, `(() => { const s = document.getElementById('write-menu'); s.value = 'cover'; s.dispatchEvent(new Event('change')); })()`);
+  await waitAnswer(beforeCover);
+  let letter = '';
+  for (let i = 0; i < 40 && !(letter = await ev(cardSession, `document.querySelector('ai-action-card textarea.written')?.value ?? ''`)); i++) await sleep(250);
+  const coverAsk = JSON.stringify(chatRequests[beforeCover]?.messages.findLast((/** @type {any} */ m) => m.role === 'user') ?? '');
+  log(`card: cover letter → ${JSON.stringify(letter.slice(0, 60))}`);
+  if (!/<about_me/.test(coverAsk) || !/Spring Boot/.test(coverAsk)) violations.push('card: write: the CV was not attached to the request');
+  if (!/^Dear Lumen Cloud team/.test(letter) || !/Alp Kavakli/.test(letter)) violations.push(`card: write: no cover letter card (${letter.slice(0, 80)})`);
+  if (!(chatRequests[beforeCover]?.tools ?? []).some((/** @type {any} */ t) => t.function.name === 'write_text')) violations.push('card: write: write_text was not offered');
   await ev(sw, `chrome.storage.session.set({ 'card:${cardTab}': { open: false } })`);
 
   // Nothing set up yet: the panel's first-run screen.
@@ -621,6 +676,23 @@ try {
   await shot(options, 'setup-02-ollama-ready-advanced', 900, 1700);
   await audit(options.session, 'setup page, Ollama ready, advanced settings');
   await checkLayout(options.session, 'setup page, Ollama ready', SETUP_LAYOUT);
+
+  // About you: a real PDF is read in the page (the packaged pdf.js, in a worker), and its text shows for checking.
+  const pdfPath = join(WORK, 'cv.pdf');
+  fs.writeFileSync(pdfPath, makePdf([['Alp Kavakli', 18], ['Software Engineer (Java, Spring Boot)', 12], ['§Experience', 14], ['Built a credit-scoring app', 11]]));
+  await cdp('DOM.enable', {}, options.session);
+  const optionsDoc = (await cdp('DOM.getDocument', {}, options.session)).result.root;
+  const fileInput = (await cdp('DOM.querySelector', { nodeId: optionsDoc.nodeId, selector: '#profile-file' }, options.session)).result.nodeId;
+  await cdp('DOM.setFileInputFiles', { files: [pdfPath], nodeId: fileInput }, options.session);
+  let cvText = '';
+  for (let i = 0; i < 60 && !/Software Engineer/.test(cvText = await ev(options.session, `document.getElementById('profile-cv').value`)); i++) await sleep(250);
+  const cvStatus = await ev(options.session, `document.getElementById('profile-status').textContent`);
+  log(`setup: PDF read → ${JSON.stringify(cvText.slice(0, 70))} (${cvStatus})`);
+  if (cvText !== 'Alp Kavakli\nSoftware Engineer (Java, Spring Boot)\n\nExperience\nBuilt a credit-scoring app') violations.push(`setup: the uploaded PDF was not read right (${cvStatus || 'no status'}: ${JSON.stringify(cvText.slice(0, 120))})`);
+  const savedCv = await ev(sw, `chrome.storage.local.get('profile').then((r) => r.profile?.cv ?? '')`);
+  if (!/Software Engineer/.test(savedCv)) violations.push('setup: the CV text was not saved');
+  await ev(options.session, `document.getElementById('about-you').scrollIntoView()`);
+  await shot(options, 'setup-03-about-you', 900, 900);
 } catch (err) {
   failed = true;
   console.error(err);

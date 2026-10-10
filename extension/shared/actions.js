@@ -27,6 +27,9 @@ import { validate } from './validate.js';
 
 /** @typedef {import('./validate.js').Schema} Schema */
 
+/** write_text: the longest text a card holds (a cover letter is about 2,000 characters). */
+export const MAX_WRITTEN_TEXT = 20000;
+
 /**
  * @typedef {object} ActionDef
  * @property {string} label          Short human label for the UI
@@ -365,6 +368,27 @@ export const ACTIONS = {
     },
   },
 
+  write_text: {
+    label: 'Written text',
+    readOnly: false,
+    risk: 'low',
+    description:
+      'Hand the user a finished piece of writing they asked for (a cover letter, an answer to an application question, a message, ' +
+      'a CV section rewritten for a job) as its own card: they can edit it, copy it, download it, or put it into the form field they ' +
+      'selected. Put only the text itself in "text": plain text ready to send, no Markdown, and no placeholders like [Company] ' +
+      '(use the real names from the page, or leave that part out). Keep your reply to a sentence or two: what you based it on and ' +
+      'what they should check before sending.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        description: { type: 'string', description: 'What it is, in a few words, e.g. "Cover letter for the Backend Intern role at Acme".' },
+        text: { type: 'string', description: 'The finished text.' },
+      },
+      required: ['description', 'text'],
+      additionalProperties: false,
+    },
+  },
+
   interact: {
     label: 'Interact with the page',
     readOnly: false,
@@ -478,6 +502,7 @@ const BRIEF = {
     + 'scroll (value down/up/top/bottom), press (value: key), wait (value: seconds). Steps wait for the page to settle.',
   navigate: 'Open a URL in this tab (url), or go: back, forward, reload.',
   translate_page: 'Propose translating the page\'s visible text into a language (user applies; undoable).',
+  write_text: 'Hand the user a finished text (cover letter, answer to a form question, message) as a card they can edit, copy or put into the selected field. Plain text only.',
   execute_js: 'Last resort: propose JavaScript (body of an async function) for the user to run; give undoCode if possible.',
 };
 
@@ -488,7 +513,7 @@ const BRIEF = {
  */
 export const CARD_ACTIONS = [
   'find_elements', 'page_outline', 'read_text', 'inspect_element', 'inspect_console', 'screenshot',
-  'remember', 'forget', 'define_page_group', 'inject_css', 'translate_page',
+  'remember', 'forget', 'define_page_group', 'inject_css', 'translate_page', 'write_text',
 ];
 
 /**
@@ -501,7 +526,7 @@ export const CARD_ACTIONS = [
 export const PAGE_ACCESS = /** @type {const} */ (['full', 'area', 'none']);
 export const AREA_ACTIONS = [
   'find_elements', 'page_outline', 'read_text', 'inspect_element', 'screenshot',
-  'inject_css', 'modify_element', 'translate_page', 'interact', 'navigate', 'execute_js',
+  'inject_css', 'modify_element', 'translate_page', 'write_text', 'interact', 'navigate', 'execute_js',
 ];
 
 /**
@@ -727,6 +752,7 @@ export function validateAction(name, input, settings) {
   }
   if (name === 'remember' && (!i.note.trim() || i.note.length > 300)) errors.push('note must be 1–300 characters');
   if (name === 'translate_page' && (!i.language.trim() || i.language.length > 40)) errors.push('language must be 1–40 characters');
+  if (name === 'write_text' && (!i.text.trim() || i.text.length > MAX_WRITTEN_TEXT)) errors.push(`text must be 1–${MAX_WRITTEN_TEXT} characters`);
   if (name === 'define_page_group') {
     if (!i.name.trim() || i.name.length > 40) errors.push('name must be 1–40 characters');
     if (!/^\/[^\s?#]*$/.test(i.pattern) || i.pattern.length > 200) errors.push('pattern must be a path starting with "/" (no spaces, ? or #)');

@@ -1,6 +1,6 @@
 # Browser IntegratedAI DevTools: Privacy Policy
 
-_Last updated: 2026-10-08_
+_Last updated: 2026-10-10_
 
 Browser IntegratedAI DevTools ("the extension") adds an AI panel to Chrome DevTools. This policy explains what data
 the extension handles and where it goes. In short: **the developer does not collect, receive or sell any of
@@ -23,6 +23,12 @@ You choose how much of the page the AI may see, in the **Page access** menu next
 
 In every mode, values of hidden fields, password and card-number fields, script contents and token-like values are
 removed from any HTML that is sent.
+
+**Your CV ("About you", optional).** If you add your CV and notes on the options page, they are kept in this
+browser. A PDF you upload is read on your computer; the file itself is not stored or sent. The CV's text and your
+notes are sent to the AI provider you chose only with a message you attach them to (the "About me" box above the
+message box, which the Write… menu ticks), so it can write a cover letter or an answer from them. They are never
+part of an export, and "Remove my CV and notes" or "Delete extension data" deletes them.
 
 Only when you use the AI panel, and only from the tab you are inspecting:
 

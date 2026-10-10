@@ -39,3 +39,38 @@ export function setChildren(el, ...children) {
     el.append(child instanceof Node ? child : String(child));
   }
 }
+
+/**
+ * Write text to the clipboard. DevTools panels may block the async Clipboard API,
+ * so fall back to a hidden textarea and execCommand.
+ * @param {string} text
+ */
+export async function copyToClipboard(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return;
+  } catch { /* fall back below */ }
+  const area = document.createElement('textarea');
+  area.value = text;
+  area.style.position = 'fixed';
+  area.style.opacity = '0';
+  document.body.append(area);
+  area.select();
+  const ok = document.execCommand('copy');
+  area.remove();
+  if (!ok) throw new Error('The browser did not allow copying.');
+}
+
+/**
+ * Save text as a file (a download).
+ * @param {string} text
+ * @param {string} filename
+ * @param {string} [type]
+ */
+export function downloadText(text, filename, type = 'text/plain') {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type }));
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
+}

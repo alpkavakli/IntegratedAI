@@ -282,6 +282,7 @@ export class ChatView extends HTMLElement {
     const parts = [];
     if (memory?.notes?.length) parts.push(t('capMemory', 'site memory (notes: $1)', memory.notes.length));
     if (!context) return parts.length ? h('div', { class: 'caption' }, t('capWith', 'with $1', parts.join(' · '))) : null;
+    if (context.aboutMe) parts.push(t('capAboutMe', 'about me (CV)'));
     if (context.selected?.selector) parts.push(IN_CARD ? context.selected.selector : `$0 ${context.selected.selector}`); // "$0" means nothing outside DevTools
     if (context.console) parts.push(t('capConsole', 'console'));
     if (context.network) parts.push(t('capNetwork', 'network'));

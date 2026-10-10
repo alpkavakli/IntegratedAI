@@ -7,6 +7,7 @@ import { loadSettings, saveSettings } from '../panel/lib/settings.js';
 import { PRESETS, baseUrlFor, presetFetch } from '../shared/providers/openai-compatible.js';
 import { localize, t } from '../shared/i18n.js';
 import { providerForKey } from '../shared/key-detect.js';
+import { MAX_CV_CHARS, clearProfile, loadProfile, saveProfile } from '../panel/lib/profile.js';
 
 const $ = (/** @type {string} */ id) => /** @type {HTMLInputElement} */ (document.getElementById(id));
 /** @param {string} id @param {boolean} hidden */
@@ -593,6 +594,77 @@ $('clear').addEventListener('click', async () => {
     dataResult(String(/** @type {any} */ (err).message ?? err), false);
   }
 });
+
+// ── About you: the CV (a PDF's text is read here, on this computer) and notes, for the panel's Write… menu.
+
+/** @param {string} text @param {'ok' | 'bad' | ''} [kind] */
+const profileStatus = (text, kind = '') => {
+  $('profile-status').className = kind;
+  $('profile-status').textContent = text;
+};
+const profile = await loadProfile();
+$('profile-cv').value = profile.cv;
+$('profile-notes').value = profile.notes;
+if (profile.cv) {
+  profileStatus(profile.cvName ? t('aboutSavedFile', 'Saved: $1 ($2 characters)', profile.cvName, profile.cv.length.toLocaleString())
+    : t('aboutSaved', 'Saved ($1 characters)', profile.cv.length.toLocaleString()), 'ok');
+}
+let profileTimer = 0;
+for (const id of ['profile-cv', 'profile-notes']) {
+  $(id).addEventListener('input', () => {
+    clearTimeout(profileTimer);
+    profileTimer = /** @type {any} */ (setTimeout(async () => {
+      const saved = await saveProfile({ cv: $('profile-cv').value, notes: $('profile-notes').value });
+      profileStatus(saved.cv.length >= MAX_CV_CHARS ? t('aboutCut', 'Saved the first $1 characters (the rest is too long to send).', MAX_CV_CHARS.toLocaleString())
+        : t('aboutSaved', 'Saved ($1 characters)', saved.cv.length.toLocaleString()), 'ok');
+    }, 500));
+  });
+}
+$('profile-file').addEventListener('change', async () => {
+  const file = $('profile-file').files?.[0];
+  $('profile-file').value = '';
+  if (!file) return;
+  try {
+    if (file.size > 15 * 1024 * 1024) throw new Error(t('aboutTooBig', 'That file is larger than 15 MB. Is it the right one?'));
+    profileStatus(t('aboutReading', 'Reading $1…', file.name));
+    let text;
+    let pages = 0;
+    if (/\.pdf$/i.test(file.name) || file.type === 'application/pdf') {
+      const { pdfToText } = await import('../shared/pdf-text.js');
+      ({ text, pages } = await pdfToText(await file.arrayBuffer()));
+      // No text in it: a scan (pictures of pages). The AI needs the words.
+      if (!text.trim()) throw new Error(t('aboutNoText', 'No text was found in this PDF (it may be a scan). Paste your CV as text instead.'));
+    } else {
+      text = await file.text();
+    }
+    const saved = await saveProfile({ cv: text, cvName: file.name });
+    $('profile-cv').value = saved.cv;
+    profileStatus(text.length > MAX_CV_CHARS
+      ? t('aboutCut', 'Saved the first $1 characters (the rest is too long to send).', MAX_CV_CHARS.toLocaleString())
+      : pages ? t('aboutReadPdf', 'Read $1 (pages: $2, characters: $3). Check the text below.', file.name, pages, saved.cv.length.toLocaleString())
+        : t('aboutSavedFile', 'Saved: $1 ($2 characters)', file.name, saved.cv.length.toLocaleString()), 'ok');
+  } catch (err) {
+    profileStatus(String(/** @type {any} */ (err)?.message ?? err), 'bad');
+  }
+});
+// Two clicks to remove (no native confirm dialogs).
+$('profile-clear').addEventListener('click', async () => {
+  const button = $('profile-clear');
+  if (!button.dataset.armed) {
+    button.dataset.armed = '1';
+    button.textContent = t('aboutRemoveConfirm', 'Click again to remove them');
+    setTimeout(() => { delete button.dataset.armed; button.textContent = t('aboutRemove', 'Remove my CV and notes'); }, 4000);
+    return;
+  }
+  delete button.dataset.armed;
+  button.textContent = t('aboutRemove', 'Remove my CV and notes');
+  await clearProfile();
+  $('profile-cv').value = '';
+  $('profile-notes').value = '';
+  profileStatus(t('aboutRemoved', 'Removed.'), 'ok');
+});
+// Opened at this section (the panel's "Add or change my CV…"): bring it into view.
+if (location.hash === '#about-you') $('about-you').scrollIntoView({ block: 'start' });
 
 // Last, so everything above is defined when the first check runs.
 showChoice();

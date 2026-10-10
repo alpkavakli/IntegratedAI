@@ -202,6 +202,19 @@ harness) or the owner's GitHub/Telegram test is the next thing to do.
 - Ideas discussed for later: OpenRouter sign-in (OAuth PKCE), Chrome's built-in AI (no key), "never read this site"
   list, personal-detail masking in page text, "what the AI saw" view, fewer host permissions (activeTab).
 
+## v0.3 branch (2026-10-10; 0.2.0 is in store review from main)
+
+- **Writing from the CV** (the owner applies for jobs with Simplify for autofill; this does the writing). Options →
+  *About you*: CV as text (PDF upload read in the page with a packaged pdf.js, legacy build, `npm run vendor:pdf`;
+  `shared/pdf-text.js`) + notes, in storage.local `profile` (`panel/lib/profile.js`; never exported). The panel's
+  **Write…** menu (cover letter / answer the selected question / tailor CV / referral message) ticks the **About me**
+  chip, which adds `context.aboutMe` to that one message (rendered as `<about_me>`, `providers/common.js`). New
+  action **write_text** (a card with the editable text: Copy, Download, Put into the selected field = an interact
+  "type" step on $0 / the picked element, undoable). Prompt rules: only facts from the CV, never invent.
+  Store: tick "Personally identifiable information" in Data usage from this version (kit updated).
+- **Not built (decided with the owner):** a formatted PDF résumé generator; reading ChatGPT history live (no
+  official way). Planned next on this branch: importing ChatGPT's own data export and a "search my past chats" tool.
+
 ## Next work, in order
 
 0. **Chinese models: presets done (seventh session), not tried with real keys.** Check each one's tool-calling

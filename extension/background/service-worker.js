@@ -66,7 +66,10 @@ const handlers = {
   'patches.update': async ({ id, changes }) => updatePatch(id, changes),
   'patches.remove': async ({ id }) => removePatch(id),
 
-  'options.open': async () => chrome.runtime.openOptionsPage(),
+  // (section: a part of the page to open at, e.g. "about-you")
+  'options.open': async ({ section } = {}) => (/^[a-z-]{1,30}$/.test(String(section ?? ''))
+    ? chrome.tabs.create({ url: chrome.runtime.getURL(`options/options.html#${section}`) })
+    : chrome.runtime.openOptionsPage()),
 
   // The panel's Server button: start / stop / check the local agent server through the native host.
   'services.call': async ({ action }) => servicesCall(action),

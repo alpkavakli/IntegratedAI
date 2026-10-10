@@ -250,11 +250,15 @@ button.send.busy .i-stop { display: block; }
 .area-keep + .area-keep { margin-left: 0; }
 .area-keep { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; font-weight: 400; color: var(--fg); cursor: pointer; }
 body[data-page-access="area"] select#page-access, body[data-page-access="none"] select#page-access { border-color: var(--accent); color: var(--accent-text); }
-body[data-page-access="none"] .chips { display: none; }
+body[data-page-access="none"] .chips > :not(#profile-chip):not(#write-menu) { display: none; }
 body[data-page-access="area"] label.chip:has(#ctx-console), body[data-page-access="area"] label.chip:has(#ctx-network) { display: none; }
 .chip { display: inline-flex; align-items: center; gap: 3px; padding: 0 6px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg-alt); cursor: pointer; max-width: 100%; font-size: 11px; }
 .chip input { margin: 0; }
 .chip-button { padding: 0 6px; font-size: 11px; }
+select.chip-select { padding: 0 2px; font-size: 11px; height: 20px; max-width: 150px; }
+/* A text the AI wrote for the user (write_text): editable before copying or putting it into a field */
+ai-action-card textarea.written { display: block; width: 100%; box-sizing: border-box; margin: 4px 0 2px; padding: 6px 8px; resize: vertical;
+  font: 12px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; white-space: pre-wrap; }
 .chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 320px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11px; }
 
 /* ── patches & console lists ─────────────────────────────── */

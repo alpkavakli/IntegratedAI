@@ -109,6 +109,17 @@ result isn't returned. The page address, title, console, network and site memory
 page it was marked on: on any other page every tool refuses until the user confirms it there (the editor opens with
 the same shape). Tested in `npm run page-check` (tries to read outside in every way) and `npm run ui-check`.
 
+**Writing from your CV (job applications):** add your CV once in Options → *About you* (upload a PDF or a text
+file, or paste it; a PDF's text is read in the browser with a packaged [pdf.js](extension/vendor/), see
+[pdf-text.js](extension/shared/pdf-text.js); check the text it shows, that is what the AI gets). Then the **Write…**
+menu above the message box asks for a *cover letter for this job*, an *answer to the selected question*, *your CV
+tailored to this job* or a *referral message*: the request goes out with your CV attached (the "About me" chip,
+ticked for that one message; `context.aboutMe`, shown to the AI as an `<about_me>` block) and the AI reads the page
+and answers with a `write_text` card: the text, editable, with **Copy**, **Download** and **Put into the selected
+field** (typed into the field like a person would; Undo restores it). The AI is told to use only what the CV and
+notes say and never to invent experience. The CV stays in the browser, is not exported, and goes only to the AI you
+chose, only with messages you attach it to. `npm run vendor:pdf` rebuilds the packaged pdf.js after an upgrade.
+
 **Copy text:** the button next to the context chips copies the selected element's text to the clipboard. The extension does this itself; no AI is involved.
 
 ### Quick start (direct mode)

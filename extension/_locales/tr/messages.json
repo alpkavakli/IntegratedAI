@@ -2,6 +2,60 @@
   "aTerminal": {
     "message": "bir terminal"
   },
+  "aboutCut": {
+    "message": "İlk $1 karakter kaydedildi (kalanı göndermek için çok uzun)."
+  },
+  "aboutCvLabel": {
+    "message": "Metin olarak CV'n (yapay zekânın aldığı şey: yükledikten sonra kontrol et, yanlış çıkanı düzelt)"
+  },
+  "aboutCvPlaceholder": {
+    "message": "Yukarıdan bir PDF yükle ya da CV'ni buraya yapıştır"
+  },
+  "aboutHint": {
+    "message": "Bu tarayıcıda kalır. Seçtiğin yapay zekâya yalnızca eklediğin bir mesajla gönderilir (mesaj kutusunun üstündeki \"Hakkımda\" kutusu; Yaz… menüsü onu senin için işaretler) ve asla dışa aktarmaya dahil edilmez."
+  },
+  "aboutIntro": {
+    "message": "CV'ni bir kez ekle; yapay zekâ ondan ön yazılar, başvuru sorularına yanıtlar ve mesajlar yazabilsin: mesaj kutusunun üstündeki <strong>Yaz…</strong> menüsü. Yalnızca CV'nde ve notlarında yazanları kullanır."
+  },
+  "aboutNoText": {
+    "message": "Bu PDF'te metin bulunamadı (tarama olabilir). CV'ni metin olarak yapıştır."
+  },
+  "aboutNotesLabel": {
+    "message": "Yapay zekâ için notlar (isteğe bağlı)"
+  },
+  "aboutNotesPlaceholder": {
+    "message": "örn. Ocak ayından itibaren Singapur'da backend stajı arıyorum. Yazılar kısa ve net olsun."
+  },
+  "aboutReadPdf": {
+    "message": "$1 okundu (sayfa: $2, karakter: $3). Aşağıdaki metni kontrol et."
+  },
+  "aboutReading": {
+    "message": "$1 okunuyor…"
+  },
+  "aboutRemove": {
+    "message": "CV'mi ve notlarımı kaldır"
+  },
+  "aboutRemoveConfirm": {
+    "message": "Kaldırmak için tekrar tıkla"
+  },
+  "aboutRemoved": {
+    "message": "Kaldırıldı."
+  },
+  "aboutSaved": {
+    "message": "Kaydedildi ($1 karakter)"
+  },
+  "aboutSavedFile": {
+    "message": "Kaydedildi: $1 ($2 karakter)"
+  },
+  "aboutTitle": {
+    "message": "Hakkında, iş başvuruları için (isteğe bağlı)"
+  },
+  "aboutTooBig": {
+    "message": "Bu dosya 15 MB'tan büyük. Doğru dosya mı?"
+  },
+  "aboutUpload": {
+    "message": "CV'ni yükle (PDF ya da metin)…"
+  },
   "accessArea": {
     "message": "Yalnızca bir alan…"
   },
@@ -25,6 +79,9 @@
   },
   "add": {
     "message": "Ekle"
+  },
+  "addCvFirst": {
+    "message": "Önce ayarlardan CV'ni ekle: bunlar ondan yazılır."
   },
   "addNoteExample": {
     "message": "Not ekle, örn. \"Okumak için tırnaklı yazı tipini tercih ederim\""
@@ -91,6 +148,9 @@
   },
   "alTranslate": {
     "message": "Sayfayı çevir"
+  },
+  "alWriteText": {
+    "message": "Yazılan metin"
   },
   "allow": {
     "message": "İzin ver"
@@ -161,6 +221,18 @@
   "askAi": {
     "message": "Yapay zekâ şunu yapsın mı: $1?"
   },
+  "askAnswer": {
+    "message": "Seçtiğim alandaki soruya, bu başvuru için CV'mden bir yanıt yaz."
+  },
+  "askCover": {
+    "message": "Bu sayfadaki iş için CV'mden bir ön yazı yaz."
+  },
+  "askMessage": {
+    "message": "Bu sayfadaki iş için referans ya da tanıştırma isteyen kısa bir mesaj yaz, CV'mden."
+  },
+  "askTailor": {
+    "message": "CV'mi bu sayfadaki işe uyarla: kısa bir özet ve en ilgili deneyimlerim madde madde, yalnızca CV'mde yazanları kullanarak."
+  },
   "askTask": {
     "message": "Bu görev şunu yapsın mı: $1?"
   },
@@ -175,6 +247,9 @@
   },
   "cannotUndo": {
     "message": "Otomatik geri alınamaz; geri döndürmek için sayfayı yenile."
+  },
+  "capAboutMe": {
+    "message": "hakkımda (CV)"
   },
   "capConsole": {
     "message": "konsol"
@@ -211,6 +286,12 @@
   },
   "checking": {
     "message": "Kontrol ediliyor…"
+  },
+  "chipAboutMe": {
+    "message": "Hakkımda"
+  },
+  "chipAboutMeTitle": {
+    "message": "CV'ni ve notlarını (ayarlardan) bu mesaja ekle"
   },
   "chipConsole": {
     "message": "Konsol"
@@ -368,6 +449,9 @@
   "done": {
     "message": "Tamam"
   },
+  "download": {
+    "message": "İndir"
+  },
   "edit": {
     "message": "Düzenle"
   },
@@ -415,6 +499,15 @@
   },
   "fadeStrong": {
     "message": "Saydamlık: güçlü (fare başka yerdeyken)"
+  },
+  "fillFieldHelp": {
+    "message": "Metni sayfada seçtiğin alana yazar. Geri al, önceden olanı geri koyar."
+  },
+  "fillPicked": {
+    "message": "Seçilen alana koy"
+  },
+  "fillSelected": {
+    "message": "Seçili alana koy"
   },
   "float": {
     "message": "Serbest bırak"
@@ -813,7 +906,7 @@
     "message": "Dışa aktar"
   },
   "optExportHint": {
-    "message": "Dışa aktarma; yamalarını, ayarlarını, sohbetlerini ve hafızayı bir dosyaya kaydeder, örneğin eklentinin başka bir kopyasına taşımak için. İçe aktarma buradakilere ekler ve daha yeni bir şeyin üzerine asla yazmaz. API anahtarları ve eşleştirme belirteci asla dışa aktarılmaz."
+    "message": "Dışa aktarma; yamalarını, ayarlarını, sohbetlerini ve hafızayı bir dosyaya kaydeder, örneğin eklentinin başka bir kopyasına taşımak için. İçe aktarma buradakilere ekler ve daha yeni bir şeyin üzerine asla yazmaz. API anahtarları, eşleştirme belirteci ve CV'n asla dışa aktarılmaz."
   },
   "optForDevelopers": {
     "message": "Geliştiriciler için."
@@ -1001,6 +1094,12 @@
   "pickElementTitle": {
     "message": "Hakkında soru sormak için sayfada bir öğeye tıkla (Esc iptal eder)"
   },
+  "pickFieldFirst": {
+    "message": "Önce sayfada alanı seç (Öğe seç), sonra buna tekrar tıkla."
+  },
+  "pickQuestionFirst": {
+    "message": "Önce sayfada sorunun alanını seç (Öğe seç)."
+  },
   "pinned": {
     "message": "IntegratedAI simgesi araç çubuğuna sabitlendi."
   },
@@ -1133,8 +1232,14 @@
   "screenshotOf": {
     "message": "$1 ekran görüntüsü"
   },
+  "selectFieldFirst": {
+    "message": "Önce Elements panelinde alanı seç (ya da sayfada sağ tıklayıp İncele'yi seç), sonra buna tekrar tıkla."
+  },
   "selectLink": {
     "message": "seç"
+  },
+  "selectQuestionFirst": {
+    "message": "Önce sorunun alanını seç: sayfada sağ tıklayıp İncele'yi seç."
   },
   "send": {
     "message": "Gönder"
@@ -1493,11 +1598,44 @@
   "wholeSiteLower": {
     "message": "tüm site"
   },
+  "wordCount": {
+    "message": "$1 kelime · $2 karakter"
+  },
+  "writeAnswer": {
+    "message": "Seçili soruyu yanıtla"
+  },
+  "writeCover": {
+    "message": "Bu iş için ön yazı"
+  },
   "writeFile": {
     "message": "Dosyaya yaz"
   },
   "writeFiles": {
     "message": "Dosyalara yaz"
+  },
+  "writeMenu": {
+    "message": "Yaz…"
+  },
+  "writeMenuLabel": {
+    "message": "CV'nden bir şey yaz"
+  },
+  "writeMenuTitle": {
+    "message": "CV'nden yazılan ön yazılar, yanıtlar ve mesajlar"
+  },
+  "writeMessage": {
+    "message": "Referans ya da tanışma mesajı"
+  },
+  "writeSettings": {
+    "message": "CV'mi ekle ya da değiştir…"
+  },
+  "writeTailor": {
+    "message": "CV'mi bu işe uyarla"
+  },
+  "writtenEmpty": {
+    "message": "Metin boş ya da çok uzun."
+  },
+  "writtenLabel": {
+    "message": "Metin (düzenleyebilirsin)"
   },
   "writtenTo": {
     "message": "✓ Yazıldı: $1"

@@ -16,7 +16,8 @@
  * DevTools for the rest. Both share the tab's conversation, so DevTools continues where the card was.
  */
 
-import { ACTIONS, AREA_ACTIONS, CARD_ACTIONS, isPageAction, validateAction } from '../shared/actions.js';
+import { ACTIONS, AREA_ACTIONS, CARD_ACTIONS, MAX_WRITTEN_TEXT, isPageAction, validateAction } from '../shared/actions.js';
+import { aboutMe, hasProfile, loadProfile, onProfileChanged } from './lib/profile.js';
 import { PageAccess } from './lib/page-access.js';
 import { IN_CARD, TAB_ID } from './lib/surface.js';
 import { AgentRunner } from './lib/agent-runner.js';
@@ -30,7 +31,7 @@ import { relativeTime } from './components/history-view.js';
 import './components/patches-view.js';
 import './components/tasks-view.js';
 import { bg } from './lib/bg.js';
-import { h } from './lib/dom.js';
+import { copyToClipboard, h } from './lib/dom.js';
 import { ChangeManager } from './lib/changes.js';
 import { collectContext } from './lib/context.js';
 import { callInPage, selectInElementsPanel } from './lib/inspected.js';
@@ -88,6 +89,8 @@ export class App {
     });
     this.patchesView = /** @type {any} */ (null);
     this.consoleView = /** @type {any} */ (null);
+    /** "About me" (the CV and notes from the settings), for the chip and the Write… menu. @type {import('./lib/profile.js').Profile | null} */
+    this.profile = null;
     /** What of the page the AI may see: the whole page, a marked area, or nothing ("Just answer"). */
     this.access = new PageAccess(this.tabId, { onChange: () => this.renderAccess() });
     this.changes.areaRoots = () => (this.access.mode === 'area' ? this.access.roots : null);
@@ -132,6 +135,15 @@ export class App {
     const page = await callInPage(pageInfo);
     this.pageUrl = page.url;
     this.chat.setPageLang(page.lang ?? '');
+    // "About me": the chip shows once a CV or notes are saved; the Write… menu sends a request written from them.
+    const showProfile = (/** @type {import('./lib/profile.js').Profile} */ profile) => {
+      this.profile = profile;
+      $('profile-chip').hidden = !hasProfile(profile);
+      if (!hasProfile(profile)) $('ctx-profile').checked = false;
+    };
+    showProfile(await loadProfile());
+    onProfileChanged(showProfile);
+    $('write-menu').addEventListener('change', () => this.writeFromMenu($('write-menu').value).catch((err) => this.showError(err.message)));
     $('page-access').addEventListener('change', () => this.access.setMode($('page-access').value).catch((err) => this.showError(err.message)));
     $('area-change').addEventListener('click', () => this.access.edit().catch((err) => this.showError(err.message)));
     $('area-keep').addEventListener('change', () => this.access.setKeep($('area-keep').checked).catch((err) => this.showError(err.message)));
@@ -251,6 +263,41 @@ export class App {
       });
     });
     $('model-select').addEventListener('change', () => this.configure({ model: $('model-select').value }));
+  }
+
+  /**
+   * The Write… menu: a request written from the user's CV (attached to it), about the page they are on: a cover
+   * letter, an answer to the selected application question, their CV tailored to the job, a referral message.
+   * @param {string} kind
+   */
+  async writeFromMenu(kind) {
+    $('write-menu').value = '';
+    if (!kind) return;
+    if (kind === 'settings') { await bg('options.open', { section: 'about-you' }); return; }
+    if (!this.profile || !hasProfile(this.profile)) {
+      this.showBanner(t('addCvFirst', 'Add your CV in the settings first: these are written from it.'), false,
+        t('openSettings', 'Open settings'), () => { this.hideBanner(); bg('options.open', { section: 'about-you' }); });
+      return;
+    }
+    const requests = {
+      cover: t('askCover', 'Write a cover letter for the job on this page, from my CV.'),
+      answer: t('askAnswer', 'Write an answer to the question in the field I selected, for this application, from my CV.'),
+      tailor: t('askTailor', 'Tailor my CV to the job on this page: a short summary and my most relevant experience as bullet points, using only what my CV says.'),
+      message: t('askMessage', 'Write a short message asking for a referral or an introduction for the job on this page, from my CV.'),
+    };
+    const text = requests[/** @type {keyof typeof requests} */ (kind)];
+    if (!text) return;
+    if (kind === 'answer') {
+      // The question is the selected field's: it goes along.
+      if (!(await callInPage(selectedLabel).catch(() => null))) {
+        this.showBanner(IN_CARD ? t('pickQuestionFirst', 'Pick the question\'s field on the page first (Pick element).')
+          : t('selectQuestionFirst', 'Select the question\'s field first: right-click it on the page and choose Inspect.'));
+        return;
+      }
+      $('ctx-selected').checked = true;
+    }
+    $('ctx-profile').checked = true;
+    await this.sendFromUi(text);
   }
 
   /** The Page access menu and the line about the marked area. */
@@ -589,6 +636,7 @@ export class App {
     // "Only an area" without a confirmed area on this page: mark it first (the message waits in the box).
     if (this.access.mode === 'area' && !this.access.areaReady) {
       if (!this.access.editing) this.access.edit().catch((err) => this.showError(err.message));
+      if (!$('prompt').value) $('prompt').value = text; // (from a menu: it waits in the box too)
       return;
     }
     $('prompt').value = '';
@@ -601,6 +649,12 @@ export class App {
         console: full && $('ctx-console').checked,
         network: full && $('ctx-network').checked,
       }, full ? extra : {});
+      // "About me", when attached: with this message only (it stays in the conversation, so the chip goes off again).
+      if ($('ctx-profile').checked && this.profile) {
+        const about = aboutMe(this.profile);
+        if (about) /** @type {any} */ (context).aboutMe = about;
+        $('ctx-profile').checked = false;
+      }
       this.lastSentSelector = /** @type {any} */ (context.selected)?.selector ?? '';
       this.client.send({
         type: 'chat.send',
@@ -798,9 +852,24 @@ export class App {
   }
 
   /** @param {string} actionId */
-  async applyAction(actionId) {
+  /**
+   * @param {string} actionId
+   * @param {{ text?: string }} [edited]  write_text: the text as the user edited it in the card
+   */
+  async applyAction(actionId, edited) {
     await this.navigationReset;
     const { name, input } = this.prepare(actionId);
+    if (name === 'write_text') {
+      if (typeof edited?.text === 'string') {
+        if (!edited.text.trim() || edited.text.length > MAX_WRITTEN_TEXT) throw new Error(t('writtenEmpty', 'The text is empty or too long.'));
+        input.text = edited.text;
+      }
+      // It goes into the field selected on the page: there has to be one.
+      if (!(await callInPage(selectedLabel).catch(() => null))) {
+        throw new Error(IN_CARD ? t('pickFieldFirst', 'Pick the field on the page first (Pick element), then click this again.')
+          : t('selectFieldFirst', 'Select the field in the Elements panel first (or right-click it on the page and choose Inspect), then click this again.'));
+      }
+    }
     try {
       const detail = await this.changes.apply(actionId, name, input);
       this.reportStatus(actionId, 'applied', detail);
@@ -943,6 +1012,7 @@ export class App {
     $('model-select').disabled = busy;
     $('agent-mode').disabled = busy;
     $('page-access').disabled = busy;
+    $('write-menu').disabled = busy || !this.connected || !this.session;
   }
 
   renderProviderPicker() {
@@ -1247,27 +1317,6 @@ export class App {
     $('error-count').hidden = n === 0;
     $('error-count').textContent = String(n);
   }
-}
-
-/**
- * Write text to the clipboard. DevTools panels may block the async Clipboard API,
- * so fall back to a hidden textarea and execCommand.
- * @param {string} text
- */
-async function copyToClipboard(text) {
-  try {
-    await navigator.clipboard.writeText(text);
-    return;
-  } catch { /* fall back below */ }
-  const area = document.createElement('textarea');
-  area.value = text;
-  area.style.position = 'fixed';
-  area.style.opacity = '0';
-  document.body.append(area);
-  area.select();
-  const ok = document.execCommand('copy');
-  area.remove();
-  if (!ok) throw new Error('The browser did not allow copying.');
 }
 
 // Exposed for debugging from the panel's own DevTools (right-click the panel → Inspect).

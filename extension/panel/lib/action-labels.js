@@ -20,6 +20,7 @@ const LABELS = {
   inject_css: t('alCss', 'Inject CSS'),
   modify_element: t('alModify', 'Modify element'),
   translate_page: t('alTranslate', 'Translate the page'),
+  write_text: t('alWriteText', 'Written text'),
   interact: t('alInteract', 'Interact with the page'),
   navigate: t('alNavigate', 'Go to a page'),
   execute_js: t('alJs', 'Execute JavaScript'),

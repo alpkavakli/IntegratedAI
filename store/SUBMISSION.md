@@ -41,6 +41,8 @@ the dashboard takes a description per language (Store listing → language menu)
 > - **Agent modes:** let it work through a task on the page by itself, step by step while you watch. It asks before
 >   each step, or only before risky ones (submitting, sending, paying, deleting); you choose.
 > - **Translates the page** into your language, and puts the original text back with one click.
+> - **Writes from your CV:** add your CV once (PDF or text), and get a cover letter for the job on the page, answers
+>   to application questions, or a referral message, using only what your CV says. Edit, copy, or put it into the form.
 > - **Remembers each site:** key selectors and your preferences, so the next conversation starts informed.
 > - **Explains console errors** and jumps to the source.
 > - **You decide what it sees:** the whole page, only an area you mark on it, or nothing at all ("just answer").
@@ -145,7 +147,10 @@ support URL `https://github.com/alpkavakli/IntegratedAI/issues`.
 - User activity: **yes**. Its examples include "network monitoring": the AI can read the page's network log
   (request method, URL, status, timing; no bodies, cookies or auth headers) when the Network chip is on or it asks.
   Sent only to the AI provider the user chose.
-- Web history, personally identifiable info, financial/health data, location: **no** (not collected;
+- Personally identifiable information: **yes** (from 0.3.0). The optional "About you" section holds the user's CV
+  (name, contact details, work history). It is stored locally and sent to the AI provider the user chose only with
+  messages the user attaches it to, to write application texts for them. Never to the developer.
+- Web history, financial/health data, location: **no** (not collected;
   cookies, authorization headers and token-like URL parameters are removed before anything is sent, and password
   field values are never read).
 - Certify: not sold to third parties; not used for unrelated purposes; not used for creditworthiness/lending.

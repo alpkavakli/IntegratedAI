@@ -60,6 +60,9 @@
       .found { display: flex; align-items: center; gap: 12px; justify-content: space-between; margin: 0 0 12px;
         padding: 8px 12px; border: 1px solid var(--accent); border-radius: 6px; background: var(--bg-alt); }
       .found[hidden] { display: none; }
+      #about-you textarea { display: block; width: 100%; box-sizing: border-box; padding: 6px 8px; border-radius: 4px; font: 12px/1.5 ui-monospace, Menlo, Consolas, monospace; resize: vertical; }
+      #about-you #profile-notes { font-family: inherit; font-size: 13px; }
+      label.stacked { display: block; margin: 10px 0 4px; color: var(--fg-muted); font-size: 12px; }
       .key-row { display: flex; gap: 8px; }
       .key-row input { flex: 1; min-width: 0; }
       input[type="text"], input[type="password"], select { padding: 6px 8px; border-radius: 4px; font-size: 13px; }
@@ -237,6 +240,25 @@
       <p data-i18n="optReloadHint" class="hint">Pages that were already open need a reload. Nothing changes on a page until you approve it.</p>
     </section>
 
+    <section class="step" id="about-you">
+      <h2 data-i18n="aboutTitle">About you, for job applications (optional)</h2>
+      <p data-i18n-html="aboutIntro">Add your CV once, and the AI can write cover letters, answers to application questions and messages from it:
+        the <strong>Write…</strong> menu above the message box. It only uses what your CV and notes say.</p>
+      <div class="row-buttons">
+        <label class="button-like"><span data-i18n="aboutUpload">Upload your CV (PDF or text)…</span>
+          <input type="file" id="profile-file" accept=".pdf,.txt,.md,application/pdf,text/plain,text/markdown" hidden></label>
+        <span id="profile-status" role="status"></span>
+      </div>
+      <label class="stacked" for="profile-cv" data-i18n="aboutCvLabel">Your CV as text (what the AI gets: check it after uploading, and fix anything that came out wrong)</label>
+      <textarea id="profile-cv" rows="10" spellcheck="false" placeholder="Upload a PDF above, or paste your CV here" data-i18n-placeholder="aboutCvPlaceholder"></textarea>
+      <label class="stacked" for="profile-notes" data-i18n="aboutNotesLabel">Notes for the AI (optional)</label>
+      <textarea id="profile-notes" rows="3" placeholder="e.g. Looking for backend internships in Singapore from January. Keep letters short and direct." data-i18n-placeholder="aboutNotesPlaceholder"></textarea>
+      <div class="row-buttons">
+        <button type="button" id="profile-clear" class="danger" data-i18n="aboutRemove">Remove my CV and notes</button>
+      </div>
+      <div class="hint" data-i18n="aboutHint">Stays in this browser. It is sent to the AI you chose only with a message you attach it to (the
+        "About me" box above the message box, which the Write… menu ticks for you), and is never part of an export.</div>
+    </section>
     <details class="advanced">
       <summary data-i18n="optAdvanced">Advanced settings</summary>
 
@@ -301,7 +323,7 @@
       <div class="hint" data-i18n="optExportHint">
         Export saves your patches, settings, conversations and memory to a file, for example to move them to another
         copy of the extension. Importing adds to what's here and never overwrites something newer. API keys and the
-        pairing token are never exported.
+        pairing token are never exported, and neither is your CV.
       </div>
     </details>
 
