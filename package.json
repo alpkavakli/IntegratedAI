@@ -1,6 +1,6 @@
 {
   "name": "integratedai",
-  "version": "0.3.0",
+  "version": "0.2.0",
   "license": "AGPL-3.0-or-later",
   "description": "Local agent server for the IntegratedAI Chrome extension: use your Claude or ChatGPT subscription (Claude Code, Codex) from the browser.",
   "keywords": [
