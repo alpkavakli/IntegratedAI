@@ -120,6 +120,12 @@ field** (typed into the field like a person would; Undo restores it). The AI is 
 notes say and never to invent experience. The CV stays in the browser, is not exported, and goes only to the AI you
 chose, only with messages you attach it to. `npm run vendor:pdf` rebuilds the packaged pdf.js after an upgrade.
 
+**Whole lists (comments, feeds, results):** pages load these bit by bit, so the read-only tool `read_more` loads
+the rest first: it scrolls the list's own scrolling box (or the page, or an app's main scrolling panel) a screen at a
+time and opens "Show more" / "View replies" buttons (buttons only, never links, each once) until nothing new comes
+for about 2.5 s, there is enough text (40,000 characters by default) or 20 s pass, then returns the text like
+`read_text`. The prompt tells the AI to use it for questions about a whole list and to say how much it read.
+
 **Watching videos:** the read-only tool `watch_video` watches a video on the page while it plays (the biggest one on
 screen, or a ref): a picture every 1.5 s or more, up to 60 s, put on contact sheets with each frame's time
 ([video-watch.js](extension/shared/video-watch.js), capturing in [inspections.js](extension/panel/lib/inspections.js)),

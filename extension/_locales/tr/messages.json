@@ -1693,5 +1693,8 @@
   },
   "optVideoSound": {
     "message": "Sayfadaki bir videoyu izlerken sesini de duyabilsin (yalnızca dinleyebilen yapay zekâlar alır, ör. Gemini)"
+  },
+  "alReadMore": {
+    "message": "Daha fazlasını yükle ve oku"
   }
 }

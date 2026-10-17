@@ -6,7 +6,7 @@
 
 import { bg } from './bg.js';
 import { callInPage, hasPageArea } from './inspected.js';
-import { findElements, frameBox, inspectElement, pageOutline, prepareScreenshot, readConsole, readText, restoreScroll, setCardHidden, videoWatchStart, videoWatchStatus, videoWatchStop } from './page-scripts.js';
+import { findElements, frameBox, inspectElement, pageOutline, prepareScreenshot, readConsole, readMoreStep, readText, restoreScroll, setCardHidden, videoWatchStart, videoWatchStatus, videoWatchStop } from './page-scripts.js';
 import { FRAMES_PER_SHEET, SOUND_RATE, clock, encodeWav, peakLevel, sheetLayout, watchPlan } from '../../shared/video-watch.js';
 
 // Headers that must never be sent to the AI.
@@ -38,6 +38,8 @@ export async function runInspection(name, input, ctx) {
       return inspectResources(input);
     case 'screenshot':
       return screenshot(input, ctx);
+    case 'read_more':
+      return readMore(input);
     case 'watch_video':
       return watchVideo(input, ctx);
     case 'search_chats':
@@ -174,6 +176,47 @@ async function frameTarget(input, selector) {
     viewport: outer.viewport, scroll: outer.scroll, scrolled: outer.scrolled,
     frameScroll: inner?.scroll, frameScrolled: Boolean(inner?.scrolled),
     rect, selector: inner?.selector ?? frame, label: inner ? `${inner.label} (in ${frame})` : `the frame ${frame}`,
+  };
+}
+
+/**
+ * read_more: load more of a list that grows as you scroll (comments, feeds, results, reviews): scroll it a screen at
+ * a time and open "Show more" buttons until nothing new comes (2.5 s at its end), there is enough text, or time is up;
+ * then read it (read_text, from the start).
+ * @param {{ ref?: string, selector?: string, expand?: boolean, seconds?: number, enough?: number }} input
+ */
+async function readMore(input) {
+  const seconds = Math.min(45, Math.max(3, Number(input.seconds) || 20));
+  const enough = Math.min(150_000, Math.max(5000, Number(input.enough) || 40_000));
+  const target = { ref: input.ref, selector: input.selector };
+  const began = Date.now();
+  /** @type {Record<string, number>} */
+  const opened = {};
+  let first = null;
+  let last = null;
+  let quiet = 0;
+  let steps = 0;
+  let stopped = `the time limit (${seconds} s)`;
+  while (Date.now() - began < seconds * 1000) {
+    const step = await callInPage(readMoreStep, { ...target, expand: input.expand });
+    steps++;
+    first ??= step;
+    for (const text of step.clicked) opened[text] = (opened[text] ?? 0) + 1;
+    // Nothing new since the last step, at the end of the list, with nothing opened: count it; three in a row = done.
+    const same = last && step.chars === last.chars && step.height === last.height;
+    quiet = same && step.atEnd && !step.clicked.length ? quiet + 1 : 0;
+    last = step;
+    if (quiet >= 3) { stopped = 'nothing more loaded'; break; }
+    if (step.chars >= enough) { stopped = `enough text (${enough.toLocaleString('en')} characters)`; break; }
+    await new Promise((r) => setTimeout(r, 800));
+  }
+  const read = await callInPage(readText, target);
+  const buttons = Object.entries(opened).map(([text, n]) => (n > 1 ? `"${text}" ×${n}` : `"${text}"`));
+  return {
+    loaded: `scrolled ${last?.scroller ?? 'the page'} ${steps} times in ${Math.round((Date.now() - began) / 1000)} s; the text grew from ${(first?.chars ?? 0).toLocaleString('en')} to ${(last?.chars ?? 0).toLocaleString('en')} characters`,
+    stoppedAt: stopped,
+    ...(buttons.length ? { opened: buttons.slice(0, 12).join(', ') + (buttons.length > 12 ? `, and ${buttons.length - 12} more` : '') } : {}),
+    ...read,
   };
 }
 

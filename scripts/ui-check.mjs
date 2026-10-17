@@ -91,11 +91,23 @@ const ollama = http.createServer((req, res) => {
     chatRequests.push(request);
     // Page access checks: read the page once (whatever the access allows), then answer.
     const lastText = request.messages.findLast((/** @type {any} */ m) => m.role === 'user' && typeof m.content === 'string')?.content ?? '';
+    // Comments: load them all once, then answer.
+    if (/COMMENTS-TEST/.test(lastText)) {
+      const sinceAsk = request.messages.slice(request.messages.findLastIndex((/** @type {any} */ m) => m.role === 'user' && typeof m.content === 'string'));
+      if (!sinceAsk.some((/** @type {any} */ m) => m.role === 'tool')) {
+        send({ choices: [{ delta: { tool_calls: [{ index: 0, id: `call_rm_${Date.now()}`, type: 'function', function: { name: 'read_more', arguments: JSON.stringify({ selector: '#comments' }) } }] } }] });
+        send({ choices: [{ delta: {}, finish_reason: 'tool_calls' }] });
+      } else {
+        send({ choices: [{ delta: { content: 'From all 60 comments: people ask about mesh counts.' } }] });
+        send({ choices: [{ delta: {}, finish_reason: 'stop' }] });
+      }
+      return res.end('data: [DONE]\n\n');
+    }
     // A video: watch it once, then answer.
     if (/VIDEO-TEST/.test(lastText)) {
       const sinceAsk = request.messages.slice(request.messages.findLastIndex((/** @type {any} */ m) => m.role === 'user' && typeof m.content === 'string'));
       if (!sinceAsk.some((/** @type {any} */ m) => m.role === 'tool')) {
-        send({ choices: [{ delta: { tool_calls: [{ index: 0, id: `call_wv_${Date.now()}`, type: 'function', function: { name: 'watch_video', arguments: JSON.stringify({ seconds: 6 }) } }] } }] });
+        send({ choices: [{ delta: { tool_calls: [{ index: 0, id: `call_wv_${Date.now()}`, type: 'function', function: { name: 'watch_video', arguments: JSON.stringify({ seconds: 10 }) } }] } }] });
         send({ choices: [{ delta: {}, finish_reason: 'tool_calls' }] });
       } else {
         send({ choices: [{ delta: { content: 'It shows coloured scenes.' } }] });
@@ -781,6 +793,19 @@ try {
   const sheets = await ev(clip.panel.session, `document.querySelectorAll('ai-chat-view img, .screenshot img, img.screenshot').length`);
   if (!sheets) violations.push('watch_video: the contact sheet is not shown in the chat');
   await shot(clip.panel, 'panel-14-watched-video-light');
+
+  // read_more: comments that load 10 at a time as the page scrolls, with "View 3 replies" on every 10th.
+  const thread = await openPanel('comments.html', 'h1', 'light');
+  await cdp('Target.activateTarget', { targetId: thread.page.targetId });
+  const beforeComments = chatRequests.length;
+  await ev(thread.panel.session, `document.getElementById('prompt').value = 'COMMENTS-TEST summarize the comments'; document.getElementById('composer').requestSubmit()`);
+  await waitAnswer(beforeComments);
+  for (let i = 0; i < 160 && chatRequests.length < beforeComments + 2; i++) await sleep(250);
+  const loaded = String(chatRequests[beforeComments + 1]?.messages.findLast((/** @type {any} */ m) => m.role === 'tool')?.content ?? '');
+  log(`panel: read_more → ${loaded.slice(0, 260)} … ${loaded.slice(-700)}`);
+  if (!/Comment 60:/.test(loaded)) violations.push(`read_more: not every comment was loaded (${loaded.slice(0, 300) || 'no tool result'})`);
+  if (!/Reply 3 to comment 60/.test(loaded) || !/View 3 replies\\" ×6/.test(loaded)) violations.push('read_more: the replies were not opened');
+  if (!/nothing more loaded/.test(loaded)) violations.push(`read_more: it did not stop at the end of the list (${(/"stoppedAt":"[^"]*"/.exec(loaded) ?? [''])[0]})`);
 } catch (err) {
   failed = true;
   console.error(err);

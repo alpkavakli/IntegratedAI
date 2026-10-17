@@ -96,3 +96,13 @@ test('watch_video: a read-only tool, everywhere the screenshot is; the prompt ex
   assert.match(prompt, /## Videos/);
   assert.match(prompt, /write a line about what it showed/);
 });
+
+test('read_more: a reading tool for lists that load as you scroll; the prompt says to use it for whole lists', () => {
+  assert.ok(enabledActionNames({}).includes('read_more') && isReadOnly('read_more'));
+  assert.ok(CARD_ACTIONS.includes('read_more'), 'in the card too: it only scrolls and opens "Show more"');
+  assert.ok(!AREA_ACTIONS.includes('read_more'), 'not with a marked area (the area moves with the content)');
+  assert.deepEqual(validateAction('read_more', { selector: '#comments', seconds: 30 }), []);
+  assert.match(validateAction('read_more', { seconds: 100 })[0], /3–45/);
+  assert.match(buildSystemPrompt({ actionNames: enabledActionNames({}) }), /summarize the comments[\s\S]*read_more/);
+  assert.match(buildSystemPrompt({ actionNames: enabledActionNames({}), compact: true }), /read_more/);
+});

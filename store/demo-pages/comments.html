@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Screen printing at home · Riverside Makers</title>
+    <style>
+      body { font-family: system-ui, sans-serif; margin: 24px auto; max-width: 640px; padding: 0 16px; background: #fff; color: #202124; }
+      .player { height: 360px; background: #202124; color: #fff; display: grid; place-items: center; border-radius: 8px; }
+      .comment { padding: 10px 0; border-bottom: 1px solid #dadce0; }
+      .comment b { display: block; font-size: 13px; }
+      .replies { margin: 6px 0 0 24px; color: #3c4043; }
+      button { font: inherit; background: none; border: none; color: #1967d2; padding: 4px 0; cursor: pointer; }
+      #loading { color: #5f6368; padding: 12px 0; }
+    </style>
+  </head>
+  <body>
+    <div class="player">Screen printing at home (video)</div>
+    <h1>Screen printing at home</h1>
+    <p>A short guide to printing your own T-shirts.</p>
+    <section id="comments" aria-label="Comments">
+      <h2>Comments</h2>
+      <div id="list"></div>
+      <p id="loading">Loading…</p>
+    </section>
+    <script>
+      // Like a video site: comments come 10 at a time as you scroll near the end, 60 in all; every 10th has replies.
+      const list = document.getElementById('list');
+      let shown = 0;
+      let busy = false;
+      const add = () => {
+        for (let i = 0; i < 10 && shown < 60; i++) {
+          shown++;
+          const c = document.createElement('div');
+          c.className = 'comment';
+          c.innerHTML = `<b>Viewer ${shown}</b>Comment ${shown}: ${shown % 2 ? 'the emulsion tip saved my print' : 'what mesh count do you use?'}`;
+          if (shown % 10 === 0) {
+            const n = shown;
+            const more = document.createElement('button');
+            more.textContent = 'View 3 replies';
+            more.onclick = () => {
+              more.remove();
+              const r = document.createElement('div');
+              r.className = 'replies';
+              r.innerHTML = [1, 2, 3].map((k) => `<div>Reply ${k} to comment ${n}: 110 mesh works for me</div>`).join('');
+              c.appendChild(r);
+            };
+            c.appendChild(more);
+          }
+          list.appendChild(c);
+        }
+        if (shown >= 60) document.getElementById('loading').remove();
+      };
+      add();
+      addEventListener('scroll', () => {
+        if (busy || shown >= 60 || scrollY + innerHeight < document.documentElement.scrollHeight - 300) return;
+        busy = true;
+        setTimeout(() => { add(); busy = false; }, 400); // the network
+      });
+    </script>
+  </body>
+</html>

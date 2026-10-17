@@ -1693,5 +1693,8 @@
   },
   "optVideoSound": {
     "message": "When it watches a video on the page, let it hear the sound too (only AIs that can listen get it, like Gemini)"
+  },
+  "alReadMore": {
+    "message": "Load more and read"
   }
 }

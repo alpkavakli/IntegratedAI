@@ -787,6 +787,55 @@ export function readText(h, selected, input) {
 }
 
 /**
+ * read_more, one step: open "Show more" / "View replies" buttons in the part being read, and scroll it (the list's
+ * own scrolling box, or the page) by about a screen, so lists that load as you scroll (comments, feeds, search
+ * results, reviews) load more. Returns how much there was before this step; the panel repeats it until nothing
+ * new comes. Only buttons are clicked, never links, and each one once (a second click often closes it again).
+ * @param {{ ref?: string, selector?: string, expand?: boolean }} input
+ */
+export function readMoreStep(h, selected, input) {
+  h.assertPage();
+  const target = input.ref || input.selector ? h.target(input.selector, selected, input.ref) : null;
+  const measure = target ?? document.body;
+  const scrolls = (/** @type {Element} */ el) => /(auto|scroll|overlay)/.test(getComputedStyle(el).overflowY) && el.scrollHeight > el.clientHeight + 4;
+  /** @type {Element | null} */
+  let box = null;
+  for (let el = target; el && el !== document.body && el !== document.documentElement; el = el.parentElement) {
+    if (scrolls(el)) { box = el; break; }
+  }
+  const page = /** @type {Element} */ (document.scrollingElement ?? document.documentElement);
+  if (!target && page.scrollHeight <= innerHeight + 4) {
+    // An app whose page doesn't scroll (mail, chat, dashboards): its biggest scrolling box on screen.
+    let best = 0;
+    for (const el of document.querySelectorAll('main, [role=main], [role=feed], [role=list], div, section, ul')) {
+      if (!scrolls(el)) continue;
+      const r = el.getBoundingClientRect();
+      const area = Math.max(0, Math.min(r.right, innerWidth) - Math.max(r.left, 0)) * Math.max(0, Math.min(r.bottom, innerHeight) - Math.max(r.top, 0));
+      if (area > best) { best = area; box = el; }
+    }
+  }
+  const scroller = box ?? page;
+  const before = { chars: (/** @type {HTMLElement} */ (measure)).innerText?.length ?? 0, height: scroller.scrollHeight };
+  /** @type {string[]} */
+  const clicked = [];
+  if (input.expand !== false) {
+    const MORE = /^(show|load|view|see|read)\s+(\d[\d.,]*\s+)?(more|all|older|previous|earlier|other|additional)\b.{0,30}$|^(view\s+|show\s+)?(\d[\d.,]*\s+)(more\s+)?(replies|reply|comments|answers|reviews)$|^(daha fazla|tümünü gör|yanıtları gör|yanıtları göster|\d+ yanıt)/i;
+    for (const b of measure.querySelectorAll('button, [role="button"]')) {
+      if (clicked.length >= 6) break;
+      if (b.closest('a[href]') || b.hasAttribute('data-integratedai-opened') || !h.visible(b) || !h.inArea(b)) continue;
+      const text = (/** @type {HTMLElement} */ (b).innerText || b.getAttribute('aria-label') || '').replace(/\s+/g, ' ').trim();
+      if (!text || text.length > 50 || !MORE.test(text)) continue;
+      b.setAttribute('data-integratedai-opened', '');
+      /** @type {HTMLElement} */ (b).click();
+      clicked.push(text);
+    }
+  }
+  const atEnd = scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 4;
+  scroller.scrollBy({ top: Math.max(400, scroller.clientHeight * 0.9), behavior: 'instant' });
+  return { ...before, atEnd, clicked, scroller: box ? h.cssPath(box) : 'the page' };
+}
+
+/**
  * page_outline (and the page report after each agent step): what's on screen, the way a
  * person scanning the page sees it. Buttons, links and fields with refs to target them, the
  * focused element, an open dialog, headings, frames, and the visible text (short).

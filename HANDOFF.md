@@ -212,6 +212,10 @@ harness) or the owner's GitHub/Telegram test is the next thing to do.
   action **write_text** (a card with the editable text: Copy, Download, Put into the selected field = an interact
   "type" step on $0 / the picked element, undoable). Prompt rules: only facts from the CV, never invent.
   Store: tick "Personally identifiable information" in Data usage from this version (kit updated).
+- **read_more** (the owner: "summarize the YouTube comments" only got what was on screen). Decided with the
+  owner: no helper model; a tool + prompt rules. `readMoreStep` in page-scripts.js (one scroll + "Show more"
+  buttons per call; the panel repeats it, because DevTools' eval doesn't await), then `readText`. In the card too,
+  not with a marked area. Checked in ui-check on store/demo-pages/comments.html (60 lazy comments, replies).
 - **watch_video** (the owner asked the AI to watch and summarize reels; it took screenshots and waited). Pictures
   every 1.5 s+ for up to 60 s → 1–2 contact sheets (one image each for the image cap), sound via
   `video.captureStream()` + MediaRecorder in the page (works on muted videos; checked in ui-check with a generated

@@ -169,6 +169,27 @@ export const ACTIONS = {
     },
   },
 
+  read_more: {
+    label: 'Load more and read',
+    readOnly: true,
+    risk: 'none',
+    description: 'Load the rest of a list that grows as you scroll (comments, replies, feeds, search results, reviews, chat history), '
+      + 'then read it. It scrolls the list (or the page) a screen at a time and opens "Show more" / "View replies" buttons until nothing '
+      + 'new loads, there is enough text, or time is up, then returns the text like read_text (nextOffset for the rest). Use it '
+      + 'whenever a question is about a whole list ("summarize the comments", "all the reviews"): only what is loaded is on the page.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        ref: { type: 'string', description: 'The list or its section (e.g. the comments section), from find_elements or page_outline. Omit for the whole page.' },
+        selector: { type: 'string' },
+        expand: { type: 'boolean', description: 'Open "Show more" / "View replies" buttons too (default true). False: only scroll.' },
+        seconds: { type: 'integer', description: 'At most this long (3–45, default 20).' },
+        enough: { type: 'integer', description: 'Stop once the part holds this many characters (default 40000).' },
+      },
+      additionalProperties: false,
+    },
+  },
+
   watch_video: {
     label: 'Watch video',
     readOnly: true,
@@ -532,6 +553,7 @@ const BRIEF = {
   read_text: 'Read the text of the page or one element (ref/selector). Use offset=nextOffset for more.',
   inspect_console: 'Recent console messages and errors.',
   inspect_network: 'Network requests since DevTools opened (redacted).',
+  read_more: 'Load the rest of a list that grows as you scroll (comments, feeds, results, reviews): scrolls and opens "Show more" until nothing new comes, then reads it.',
   watch_video: 'Watch a video while it plays (default: the biggest on screen, to its end, max 60 s): contact sheets of pictures with times, and its sound when available.',
   search_chats: 'Search the user\'s imported past ChatGPT chats by words (query), or read one (id from the matches; offset=nextOffset for more).',
   inspect_resources: 'List page resources, or read one (readContentOf: exact URL).',
@@ -555,7 +577,7 @@ const BRIEF = {
  * pages), scripts and the network/resource tools stay in the DevTools panel ("Continue in DevTools").
  */
 export const CARD_ACTIONS = [
-  'find_elements', 'page_outline', 'read_text', 'inspect_element', 'inspect_console', 'screenshot', 'watch_video', 'search_chats',
+  'find_elements', 'page_outline', 'read_text', 'inspect_element', 'inspect_console', 'screenshot', 'read_more', 'watch_video', 'search_chats',
   'remember', 'forget', 'define_page_group', 'inject_css', 'translate_page', 'write_text',
 ];
 
@@ -799,6 +821,8 @@ export function validateAction(name, input, settings) {
   }
   if (name === 'remember' && (!i.note.trim() || i.note.length > 300)) errors.push('note must be 1–300 characters');
   if (name === 'translate_page' && (!i.language.trim() || i.language.length > 40)) errors.push('language must be 1–40 characters');
+  if (name === 'read_more' && i.seconds !== undefined && !(i.seconds >= 3 && i.seconds <= 45)) errors.push('seconds must be 3–45');
+  if (name === 'read_more' && i.enough !== undefined && !(i.enough >= 5000 && i.enough <= 150000)) errors.push('enough must be 5000–150000');
   if (name === 'watch_video' && i.seconds !== undefined && !(i.seconds >= 3 && i.seconds <= 60)) errors.push('seconds must be 3–60');
   if (name === 'search_chats' && !String(i.query ?? '').trim() && !String(i.id ?? '').trim()) errors.push('search_chats needs a query, or the id of a chat to read');
   if (name === 'write_text' && (!i.text.trim() || i.text.length > MAX_WRITTEN_TEXT)) errors.push(`text must be 1–${MAX_WRITTEN_TEXT} characters`);
