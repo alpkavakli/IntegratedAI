@@ -1156,7 +1156,7 @@ export class App {
 
   /**
    * Start or stop the local agent server (no `npm start` needed): through the helper program that
-   * `npm run services:install` registers once. The first click asks for the permission to talk to it.
+   * `npx integratedai install` registers once. The first click asks for the permission to talk to it.
    * @param {'start' | 'stop'} [want]
    */
   async toggleServer(want = this.connected ? 'stop' : 'start') {
@@ -1177,8 +1177,8 @@ export class App {
       if (reply.needsPermission) {
         this.showBanner(t('serverAllowFirst', 'Allow IntegratedAI to talk to its helper program first (click Server again).'), true);
       } else if (reply.notInstalled) {
-        this.showBanner(t('serverSetup', 'One-time setup: in the IntegratedAI folder, run  $1  then click Server again.', reply.installCommand), true,
-          t('copyCommand', 'Copy command'), () => copyToClipboard(reply.installCommand).then(() => this.showBanner(t('serverSetupCopied', 'Copied. Run it in a terminal in the IntegratedAI folder, then click Server again.'))));
+        this.showBanner(t('serverSetup', 'One-time setup: in a terminal, run  $1  then click Server again.', reply.installCommand), true,
+          t('copyCommand', 'Copy command'), () => copyToClipboard(reply.installCommand).then(() => this.showBanner(t('serverSetupCopied', 'Copied. Run it in a terminal, then click Server again.'))));
       } else if (reply.error) {
         this.showBanner(reply.error, true);
       } else if (want === 'start') {

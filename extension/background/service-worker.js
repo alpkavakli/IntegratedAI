@@ -331,7 +331,7 @@ chrome.webNavigation.onCommitted.addListener(async ({ tabId, frameId, url }) => 
 
 // ─────────────────────────────────────────────────────────── the local server (Server button)
 
-/** The native messaging host registered by `npm run services:install` (server/native-host/host.js). */
+/** The native messaging host registered by `npx integratedai install` (server/native-host/host.js). */
 const SERVICES_HOST = 'com.integratedai.server';
 
 /**
@@ -351,7 +351,7 @@ async function servicesCall(cmd) {
   } catch (err) {
     const message = String(/** @type {any} */ (err)?.message ?? err);
     if (/not found|forbidden|access.*denied/i.test(message)) {
-      return { notInstalled: true, installCommand: `npm run services:install -- --id ${chrome.runtime.id}` };
+      return { notInstalled: true, installCommand: `npx integratedai install --id ${chrome.runtime.id}` };
     }
     return { error: message };
   }

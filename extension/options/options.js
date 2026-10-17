@@ -464,7 +464,7 @@ for (const input of /** @type {NodeListOf<HTMLInputElement>} */ (document.queryS
 $('ollamaCompact').checked = settings.ollamaCompact;
 
 // The panel's Server button (local server mode): its setup command, and the permission it needs.
-$('services-command').textContent = `npm run services:install -- --id ${chrome.runtime.id}`;
+$('services-command').textContent = `npx integratedai install --id ${chrome.runtime.id}`;
 const showServicesPermission = async () => {
   const granted = await chrome.permissions.contains({ permissions: ['nativeMessaging'] });
   $('services-allow').hidden = granted;

@@ -996,13 +996,13 @@
     "message": "These start switched on in the panel. You can switch them per message there."
   },
   "optServer1": {
-    "message": "Install <a href=\"https://nodejs.org\" target=\"_blank\" rel=\"noopener\">Node.js</a> and Claude Code (for Claude) or Codex CLI (for ChatGPT: <code>npm install -g @openai/codex</code>, then <code>codex login</code>), then start the agent server (<a href=\"https://github.com/alpkavakli/IntegratedAI#setup\" target=\"_blank\" rel=\"noopener\">setup guide</a>)."
+    "message": "Install <a href=\"https://nodejs.org\" target=\"_blank\" rel=\"noopener\">Node.js</a> and Claude Code (for Claude) or Codex CLI (for ChatGPT: <code>npm install -g @openai/codex</code>, then <code>codex login</code>), then start the agent server in a terminal: <code>npx integratedai</code> (<a href=\"https://github.com/alpkavakli/IntegratedAI#setup\" target=\"_blank\" rel=\"noopener\">step-by-step guide</a>)."
   },
   "optServer2": {
     "message": "Paste the pairing token it prints (one token for the server: Claude and ChatGPT each use their own login, no keys here):"
   },
   "optServerButton": {
-    "message": "No need to run <code>npm start</code> each time: the panel's <strong>Server</strong> button starts and stops the server. It needs a one-time setup in the IntegratedAI folder:"
+    "message": "No need to start it in a terminal each time: the panel's <strong>Server</strong> button starts and stops the server. It needs a one-time setup, in a terminal:"
   },
   "optSourceCode": {
     "message": "Source code"
@@ -1275,10 +1275,10 @@
     "message": "The local server is running. Click to stop it"
   },
   "serverSetup": {
-    "message": "One-time setup: in the IntegratedAI folder, run  $1  then click Server again."
+    "message": "One-time setup: in a terminal, run  $1  then click Server again."
   },
   "serverSetupCopied": {
-    "message": "Copied. Run it in a terminal in the IntegratedAI folder, then click Server again."
+    "message": "Copied. Run it in a terminal, then click Server again."
   },
   "serverStarting": {
     "message": "Starting the local server…"

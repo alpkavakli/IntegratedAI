@@ -996,13 +996,13 @@
     "message": "Bunlar panelde açık başlar. Orada her mesaj için değiştirebilirsin."
   },
   "optServer1": {
-    "message": "<a href=\"https://nodejs.org\" target=\"_blank\" rel=\"noopener\">Node.js</a> ile Claude Code'u (Claude için) ya da Codex CLI'ı (ChatGPT için: <code>npm install -g @openai/codex</code>, sonra <code>codex login</code>) kur, sonra ajan sunucusunu başlat (<a href=\"https://github.com/alpkavakli/IntegratedAI#setup\" target=\"_blank\" rel=\"noopener\">kurulum rehberi</a>)."
+    "message": "<a href=\"https://nodejs.org\" target=\"_blank\" rel=\"noopener\">Node.js</a> ile Claude Code'u (Claude için) ya da Codex CLI'ı (ChatGPT için: <code>npm install -g @openai/codex</code>, sonra <code>codex login</code>) kur, sonra ajan sunucusunu bir terminalde başlat: <code>npx integratedai</code> (<a href=\"https://github.com/alpkavakli/IntegratedAI#setup\" target=\"_blank\" rel=\"noopener\">adım adım kılavuz</a>)."
   },
   "optServer2": {
     "message": "Yazdırdığı eşleştirme belirtecini yapıştır (sunucu için tek belirteç: Claude ve ChatGPT kendi girişlerini kullanır, burada anahtar yok):"
   },
   "optServerButton": {
-    "message": "Her seferinde <code>npm start</code> çalıştırmana gerek yok: paneldeki <strong>Sunucu</strong> düğmesi sunucuyu başlatır ve durdurur. IntegratedAI klasöründe bir kerelik kurulum gerekir:"
+    "message": "Her seferinde terminalde başlatmana gerek yok: paneldeki <strong>Sunucu</strong> düğmesi sunucuyu başlatır ve durdurur. Bir terminalde bir kerelik kurulum gerekir:"
   },
   "optSourceCode": {
     "message": "Kaynak kodu"
@@ -1275,10 +1275,10 @@
     "message": "Yerel sunucu çalışıyor. Durdurmak için tıkla"
   },
   "serverSetup": {
-    "message": "Tek seferlik kurulum: IntegratedAI klasöründe  $1  komutunu çalıştır, sonra Sunucu'ya tekrar tıkla."
+    "message": "Tek seferlik kurulum: bir terminalde  $1  komutunu çalıştır, sonra Sunucu'ya tekrar tıkla."
   },
   "serverSetupCopied": {
-    "message": "Kopyalandı. IntegratedAI klasöründe bir terminalde çalıştır, sonra Sunucu'ya tekrar tıkla."
+    "message": "Kopyalandı. Bir terminalde çalıştır, sonra Sunucu'ya tekrar tıkla."
   },
   "serverStarting": {
     "message": "Yerel sunucu başlatılıyor…"
