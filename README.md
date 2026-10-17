@@ -37,8 +37,8 @@ Choose in the settings page (step 1, **Choose your AI**):
 
 | | **Direct** (default for new installs) | **Local agent server** |
 |---|---|---|
-| Setup | Paste an API key for Anthropic, OpenAI, Google Gemini, OpenRouter, DeepSeek, Qwen, Kimi, GLM or MiniMax, or use [Ollama](https://ollama.com) on your computer (no key; see below). Nothing else to install. | Node.js 20+ and [Claude Code](https://code.claude.com), then `npm start` (below) |
-| Pays with | Your account with that provider | Your Claude subscription (via Claude Code), or an API key |
+| Setup | Paste an API key for Anthropic, OpenAI, Google Gemini, OpenRouter, DeepSeek, Qwen, Kimi, GLM or MiniMax, or use [Ollama](https://ollama.com) on your computer (no key; see below). Nothing else to install. | Node.js 20+, Claude Code or Codex signed in, and this project from GitHub: see [Setup](#setup) |
+| Pays with | Your account with that provider | Your Claude or ChatGPT subscription (via Claude Code or Codex), or an API key |
 | Where conversations and memory live | In the browser (IndexedDB, extension storage) | `~/.integratedai/` on your computer |
 | Extras | — | "Apply to source"; page tools as real Claude Code tools |
 
@@ -115,7 +115,8 @@ the same shape). Tested in `npm run page-check` (tries to read outside in every 
 
 1. Install the extension (from the Chrome Web Store, or: `chrome://extensions` → **Developer mode** → **Load unpacked** → the `extension/` folder). The setup page opens.
 2. **Choose your AI.** Easiest: an API key (Claude, Gemini (free tier), GPT, OpenRouter). Free and private: Ollama
-   (the page shows the commands for your system, with Copy buttons). For developers: Claude Code through the local server.
+   (the page shows the commands for your system, with Copy buttons). Your Claude or ChatGPT subscription instead of a
+   key: see [Setup](#setup) below.
 3. **Paste your API key.** It's saved and checked right away (Ollama and the server have a **Check connection** button
    instead, which says which step is missing, including an Ollama context window that is too small).
 4. **Start using it** (step 3 of the setup page): the toolbar icon or Alt+Shift+A opens the card on any page
@@ -124,57 +125,140 @@ the same shape). Tested in `npm run page-check` (tries to read outside in every 
 
 Everything else (the model, what the AI sees, permissions, addresses, your data) is under **Advanced settings**.
 
-The rest of this section sets up the local server.
-
-## Requirements (local server)
-
-- Chrome 116+ (or another Chromium browser)
-- Node.js 20+
-- [Claude Code](https://code.claude.com) installed and logged in (`claude` works in a terminal)
+To use your Claude or ChatGPT subscription instead of an API key, follow [Setup](#setup) below.
 
 ## Setup
+
+This part is for using **your Claude or ChatGPT subscription** (Claude Pro/Max, ChatGPT Plus/Pro) instead of an API
+key. For an API key or Ollama you don't need any of this: see the quick start above.
+
+**Why there is something to install:** a subscription has no API key. The extension uses it through Claude Code or
+Codex (OpenAI's command-line app) on your computer, signed in with your account. A browser extension isn't allowed to
+start programs, so this project includes a small server that runs on your computer and does it for the extension.
+That's why you need this project from GitHub on your computer, even if you installed the extension from the Chrome
+Web Store. It takes about 10 minutes the first time.
+
+### 1. Install Node.js
+
+Download the **LTS** version from [nodejs.org](https://nodejs.org) and install it (version 20 or newer). Open a new
+terminal afterwards and check that it works:
+
+```bash
+node -v
+```
+
+(Windows: the terminal is **Command Prompt** or **PowerShell** from the Start menu. macOS: **Terminal**.)
+
+### 2. Install Claude Code or Codex, and sign in
+
+Install the one for your subscription, or both (you can switch between them in the panel).
+
+**Claude** (Pro or Max plan):
+
+```bash
+npm install -g @anthropic-ai/claude-code
+claude
+```
+
+`claude` opens a sign-in page in your browser: sign in with your Claude account. When it's done, type `/exit`.
+
+**ChatGPT** (Plus or Pro plan):
+
+```bash
+npm install -g @openai/codex
+codex login
+```
+
+Choose **Sign in with ChatGPT** and sign in with your ChatGPT account.
+
+> Windows: if PowerShell says *running scripts is disabled on this system*, use Command Prompt instead, or run this
+> once in PowerShell: `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
+
+### 3. Download this project
+
+**Without Git** (simplest): on [the project's GitHub page](https://github.com/alpkavakli/IntegratedAI), click
+**Code → Download ZIP**, and unzip it somewhere you'll find again, for example `Documents\IntegratedAI`. Then open a
+terminal in that folder. On Windows: open the folder in File Explorer, click the address bar, type `cmd` and press
+Enter. On macOS: right-click the folder → **New Terminal at Folder**.
+
+**With Git:**
+
+```bash
+git clone https://github.com/alpkavakli/IntegratedAI.git
+cd IntegratedAI
+```
+
+Every command from here on runs in this folder (the one that contains `package.json`).
+
+### 4. Start the server
 
 ```bash
 npm install
 npm start
 ```
 
-On first start the server creates `~/.integratedai/config.json` and prints a **pairing token**:
+`npm install` is needed once (and again after an update). `npm start` starts the server and prints something like:
 
 ```
 IntegratedAI agent server listening on http://127.0.0.1:7823
+Data folder:   C:\Users\you\.integratedai
 Pairing token: 3kQ…
   provider claude-cli  available
+  provider codex-cli   available
   provider anthropic   unavailable: No API key. …
 ```
 
-Load the extension:
+- **Copy the pairing token.** It connects the extension to this server (it's not an API key, and it doesn't change).
+- **Check the provider you want says `available`**: `claude-cli` for Claude, `codex-cli` for ChatGPT. If it says
+  `unavailable`, the reason is printed next to it, usually "not signed in": do step 2 again. The `anthropic` line
+  is for an API key and can stay unavailable.
+- **Keep this window open.** Closing it stops the server. (The optional step below lets the extension start it.)
 
-1. Open `chrome://extensions` and turn on **Developer mode**.
-2. Click **Load unpacked** and pick the `extension/` folder.
-3. Click **Details → Extension options**, choose **Claude Code**, paste the pairing token, then click **Check connection**.
-4. Reload any tab that was already open, so the console capture starts there.
-5. Open DevTools (F12). There is a new **AI** tab.
+### 5. Connect the extension
 
-For local `file://` pages, also turn on *Allow access to file URLs* in the extension's details.
+1. Install the extension if you haven't: from the Chrome Web Store, or `chrome://extensions` → turn on
+   **Developer mode** → **Load unpacked** → pick the `extension` folder inside this project.
+2. Open its settings: right-click the IntegratedAI icon in the toolbar → **Options**.
+3. Under **Choose your AI**, pick **Claude Code or ChatGPT**, paste the pairing token, and click **Check connection**.
+4. Open DevTools (F12) → the **AI** tab, or click the toolbar icon for the card on the page. In the model menu at
+   the top, choose **Claude Code CLI** or **ChatGPT (Codex CLI)**.
 
-### Start the server from the extension (no `npm start` each time)
+Reload tabs that were open before, so the extension can read their console. For local `file://` pages, also turn on
+*Allow access to file URLs* in the extension's details.
 
-The **Server** button in the panel's toolbar (F12 and the card, local server mode only) starts and stops the agent
-server; when it isn't running, the panel shows **Start server**. A browser extension can't start programs by itself,
-so this goes through a small helper that Chrome may start for this extension only (native messaging). Set it up
-once, in this folder:
+**Lost the token?** It's in `config.json` in the data folder the server printed (`C:\Users\<you>\.integratedai\` on
+Windows, `~/.integratedai/` on macOS and Linux), as `"token"`. `npm start` also prints it every time.
+
+### Optional: start the server from the panel (no `npm start` each time)
+
+The **Server** button in the panel's toolbar starts and stops the server; when it isn't running, the panel shows
+**Start server**. Because an extension can't start programs, this goes through a small helper that Chrome may start
+for this extension only (native messaging). Set it up once, in the project folder:
 
 ```bash
 npm run services:install -- --id <extension id>
 ```
 
-The extension shows this command with its ID filled in the first time you click Server (and in Options). The first
-click also asks for your OK to talk to the helper (the optional `nativeMessaging` permission). The helper
+Options shows this command with your extension's ID filled in (it's different for the Web Store version and an
+unpacked copy), and asks for your OK to talk to the helper (the optional `nativeMessaging` permission). The helper
 (`server/native-host/host.js`) does three things only: report whether the server is running, start it in the
-background (output in `~/.integratedai/logs/server.log`), and stop it (it asks the server to save and exit through
-`POST /shutdown`, which needs the pairing token and refuses requests from web pages). `npm run services:uninstall`
-removes it; `npm start` keeps working as before.
+background (its output goes to `~/.integratedai/logs/server.log`), and stop it (through `POST /shutdown`, which
+needs the pairing token and refuses requests from web pages). `npm run services:uninstall` removes it; `npm start`
+keeps working as before.
+
+### If something goes wrong
+
+| What you see | What to do |
+|---|---|
+| `'npm' is not recognized` / `command not found: npm` | Node.js isn't installed, or the terminal was opened before installing it: install it (step 1) and open a new terminal. |
+| `npm start` says `Cannot find module` or `ENOENT … package.json` | You're in the wrong folder, or skipped `npm install`. Go to the folder with `package.json` and run `npm install` first. |
+| **Check connection** fails | The server isn't running: start it (step 4) and keep its window open. |
+| `EADDRINUSE` / port 7823 is in use | The server is already running in another window (or through the Server button). Use that one. |
+| `claude-cli` or `codex-cli` is `unavailable` | Sign in again (step 2), then restart `npm start`. |
+| It answered before, now it says you've hit a limit | Your plan's usage limit. Switch to the other one in the model menu, or wait for the limit to reset. |
+
+**Updating:** `git pull` (or download the ZIP again and unzip it over the old folder), then `npm install`, then start
+the server again. Your settings and conversations are kept in the data folder, not in the project folder.
 
 ## Using it
 
