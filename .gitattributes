@@ -1,0 +1,2 @@
+# The npm command starts with "#!/usr/bin/env node": Windows line endings would break it on macOS and Linux.
+server/bin/* text eol=lf
