@@ -296,6 +296,34 @@ test('a text-only model that refuses images: the same request without them, and 
   assert.equal(bodies.length, 3, 'the next call goes without images straight away');
 });
 
+test('OpenAI models that take tools only without reasoning: sent again with reasoning_effort "none", and so from then on', async () => {
+  const bodies = [];
+  const OpenAI = openAICompatibleProvider('openai');
+  const provider = new OpenAI(directConfig(/** @type {any} */ ({ providerKeys: { openai: 'sk-1' }, providerModels: {} })), {
+    fetch: async (_url, init) => {
+      const body = JSON.parse(init.body);
+      bodies.push(body);
+      if (body.tools && body.reasoning_effort !== 'none') {
+        return { ok: false, status: 400, text: async () => JSON.stringify({ error: { message: "Function tools with reasoning_effort are not supported for gpt-6.1-sol in /v1/chat/completions. To use function tools, use /v1/responses or set reasoning_effort to 'none'." } }) };
+      }
+      return sseResponse(sse([{ choices: [{ delta: { content: 'ok' } }] }, { choices: [{ delta: {}, finish_reason: 'stop' }] }]));
+    },
+  });
+  const run = (/** @type {string[]} */ actionNames, model = 'gpt-6.1-sol') => collect(provider.turn({ messages: [{ role: 'user', ts: 0, content: [{ type: 'text', text: 'hi' }] }], system: 'S', actionNames, model, state: {}, signal: new AbortController().signal }));
+  const first = await run(['read_text']);
+  assert.ok(first.some((e) => e.type === 'text_delta' && e.text === 'ok'), 'answered after the retry');
+  assert.equal(bodies.length, 2);
+  assert.equal(bodies[0].reasoning_effort, undefined, 'not sent until the model asks for it (older models refuse the field)');
+  assert.equal(bodies[1].reasoning_effort, 'none');
+  await run(['read_text']);
+  assert.equal(bodies.length, 3, 'the next call has it straight away');
+  assert.equal(bodies[2].reasoning_effort, 'none');
+  await run([]);
+  assert.equal(bodies[3].reasoning_effort, undefined, 'without tools the model keeps its reasoning');
+  await run(['read_text'], 'gpt-5.5');
+  assert.equal(bodies[4].reasoning_effort, undefined, 'other models are not affected');
+});
+
 test('providers with other regions or per-account addresses use the address from Options; others never do', () => {
   assert.equal(baseUrlFor('kimi', { baseUrl: '' }), 'https://api.moonshot.ai/v1');
   assert.equal(baseUrlFor('kimi', { baseUrl: 'https://api.moonshot.cn/v1/' }), 'https://api.moonshot.cn/v1');

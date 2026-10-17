@@ -164,6 +164,8 @@ function safeOrigin(url) {
 }
 
 /** Waits before trying a busy service again (presetFetch). */
+/** "provider:model" that took tools only with reasoning_effort 'none' (see turn()). */
+const NO_EFFORT_WITH_TOOLS = new Set();
 export const RETRY_WAITS_MS = [2000, 5000];
 
 /** @param {number} ms @param {AbortSignal | null | undefined} signal */
@@ -276,6 +278,7 @@ export function openAICompatibleProvider(id) {
      * @returns {AsyncGenerator<import('./base.js').ProviderEvent>}
      */
     async *turn({ messages, system, actionNames, model, signal, compact = false, state = {} }) {
+      const effortKey = `${id}:${model}`;
       /** @param {boolean} images  screenshots attached (no: the model can't take them, see below) */
       const messagesFor = (images) => toOpenAIMessages(system, messages, {
         compact, images, reasoningFor: preset.sendReasoning ? id : undefined, signaturesFor: preset.thoughtSignatures ? id : undefined,
@@ -292,6 +295,7 @@ export function openAICompatibleProvider(id) {
         } : {}),
         stream: true,
         ...(preset.includeUsage ? { stream_options: { include_usage: true } } : {}),
+        ...(actionNames.length && NO_EFFORT_WITH_TOOLS.has(effortKey) ? { reasoning_effort: 'none' } : {}),
       };
       const settings = this.config.providers[id];
       const send = () => presetFetch(id, this.fetch, `${baseUrlFor(id, settings)}/chat/completions`, {
@@ -306,7 +310,7 @@ export function openAICompatibleProvider(id) {
         signal,
       }, { retry: false });
       let res;
-      try {
+      for (let fallback = 0; ; fallback++) try {
         // A busy service is tried twice more; the panel shows it ("GLM is busy, trying again in 5 s…").
         for (let attempt = 0; ; attempt++) {
           try {
@@ -320,15 +324,24 @@ export function openAICompatibleProvider(id) {
             await sleepUnlessAborted(waitMs, signal);
           }
         }
+        break;
       } catch (err) {
+        const message = String(/** @type {any} */ (err)?.message ?? '');
+        if (fallback >= 2 || !/error 400/.test(message)) throw err;
+        // OpenAI's newer reasoning models (gpt-6 and later) take function tools on /chat/completions only without
+        // reasoning ("…use /v1/responses or set reasoning_effort to 'none'"): the same request with it off, and
+        // this model is sent that way from now on (until the panel is reopened).
+        if (body.tools && !body.reasoning_effort && /reasoning_effort/.test(message) && /tools/i.test(message)) {
+          NO_EFFORT_WITH_TOOLS.add(effortKey);
+          body.reasoning_effort = 'none';
+          continue;
+        }
         // A text-only model (GLM's flash models, …) refuses the screenshots: the same request without them, and no
         // images for the rest of this conversation (the model is told a screenshot was taken but can't be shown).
-        const message = String(/** @type {any} */ (err)?.message ?? '');
-        if (state.noImages || !/error 400/.test(message) || !/image|content\.type|multimodal|vision/i.test(message)
+        if (state.noImages || !/image|content\.type|multimodal|vision/i.test(message)
           || !messages.some((m) => m.content.some((b) => b.type === 'tool_result' && /** @type {any} */ (b).images?.length))) throw err;
         state.noImages = true;
         body.messages = messagesFor(false);
-        res = await send();
       }
 
       /** @type {{ id: string, name: string, args: string, signature?: string }[]} */
