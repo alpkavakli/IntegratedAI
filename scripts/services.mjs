@@ -3,8 +3,9 @@
  * Register (or remove) the native messaging host that lets the extension's "Server" button start and
  * stop the local agent server (server/native-host/host.js). Run once per computer:
  *
- *   npm run services:install -- --id <extension id>   (the extension shows this command with its ID filled in)
- *   npm run services:uninstall
+ *   npx integratedai install --id <extension id>   (the extension shows this command with its ID filled in)
+ *   npx integratedai uninstall
+ *   (from a copy of the project: npm run services:install -- --id <id>, npm run services:uninstall)
  *
  * It writes a small launcher and the host manifest to ~/.integratedai/native-host/ and tells Chrome
  * (and Chromium and Edge) where they are: on Windows in the registry (HKCU), on macOS and Linux in each
@@ -13,15 +14,17 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir, platform } from 'node:os';
-import { join } from 'node:path';
+import { basename, dirname, join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { dataDir } from '../server/src/config.js';
 
 const NAME = 'com.integratedai.server';
-const HOST = fileURLToPath(new URL('../server/native-host/host.js', import.meta.url));
+const PACKAGE = fileURLToPath(new URL('..', import.meta.url)).replace(/[\\/]$/, '');
 const dir = join(dataDir(), 'native-host');
+/** Where a copy run through npx is kept: npx's cache gets cleaned, and Chrome needs the helper to stay put. */
+const APP = join(dataDir(), 'app');
 const manifestPath = join(dir, `${NAME}.json`);
 const win = platform() === 'win32';
 
@@ -52,12 +55,13 @@ function install() {
   const earlier = existsSync(manifestPath) ? JSON.parse(readFileSync(manifestPath, 'utf8')).allowed_origins ?? [] : [];
   const origins = [...new Set([...earlier, ...ids.map((id) => `chrome-extension://${id}/`)])];
   if (!origins.length) {
-    console.error('Give the extension\'s ID: npm run services:install -- --id <id>\n'
+    console.error('Give the extension\'s ID: npx integratedai install --id <id>\n'
       + '(The extension shows this command with its ID when you click its Server button.)');
     process.exit(1);
   }
 
   mkdirSync(dir, { recursive: true });
+  const HOST = join(stablePackage(), 'server', 'native-host', 'host.js');
   // Chrome starts the launcher; it runs the host with this Node.js (the one running this script).
   const launcher = join(dir, win ? 'host.bat' : 'host.sh');
   writeFileSync(launcher, win
@@ -81,7 +85,20 @@ function install() {
     }
   }
   console.log(`Registered the IntegratedAI server helper for ${origins.length} extension ID(s).`);
+  if (HOST.startsWith(APP)) console.log(`(It runs the copy in ${APP}: run this command again after updating IntegratedAI.)`);
   console.log('Reload the extension\'s panel; its Server button now starts and stops the server.');
+}
+
+/**
+ * The package folder the helper runs from. Run through npx, the package sits in npx's cache, which npm cleans up:
+ * its node_modules folder (the package and what it needs) is copied to ~/.integratedai/app first.
+ */
+function stablePackage() {
+  if (!PACKAGE.includes(`${sep}_npx${sep}`)) return PACKAGE;
+  const modules = dirname(PACKAGE);
+  rmSync(APP, { recursive: true, force: true });
+  cpSync(modules, join(APP, 'node_modules'), { recursive: true });
+  return join(APP, 'node_modules', basename(PACKAGE));
 }
 
 function uninstall() {
@@ -92,5 +109,6 @@ function uninstall() {
     } catch { /* wasn't registered there */ }
   }
   rmSync(dir, { recursive: true, force: true });
-  console.log('Removed the IntegratedAI server helper. (The server itself is untouched; npm start still works.)');
+  rmSync(APP, { recursive: true, force: true });
+  console.log('Removed the IntegratedAI server helper. (The server itself is untouched: npx integratedai still starts it.)');
 }
