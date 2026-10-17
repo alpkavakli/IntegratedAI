@@ -27,6 +27,9 @@ import { validate } from './validate.js';
 
 /** @typedef {import('./validate.js').Schema} Schema */
 
+/** write_text: the longest text a card holds (a cover letter is about 2,000 characters). */
+export const MAX_WRITTEN_TEXT = 20000;
+
 /**
  * @typedef {object} ActionDef
  * @property {string} label          Short human label for the UI
@@ -34,7 +37,7 @@ import { validate } from './validate.js';
  * @property {'none'|'low'|'medium'|'high'} risk
  * @property {string} description    Shown to the model
  * @property {Schema} inputSchema
- * @property {'executeJs'} [requiresSetting]  Only offered when that setting is on
+ * @property {'executeJs' | 'pastChats'} [requiresSetting]  Only offered when that setting is on
  * @property {boolean} [serverSide]  Runs on the server (site memory), never touches the page,
  *                                   needs no approval; shown in the chat and undoable in the Memory tab
  * @property {boolean} [pageAction]  Operates the page like the user (clicks, typing, going to pages);
@@ -161,6 +164,68 @@ export const ACTIONS = {
         levels: { type: 'array', items: { type: 'string', enum: ['error', 'warn', 'info', 'log'] } },
         contains: { type: 'string', description: 'Only messages containing this text.' },
         limit: { type: 'integer', description: 'Max entries (default 20).' },
+      },
+      additionalProperties: false,
+    },
+  },
+
+  read_more: {
+    label: 'Load more and read',
+    readOnly: true,
+    risk: 'none',
+    description: 'Load the rest of a list that grows as you scroll (comments, replies, feeds, search results, reviews, chat history), '
+      + 'then read it. It scrolls the list (or the page) a screen at a time and opens "Show more" / "View replies" buttons until nothing '
+      + 'new loads, there is enough text, or time is up, then returns the text like read_text (nextOffset for the rest). Use it '
+      + 'whenever a question is about a whole list ("summarize the comments", "all the reviews"): only what is loaded is on the page.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        ref: { type: 'string', description: 'The list or its section (e.g. the comments section), from find_elements or page_outline. Omit for the whole page.' },
+        selector: { type: 'string' },
+        expand: { type: 'boolean', description: 'Open "Show more" / "View replies" buttons too (default true). False: only scroll.' },
+        seconds: { type: 'integer', description: 'At most this long (3–45, default 20).' },
+        enough: { type: 'integer', description: 'Stop once the part holds this many characters (default 40000).' },
+      },
+      additionalProperties: false,
+    },
+  },
+
+  watch_video: {
+    label: 'Watch video',
+    readOnly: true,
+    risk: 'none',
+    description: 'Watch a video on the page while it plays (a reel, a YouTube video, a clip): pictures of it every second or two '
+      + 'on one or two contact sheets (each picture shows its time in the video), and its sound when your AI can hear it '
+      + '(the result says). Without ref/selector: the biggest video on screen. By default it watches until the video ends or '
+      + 'starts over, at most 60 seconds; "seconds" sets how long. Use it instead of taking screenshots and waiting. It does not '
+      + 'move on to the next video: do that with interact (then watch again).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        ref: { type: 'string', description: 'The video (or an element with the video inside), from find_elements or page_outline.' },
+        selector: { type: 'string' },
+        seconds: { type: 'integer', description: 'How long to watch (3–60). Default: to the end of the video, at most 60.' },
+      },
+      additionalProperties: false,
+    },
+  },
+
+  search_chats: {
+    label: 'Search past chats',
+    readOnly: true,
+    risk: 'none',
+    requiresSetting: 'pastChats',
+    description: 'Search the user\'s past ChatGPT chats (imported from their ChatGPT data export; a snapshot, kept in their browser), '
+      + 'or read one of them. With "query": the best-matching chats with excerpts around the matches. With "id" (from the matches): '
+      + 'that chat\'s text, in parts (pass offset = nextOffset for more). Use it when the user refers to something they discussed, '
+      + 'decided or wrote before, or asks what they told ChatGPT.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Words to look for: names and distinctive terms work best (matching is by words, not by meaning; try other words if nothing is found).' },
+        id: { type: 'string', description: 'Read this chat (an id from the matches) instead of searching.' },
+        offset: { type: 'integer', description: 'With id: where to continue reading (nextOffset from the last part).' },
+        limit: { type: 'integer', description: 'With query: how many chats to return (default 5, up to 10).' },
       },
       additionalProperties: false,
     },
@@ -365,6 +430,27 @@ export const ACTIONS = {
     },
   },
 
+  write_text: {
+    label: 'Written text',
+    readOnly: false,
+    risk: 'low',
+    description:
+      'Hand the user a finished piece of writing they asked for (a cover letter, an answer to an application question, a message, ' +
+      'a CV section rewritten for a job) as its own card: they can edit it, copy it, download it, or put it into the form field they ' +
+      'selected. Put only the text itself in "text": plain text ready to send, no Markdown, and no placeholders like [Company] ' +
+      '(use the real names from the page, or leave that part out). Keep your reply to a sentence or two: what you based it on and ' +
+      'what they should check before sending.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        description: { type: 'string', description: 'What it is, in a few words, e.g. "Cover letter for the Backend Intern role at Acme".' },
+        text: { type: 'string', description: 'The finished text.' },
+      },
+      required: ['description', 'text'],
+      additionalProperties: false,
+    },
+  },
+
   interact: {
     label: 'Interact with the page',
     readOnly: false,
@@ -467,6 +553,9 @@ const BRIEF = {
   read_text: 'Read the text of the page or one element (ref/selector). Use offset=nextOffset for more.',
   inspect_console: 'Recent console messages and errors.',
   inspect_network: 'Network requests since DevTools opened (redacted).',
+  read_more: 'Load the rest of a list that grows as you scroll (comments, feeds, results, reviews): scrolls and opens "Show more" until nothing new comes, then reads it.',
+  watch_video: 'Watch a video while it plays (default: the biggest on screen, to its end, max 60 s): contact sheets of pictures with times, and its sound when available.',
+  search_chats: 'Search the user\'s imported past ChatGPT chats by words (query), or read one (id from the matches; offset=nextOffset for more).',
   inspect_resources: 'List page resources, or read one (readContentOf: exact URL).',
   screenshot: 'An image of an element (ref/selector) or of the visible page.',
   remember: 'Save one short, reusable fact about this site (scope "site" or "page_group"). No secrets.',
@@ -478,6 +567,7 @@ const BRIEF = {
     + 'scroll (value down/up/top/bottom), press (value: key), wait (value: seconds). Steps wait for the page to settle.',
   navigate: 'Open a URL in this tab (url), or go: back, forward, reload.',
   translate_page: 'Propose translating the page\'s visible text into a language (user applies; undoable).',
+  write_text: 'Hand the user a finished text (cover letter, answer to a form question, message) as a card they can edit, copy or put into the selected field. Plain text only.',
   execute_js: 'Last resort: propose JavaScript (body of an async function) for the user to run; give undoCode if possible.',
 };
 
@@ -487,8 +577,8 @@ const BRIEF = {
  * pages), scripts and the network/resource tools stay in the DevTools panel ("Continue in DevTools").
  */
 export const CARD_ACTIONS = [
-  'find_elements', 'page_outline', 'read_text', 'inspect_element', 'inspect_console', 'screenshot',
-  'remember', 'forget', 'define_page_group', 'inject_css', 'translate_page',
+  'find_elements', 'page_outline', 'read_text', 'inspect_element', 'inspect_console', 'screenshot', 'read_more', 'watch_video', 'search_chats',
+  'remember', 'forget', 'define_page_group', 'inject_css', 'translate_page', 'write_text',
 ];
 
 /**
@@ -497,12 +587,16 @@ export const CARD_ACTIONS = [
  *   area → only an area the user marked: the tools that work inside it (the panel limits each one to it);
  *          not the console, network log, page resources or site memory, which are about the whole page
  *   none → "Just answer": no page tools at all, no page context, no memory
+ * (The user's own imported chats, search_chats, are not part of the page: they stay available in every mode.)
  */
 export const PAGE_ACCESS = /** @type {const} */ (['full', 'area', 'none']);
 export const AREA_ACTIONS = [
-  'find_elements', 'page_outline', 'read_text', 'inspect_element', 'screenshot',
-  'inject_css', 'modify_element', 'translate_page', 'interact', 'navigate', 'execute_js',
+  'find_elements', 'page_outline', 'read_text', 'inspect_element', 'screenshot', 'watch_video', 'search_chats',
+  'inject_css', 'modify_element', 'translate_page', 'write_text', 'interact', 'navigate', 'execute_js',
 ];
+
+/** Tools that have nothing to do with the page: offered also with "Just answer". */
+export const NO_PAGE_ACTIONS = ['search_chats'];
 
 /**
  * The actions offered for a page access level, from the ones otherwise enabled.
@@ -510,7 +604,7 @@ export const AREA_ACTIONS = [
  * @param {string} [access]
  */
 export function actionsForAccess(names, access) {
-  if (access === 'none') return [];
+  if (access === 'none') return names.filter((name) => NO_PAGE_ACTIONS.includes(name));
   if (access === 'area') return names.filter((name) => AREA_ACTIONS.includes(name));
   return names;
 }
@@ -590,7 +684,7 @@ export function runsLive(name, mode) {
 
 /**
  * Names of the actions the model may use, given the user's settings.
- * @param {{ executeJs?: boolean }} settings
+ * @param {{ executeJs?: boolean, pastChats?: boolean }} settings
  */
 export function enabledActionNames(settings) {
   return ACTION_NAMES.filter((name) => {
@@ -660,7 +754,7 @@ const URL_ATTRS = new Set(['href', 'src', 'action', 'formaction', 'xlink:href', 
  * Used by BOTH the server (before showing the proposal) and the panel (before executing).
  * @param {string} name
  * @param {unknown} input
- * @param {{ executeJs?: boolean }} [settings]  when given, also checks the action is enabled
+ * @param {{ executeJs?: boolean, pastChats?: boolean }} [settings]  when given, also checks the action is enabled
  * @returns {string[]} errors (empty = valid)
  */
 export function validateAction(name, input, settings) {
@@ -727,6 +821,11 @@ export function validateAction(name, input, settings) {
   }
   if (name === 'remember' && (!i.note.trim() || i.note.length > 300)) errors.push('note must be 1–300 characters');
   if (name === 'translate_page' && (!i.language.trim() || i.language.length > 40)) errors.push('language must be 1–40 characters');
+  if (name === 'read_more' && i.seconds !== undefined && !(i.seconds >= 3 && i.seconds <= 45)) errors.push('seconds must be 3–45');
+  if (name === 'read_more' && i.enough !== undefined && !(i.enough >= 5000 && i.enough <= 150000)) errors.push('enough must be 5000–150000');
+  if (name === 'watch_video' && i.seconds !== undefined && !(i.seconds >= 3 && i.seconds <= 60)) errors.push('seconds must be 3–60');
+  if (name === 'search_chats' && !String(i.query ?? '').trim() && !String(i.id ?? '').trim()) errors.push('search_chats needs a query, or the id of a chat to read');
+  if (name === 'write_text' && (!i.text.trim() || i.text.length > MAX_WRITTEN_TEXT)) errors.push(`text must be 1–${MAX_WRITTEN_TEXT} characters`);
   if (name === 'define_page_group') {
     if (!i.name.trim() || i.name.length > 40) errors.push('name must be 1–40 characters');
     if (!/^\/[^\s?#]*$/.test(i.pattern) || i.pattern.length > 200) errors.push('pattern must be a path starting with "/" (no spaces, ? or #)');

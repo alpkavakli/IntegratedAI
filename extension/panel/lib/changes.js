@@ -136,6 +136,9 @@ export class ChangeManager {
     } else if (name === 'translate_page') {
       detail = await this.translatePage(input.language);
       undoable = true;
+    } else if (name === 'write_text') {
+      detail = await this.fillSelected(id, input.text);
+      undoable = true;
     } else if (name === 'navigate') {
       if (input.url) await evalInPage(`location.href = ${JSON.stringify(input.url)}`);
       else if (input.go === 'reload') chrome.devtools.inspectedWindow.reload({});
@@ -191,6 +194,18 @@ export class ChangeManager {
       default:
         throw new Error(`Not a change action: ${name}`);
     }
+  }
+
+  /**
+   * write_text: put the text into the field the user selected (or picked), typed the way a person would, so the
+   * page's own code notices. Undo puts back what was there.
+   * @param {string} id
+   * @param {string} text
+   */
+  async fillSelected(id, text) {
+    const res = await callInPage(interactStep, { actionId: id, step: { action: 'type', selected: true, value: text } });
+    if (!res?.found) throw new Error('The selected field was not found on the page');
+    return String(res.did ?? 'Put into the selected field');
   }
 
   /**
@@ -279,6 +294,9 @@ export class ChangeManager {
         break;
       case 'interact':
         await callInPage(revertInteract, { actionId: id }, change.frame);
+        break;
+      case 'write_text':
+        await callInPage(revertInteract, { actionId: id });
         break;
       case 'execute_js': {
         const res = await runApprovedScript(/** @type {string} */ (change.undoCode));

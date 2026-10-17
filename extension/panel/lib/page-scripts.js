@@ -787,6 +787,55 @@ export function readText(h, selected, input) {
 }
 
 /**
+ * read_more, one step: open "Show more" / "View replies" buttons in the part being read, and scroll it (the list's
+ * own scrolling box, or the page) by about a screen, so lists that load as you scroll (comments, feeds, search
+ * results, reviews) load more. Returns how much there was before this step; the panel repeats it until nothing
+ * new comes. Only buttons are clicked, never links, and each one once (a second click often closes it again).
+ * @param {{ ref?: string, selector?: string, expand?: boolean }} input
+ */
+export function readMoreStep(h, selected, input) {
+  h.assertPage();
+  const target = input.ref || input.selector ? h.target(input.selector, selected, input.ref) : null;
+  const measure = target ?? document.body;
+  const scrolls = (/** @type {Element} */ el) => /(auto|scroll|overlay)/.test(getComputedStyle(el).overflowY) && el.scrollHeight > el.clientHeight + 4;
+  /** @type {Element | null} */
+  let box = null;
+  for (let el = target; el && el !== document.body && el !== document.documentElement; el = el.parentElement) {
+    if (scrolls(el)) { box = el; break; }
+  }
+  const page = /** @type {Element} */ (document.scrollingElement ?? document.documentElement);
+  if (!target && page.scrollHeight <= innerHeight + 4) {
+    // An app whose page doesn't scroll (mail, chat, dashboards): its biggest scrolling box on screen.
+    let best = 0;
+    for (const el of document.querySelectorAll('main, [role=main], [role=feed], [role=list], div, section, ul')) {
+      if (!scrolls(el)) continue;
+      const r = el.getBoundingClientRect();
+      const area = Math.max(0, Math.min(r.right, innerWidth) - Math.max(r.left, 0)) * Math.max(0, Math.min(r.bottom, innerHeight) - Math.max(r.top, 0));
+      if (area > best) { best = area; box = el; }
+    }
+  }
+  const scroller = box ?? page;
+  const before = { chars: (/** @type {HTMLElement} */ (measure)).innerText?.length ?? 0, height: scroller.scrollHeight };
+  /** @type {string[]} */
+  const clicked = [];
+  if (input.expand !== false) {
+    const MORE = /^(show|load|view|see|read)\s+(\d[\d.,]*\s+)?(more|all|older|previous|earlier|other|additional)\b.{0,30}$|^(view\s+|show\s+)?(\d[\d.,]*\s+)(more\s+)?(replies|reply|comments|answers|reviews)$|^(daha fazla|tümünü gör|yanıtları gör|yanıtları göster|\d+ yanıt)/i;
+    for (const b of measure.querySelectorAll('button, [role="button"]')) {
+      if (clicked.length >= 6) break;
+      if (b.closest('a[href]') || b.hasAttribute('data-integratedai-opened') || !h.visible(b) || !h.inArea(b)) continue;
+      const text = (/** @type {HTMLElement} */ (b).innerText || b.getAttribute('aria-label') || '').replace(/\s+/g, ' ').trim();
+      if (!text || text.length > 50 || !MORE.test(text)) continue;
+      b.setAttribute('data-integratedai-opened', '');
+      /** @type {HTMLElement} */ (b).click();
+      clicked.push(text);
+    }
+  }
+  const atEnd = scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 4;
+  scroller.scrollBy({ top: Math.max(400, scroller.clientHeight * 0.9), behavior: 'instant' });
+  return { ...before, atEnd, clicked, scroller: box ? h.cssPath(box) : 'the page' };
+}
+
+/**
  * page_outline (and the page report after each agent step): what's on screen, the way a
  * person scanning the page sees it. Buttons, links and fields with refs to target them, the
  * focused element, an open dialog, headings, frames, and the visible text (short).
@@ -1085,6 +1134,104 @@ export function setCardHidden(h, selected, { hidden }) {
   const area = document.getElementById('integratedai-area');
   if (area) area.style.visibility = hidden ? 'hidden' : '';
   return Boolean(card || area); // something to wait for (a repaint)
+}
+
+// ───────────────────────────────────────────────────────────── watch_video
+
+/**
+ * watch_video, step 1: find the video (the one asked for, or the biggest one on screen, a playing one first),
+ * make sure it plays, and start recording its sound (input.sound). The panel then takes pictures of it while it
+ * plays (videoWatchStatus between them) and collects the sound with videoWatchStop.
+ * Plain calls with no awaiting: DevTools' eval doesn't wait for promises.
+ */
+export function videoWatchStart(h, selected, input) {
+  h.assertPage();
+  const state = h.state();
+  if (state.videoWatch?.recorder?.state === 'recording') state.videoWatch.recorder.stop();
+  state.videoWatch = null;
+  /** @type {HTMLVideoElement | null} */
+  let video = null;
+  if (input.ref || input.selector) {
+    const el = h.target(input.selector, undefined, input.ref);
+    video = el.localName === 'video' ? el : el.querySelector('video');
+    if (!video) throw new Error(`${h.cssPath(el)} is not a video and has no video inside`);
+  } else {
+    const seen = [...document.querySelectorAll('video')]
+      .map((v) => ({ v, r: v.getBoundingClientRect() }))
+      .filter(({ r }) => r.width >= 60 && r.height >= 60 && r.bottom > 0 && r.right > 0 && r.top < innerHeight && r.left < innerWidth)
+      .filter(({ r }) => h.rectTouchesArea(r))
+      .map(({ v, r }) => ({ v, score: (Math.min(r.right, innerWidth) - Math.max(r.left, 0)) * (Math.min(r.bottom, innerHeight) - Math.max(r.top, 0)) * (v.paused ? 1 : 4) }))
+      .sort((a, b) => b.score - a.score);
+    video = seen[0]?.v ?? null;
+    if (!video) throw new Error(h.area ? 'No video is showing inside the marked area' : 'No video is showing on the screen (scroll to it, or give its ref)');
+  }
+  const r = video.getBoundingClientRect();
+  if (r.bottom <= 0 || r.top >= innerHeight) video.scrollIntoView({ block: 'center' });
+  if (video.paused) video.play().catch(() => {});
+  /** @type {any} */
+  const watch = { video, recorder: null, chunks: [], lastTime: video.currentTime, looped: false, audio: null, failed: '' };
+  let sound = 'not recorded';
+  if (input.sound) {
+    try {
+      const tracks = /** @type {any} */ (video).captureStream().getAudioTracks();
+      if (!tracks.length) {
+        sound = 'none (the video has no sound track, or it is protected)';
+      } else {
+        watch.tracks = tracks;
+        watch.recorder = new MediaRecorder(new MediaStream(tracks), { mimeType: 'audio/webm;codecs=opus', audioBitsPerSecond: 48000 });
+        watch.recorder.ondataavailable = (/** @type {BlobEvent} */ e) => { if (e.data.size) watch.chunks.push(e.data); };
+        watch.recorder.start(1000);
+        sound = 'recording';
+      }
+    } catch (err) {
+      sound = `can't be recorded here (${/** @type {any} */ (err)?.message ?? err})`;
+    }
+  }
+  state.videoWatch = watch;
+  const name = video.getAttribute('aria-label') || video.title || '';
+  return {
+    ref: h.refOf(video),
+    label: h.label(video) + (name ? ` "${name.slice(0, 80)}"` : ''),
+    duration: Number.isFinite(video.duration) ? Math.round(video.duration * 10) / 10 : null,
+    currentTime: Math.round(video.currentTime * 10) / 10,
+    paused: video.paused,
+    sound,
+  };
+}
+
+/** watch_video: where the video is now; "ended" also when it started over (reels loop). */
+export function videoWatchStatus(h) {
+  const watch = h.state().videoWatch;
+  if (!watch) return { gone: true };
+  const v = watch.video;
+  const time = v.currentTime;
+  if (time + 0.75 < watch.lastTime) watch.looped = true;
+  watch.lastTime = time;
+  return { time: Math.round(time * 10) / 10, ended: v.ended || watch.looped, paused: v.paused, gone: !v.isConnected };
+}
+
+/**
+ * watch_video, last step: stop recording. Call until done; then the sound comes back as base64 (webm/opus).
+ */
+export function videoWatchStop(h) {
+  const state = h.state();
+  const watch = state.videoWatch;
+  if (!watch) return { done: true };
+  const finish = (/** @type {any} */ result) => { state.videoWatch = null; return { done: true, ...result }; };
+  if (!watch.recorder) return finish({});
+  if (watch.audio !== null || watch.failed) return finish(watch.failed ? { error: watch.failed } : { audio: watch.audio, mediaType: 'audio/webm' });
+  if (watch.recorder.state !== 'inactive' && !watch.stopping) {
+    watch.stopping = true;
+    watch.recorder.onstop = () => {
+      for (const t of watch.tracks ?? []) t.stop();
+      const reader = new FileReader();
+      reader.onload = () => { watch.audio = String(reader.result).replace(/^data:[^,]*,/, ''); };
+      reader.onerror = () => { watch.failed = 'the sound could not be read'; };
+      reader.readAsDataURL(new Blob(watch.chunks, { type: 'audio/webm' }));
+    };
+    watch.recorder.stop();
+  }
+  return { done: false };
 }
 
 // ───────────────────────────────────────────────────────────── the marked area

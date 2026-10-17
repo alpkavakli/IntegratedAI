@@ -95,7 +95,8 @@ export const ACTION_STATUS = /** @type {const} */ ({
  *   | { type: 'inspection', name: string, input: unknown, ok?: boolean }  an inspection (or, in an agent mode, a page step) the model ran itself during
  *                                            the call (Claude Code via MCP); display only, not sent back
  *   | { type: 'tool_result', toolCallId: string, content: string, isError?: boolean,
- *       images?: { mediaType: string, data: string }[] }} ContentBlock   images: e.g. a screenshot (base64)
+ *       images?: { mediaType: string, data: string }[], audio?: { mediaType: string, data: string } }} ContentBlock
+ *   images: e.g. a screenshot (base64); audio: a video's sound (watch_video, WAV), sent only to AIs that can listen
  */
 
 /**

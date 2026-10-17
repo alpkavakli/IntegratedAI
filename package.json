@@ -1,6 +1,6 @@
 {
   "name": "integratedai",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "license": "AGPL-3.0-or-later",
   "description": "Local agent server for the IntegratedAI Chrome extension: use your Claude or ChatGPT subscription (Claude Code, Codex) from the browser.",
   "keywords": [
@@ -43,6 +43,7 @@
     "check": "tsc --noEmit -p jsconfig.json",
     "package": "node scripts/package-extension.js",
     "vendor:sdk": "node scripts/vendor-sdk.js",
+    "vendor:pdf": "node scripts/vendor-pdf.js",
     "site": "node scripts/build-site.js",
     "ui-check": "node scripts/ui-check.mjs",
     "page-check": "node scripts/page-check.mjs",
@@ -56,6 +57,7 @@
     "ws": "^8.22.0"
   },
   "devDependencies": {
-    "esbuild": "^0.28.2"
+    "esbuild": "^0.28.2",
+    "pdfjs-dist": "^6.4.299"
   }
 }

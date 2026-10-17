@@ -41,6 +41,10 @@ the dashboard takes a description per language (Store listing → language menu)
 > - **Agent modes:** let it work through a task on the page by itself, step by step while you watch. It asks before
 >   each step, or only before risky ones (submitting, sending, paying, deleting); you choose.
 > - **Translates the page** into your language, and puts the original text back with one click.
+> - **Writes from your CV:** add your CV once (PDF or text), and get a cover letter for the job on the page, answers
+>   to application questions, or a referral message, using only what your CV says. Edit, copy, or put it into the form.
+> - **Looks things up in your past chats:** bring in the data export of your ChatGPT account, and ask "what did I
+>   decide about…". The chats stay in your browser and are searched there.
 > - **Remembers each site:** key selectors and your preferences, so the next conversation starts informed.
 > - **Explains console errors** and jumps to the source.
 > - **You decide what it sees:** the whole page, only an area you mark on it, or nothing at all ("just answer").
@@ -145,7 +149,15 @@ support URL `https://github.com/alpkavakli/IntegratedAI/issues`.
 - User activity: **yes**. Its examples include "network monitoring": the AI can read the page's network log
   (request method, URL, status, timing; no bodies, cookies or auth headers) when the Network chip is on or it asks.
   Sent only to the AI provider the user chose.
-- Web history, personally identifiable info, financial/health data, location: **no** (not collected;
+- Personally identifiable information: **yes** (from 0.3.0). The optional "About you" section holds the user's CV
+  (name, contact details, work history). It is stored locally and sent to the AI provider the user chose only with
+  messages the user attaches it to, to write application texts for them. Never to the developer.
+- Personal communications: **yes** (from 0.3.0). The optional "Your ChatGPT history" section keeps the text of the
+  user's exported chats locally; parts found by a search go to the AI provider the user chose, in that conversation,
+  while the user has the search switched on. Never to the developer.
+  (The description names ChatGPT once, for this feature. The 0.1.0 rejection was for a list of AI company names:
+  keep it to this one mention.)
+- Web history, financial/health data, location: **no** (not collected;
   cookies, authorization headers and token-like URL parameters are removed before anything is sent, and password
   field values are never read).
 - Certify: not sold to third parties; not used for unrelated purposes; not used for creditworthiness/lending.
@@ -184,9 +196,10 @@ If the review still rejects it, the fallback is a store build without `execute_j
 
 1. Bump `version` in `extension/manifest.json` (the store rejects re-uploads of the same version) **and in
    `package.json`** (the npm server; `npm test` fails when they differ).
-2. `npm test`, then `npm run package`.
-3. If stored data changed shape: add a migration (server: `server/src/storage/data-version.js`,
+2. New features: the one-line note in `extension/panel/lib/whats-new.js` and the setup page's "What's new" list.
+3. `npm test`, then `npm run package`.
+4. If stored data changed shape: add a migration (server: `server/src/storage/data-version.js`,
    extension: `STORAGE_MIGRATIONS` in `background/service-worker.js`).
-4. Upload `dist/integratedai-<version>.zip` in the Developer Dashboard.
-5. Publish the matching server: `npm publish` from the same commit (asks for the 2FA code), then push. See
+5. Upload `dist/integratedai-<version>.zip` in the Developer Dashboard.
+6. Publish the matching server: `npm publish` from the same commit (asks for the 2FA code), then push. See
    HANDOFF.md, "Releasing".

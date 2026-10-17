@@ -131,6 +131,8 @@ export function interactStep(h, selected, { actionId, step, dry = false, hold = 
   /** How many elements matched the step's text (more than one: the AI is told it got the first). */
   let matches = 0;
   function find() {
+    // (write_text's "put it into the selected field": the element the user selected or picked.)
+    if (step.selected) return h.target(undefined, selected);
     if (step.ref) return h.byRef(step.ref); // throws when the element is gone: looking again won't help
     let scope = [document.body];
     if (step.selector) {

@@ -43,6 +43,7 @@ const COMPACT_FULL_RESULTS = 3;
  * @property {boolean} [thoughtSignatures] Gemini: tool calls carry a thought signature (extra_content.google) that must
  *   go back with them in the next requests, or the API refuses the call ("missing a thought_signature")
  * @property {boolean} [custom]       no fixed address: the user enters it (and any model); the key is optional
+ * @property {boolean} [audioInput]   takes sound (input_audio, WAV) in user messages: a watched video's sound goes along
  */
 
 /**
@@ -69,6 +70,7 @@ export const PRESETS = {
     keyUrl: 'https://aistudio.google.com/apikey',
     includeUsage: false,
     thoughtSignatures: true,
+    audioInput: true,
   },
   openrouter: {
     label: 'OpenRouter',
@@ -164,6 +166,8 @@ function safeOrigin(url) {
 }
 
 /** Waits before trying a busy service again (presetFetch). */
+/** "provider:model" that took tools only with reasoning_effort 'none' (see turn()). */
+const NO_EFFORT_WITH_TOOLS = new Set();
 export const RETRY_WAITS_MS = [2000, 5000];
 
 /** @param {number} ms @param {AbortSignal | null | undefined} signal */
@@ -276,9 +280,10 @@ export function openAICompatibleProvider(id) {
      * @returns {AsyncGenerator<import('./base.js').ProviderEvent>}
      */
     async *turn({ messages, system, actionNames, model, signal, compact = false, state = {} }) {
+      const effortKey = `${id}:${model}`;
       /** @param {boolean} images  screenshots attached (no: the model can't take them, see below) */
       const messagesFor = (images) => toOpenAIMessages(system, messages, {
-        compact, images, reasoningFor: preset.sendReasoning ? id : undefined, signaturesFor: preset.thoughtSignatures ? id : undefined,
+        compact, images, audio: images && Boolean(preset.audioInput) && !state.noAudio, reasoningFor: preset.sendReasoning ? id : undefined, signaturesFor: preset.thoughtSignatures ? id : undefined,
       });
       const body = {
         model,
@@ -292,6 +297,7 @@ export function openAICompatibleProvider(id) {
         } : {}),
         stream: true,
         ...(preset.includeUsage ? { stream_options: { include_usage: true } } : {}),
+        ...(actionNames.length && NO_EFFORT_WITH_TOOLS.has(effortKey) ? { reasoning_effort: 'none' } : {}),
       };
       const settings = this.config.providers[id];
       const send = () => presetFetch(id, this.fetch, `${baseUrlFor(id, settings)}/chat/completions`, {
@@ -306,7 +312,7 @@ export function openAICompatibleProvider(id) {
         signal,
       }, { retry: false });
       let res;
-      try {
+      for (let fallback = 0; ; fallback++) try {
         // A busy service is tried twice more; the panel shows it ("GLM is busy, trying again in 5 s…").
         for (let attempt = 0; ; attempt++) {
           try {
@@ -320,15 +326,31 @@ export function openAICompatibleProvider(id) {
             await sleepUnlessAborted(waitMs, signal);
           }
         }
+        break;
       } catch (err) {
+        const message = String(/** @type {any} */ (err)?.message ?? '');
+        if (fallback >= 3 || !/error 400/.test(message)) throw err;
+        // OpenAI's newer reasoning models (gpt-6 and later) take function tools on /chat/completions only without
+        // reasoning ("…use /v1/responses or set reasoning_effort to 'none'"): the same request with it off, and
+        // this model is sent that way from now on (until the panel is reopened).
+        if (body.tools && !body.reasoning_effort && /reasoning_effort/.test(message) && /tools/i.test(message)) {
+          NO_EFFORT_WITH_TOOLS.add(effortKey);
+          body.reasoning_effort = 'none';
+          continue;
+        }
+        // A model that can't take the sound of a watched video: the same request without it, and none after that.
+        if (!state.noAudio && preset.audioInput && /audio/i.test(message)
+          && messages.some((m) => m.content.some((b) => b.type === 'tool_result' && /** @type {any} */ (b).audio))) {
+          state.noAudio = true;
+          body.messages = messagesFor(!state.noImages);
+          continue;
+        }
         // A text-only model (GLM's flash models, …) refuses the screenshots: the same request without them, and no
         // images for the rest of this conversation (the model is told a screenshot was taken but can't be shown).
-        const message = String(/** @type {any} */ (err)?.message ?? '');
-        if (state.noImages || !/error 400/.test(message) || !/image|content\.type|multimodal|vision/i.test(message)
+        if (state.noImages || !/image|content\.type|multimodal|vision/i.test(message)
           || !messages.some((m) => m.content.some((b) => b.type === 'tool_result' && /** @type {any} */ (b).images?.length))) throw err;
         state.noImages = true;
         body.messages = messagesFor(false);
-        res = await send();
       }
 
       /** @type {{ id: string, name: string, args: string, signature?: string }[]} */
@@ -417,9 +439,12 @@ const GEMINI_NO_SIGNATURE = 'skip_thought_signature_validator';
  * @param {string} system
  * @param {NeutralMessage[]} messages
  * - images: false for a model that can't take images: screenshots are left out, with a note in their place
- * @param {{ compact?: boolean, reasoningFor?: string, signaturesFor?: string, images?: boolean }} [opts]
+ * - audio: the model takes sound: the newest watched video's sound goes along (input_audio); otherwise a note
+ * @param {{ compact?: boolean, reasoningFor?: string, signaturesFor?: string, images?: boolean, audio?: boolean }} [opts]
  */
-export function toOpenAIMessages(system, messages, { compact = false, reasoningFor = undefined, signaturesFor = undefined, images: withImages = true } = {}) {
+export function toOpenAIMessages(system, messages, { compact = false, reasoningFor = undefined, signaturesFor = undefined, images: withImages = true, audio: withAudio = false } = {}) {
+  /** The one tool result whose sound is sent (the newest; a minute of sound is large). */
+  const keepAudio = withAudio ? messages.flatMap((m) => m.content).findLast((b) => b.type === 'tool_result' && /** @type {any} */ (b).audio) : undefined;
   /** @type {Set<unknown>} tool_result blocks whose images are still sent */
   const keepImages = new Set();
   let imagesLeft = withImages ? MAX_IMAGES_SENT : 0;
@@ -477,27 +502,34 @@ export function toOpenAIMessages(system, messages, { compact = false, reasoningF
     }
     /** @type {any[]} */
     const images = [];
+    /** @type {any[]} */
+    const audios = [];
     for (const b of m.content) {
       if (b.type !== 'tool_result') continue;
       const r = /** @type {any} */ (b);
       const dropped = !r.images?.length || keepImages.has(b) ? ''
         : withImages ? '\n(The screenshot from this result is no longer attached.)'
           : '\n(A screenshot was taken, but this model can\'t see images: use the page text tools instead.)';
-      out.push({ role: 'tool', tool_call_id: r.toolCallId, content: (r.isError ? `Error: ${shorten(r)}` : shorten(r)) + dropped });
+      const sound = !r.audio || keepAudio === b ? ''
+        : withAudio ? '\n(The sound from this result is no longer attached.)'
+          : '\n(The video\'s sound was recorded, but this AI can\'t hear it: only its pictures were sent. Rely on subtitles and on-screen text.)';
+      out.push({ role: 'tool', tool_call_id: r.toolCallId, content: (r.isError ? `Error: ${shorten(r)}` : shorten(r)) + dropped + sound });
       if (r.images && keepImages.has(b)) images.push(...r.images);
+      if (keepAudio === b) audios.push(r.audio);
     }
     const parts = m.content
       .filter((b) => b.type !== 'tool_result' && !(compact && b.type === 'context' && !full.has(b)))
       .map((b) => renderBlockAsText(/** @type {any} */ (b)))
       .filter(Boolean)
       .map((text) => ({ type: 'text', text }));
-    if (!images.length) {
+    if (!images.length && !audios.length) {
       // Text only: one plain string (the most widely supported form across compatible endpoints).
       if (parts.length) out.push({ role: 'user', content: parts.map((p) => p.text).join('\n\n') });
       continue;
     }
-    parts.unshift({ type: 'text', text: 'Screenshot from the inspection above:' });
+    parts.unshift({ type: 'text', text: audios.length ? 'Pictures and sound from the inspection above:' : 'Screenshot from the inspection above:' });
     parts.push(...images.map((i) => ({ type: 'image_url', image_url: { url: `data:${i.mediaType};base64,${i.data}` } })));
+    parts.push(...audios.map((a) => ({ type: 'input_audio', input_audio: { data: a.data, format: 'wav' } })));
     out.push({ role: 'user', content: parts });
   }
   return out;

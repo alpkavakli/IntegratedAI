@@ -24,6 +24,7 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import http from 'node:http';
 import { tmpdir } from 'node:os';
+import { exportedChat, makePdf, makeZip } from '../server/test/helpers.js';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -90,6 +91,43 @@ const ollama = http.createServer((req, res) => {
     chatRequests.push(request);
     // Page access checks: read the page once (whatever the access allows), then answer.
     const lastText = request.messages.findLast((/** @type {any} */ m) => m.role === 'user' && typeof m.content === 'string')?.content ?? '';
+    // Comments: load them all once, then answer.
+    if (/COMMENTS-TEST/.test(lastText)) {
+      const sinceAsk = request.messages.slice(request.messages.findLastIndex((/** @type {any} */ m) => m.role === 'user' && typeof m.content === 'string'));
+      if (!sinceAsk.some((/** @type {any} */ m) => m.role === 'tool')) {
+        send({ choices: [{ delta: { tool_calls: [{ index: 0, id: `call_rm_${Date.now()}`, type: 'function', function: { name: 'read_more', arguments: JSON.stringify({ selector: '#comments' }) } }] } }] });
+        send({ choices: [{ delta: {}, finish_reason: 'tool_calls' }] });
+      } else {
+        send({ choices: [{ delta: { content: 'From all 60 comments: people ask about mesh counts.' } }] });
+        send({ choices: [{ delta: {}, finish_reason: 'stop' }] });
+      }
+      return res.end('data: [DONE]\n\n');
+    }
+    // A video: watch it once, then answer.
+    if (/VIDEO-TEST/.test(lastText)) {
+      const sinceAsk = request.messages.slice(request.messages.findLastIndex((/** @type {any} */ m) => m.role === 'user' && typeof m.content === 'string'));
+      if (!sinceAsk.some((/** @type {any} */ m) => m.role === 'tool')) {
+        send({ choices: [{ delta: { tool_calls: [{ index: 0, id: `call_wv_${Date.now()}`, type: 'function', function: { name: 'watch_video', arguments: JSON.stringify({ seconds: 10 }) } }] } }] });
+        send({ choices: [{ delta: {}, finish_reason: 'tool_calls' }] });
+      } else {
+        send({ choices: [{ delta: { content: 'It shows coloured scenes.' } }] });
+        send({ choices: [{ delta: {}, finish_reason: 'stop' }] });
+      }
+      return res.end('data: [DONE]\n\n');
+    }
+    // Past chats: search them once, then answer with what came back.
+    if (/CHATS-TEST/.test(lastText)) {
+      const sinceAsk = request.messages.slice(request.messages.findLastIndex((/** @type {any} */ m) => m.role === 'user' && typeof m.content === 'string'));
+      const found = sinceAsk.find((/** @type {any} */ m) => m.role === 'tool');
+      if (!found && (request.tools ?? []).some((/** @type {any} */ t) => t.function.name === 'search_chats')) {
+        send({ choices: [{ delta: { tool_calls: [{ index: 0, id: `call_sc_${Date.now()}`, type: 'function', function: { name: 'search_chats', arguments: JSON.stringify({ query: 'Where did I plan to go in May? Lisbon trip' }) } }] } }] });
+        send({ choices: [{ delta: {}, finish_reason: 'tool_calls' }] });
+      } else {
+        send({ choices: [{ delta: { content: found ? 'You planned Lisbon.' : 'I have no past chats to search.' } }] });
+        send({ choices: [{ delta: {}, finish_reason: 'stop' }] });
+      }
+      return res.end('data: [DONE]\n\n');
+    }
     if (/AREA-TEST|NONE-TEST/.test(lastText)) {
       const tools = (request.tools ?? []).map((/** @type {any} */ t) => t.function.name);
       const after = request.messages.slice(request.messages.findLastIndex((/** @type {any} */ m) => m.role === 'user' && typeof m.content === 'string'));
@@ -98,6 +136,24 @@ const ollama = http.createServer((req, res) => {
         send({ choices: [{ delta: {}, finish_reason: 'tool_calls' }] });
       } else {
         send({ choices: [{ delta: { content: 'Here is what I can tell.' } }] });
+        send({ choices: [{ delta: {}, finish_reason: 'stop' }] });
+      }
+      return res.end('data: [DONE]\n\n');
+    }
+    // The Write… menu: hand over a text, with the first line of the CV in it (so the checks can see the CV arrived).
+    const writing = /Write a cover letter|Write an answer to the question/.exec(lastText);
+    if (writing) {
+      const sinceAsk = request.messages.slice(request.messages.findLastIndex((/** @type {any} */ m) => m.role === 'user' && typeof m.content === 'string'));
+      if (!sinceAsk.some((/** @type {any} */ m) => m.role === 'tool')) {
+        const name = /CV:\n([^\n]*)/.exec(lastText)?.[1] ?? '(no CV)';
+        const answer = /cover letter/.test(writing[0])
+          ? { description: 'Cover letter for Lumen Cloud', text: `Dear Lumen Cloud team,\n\nI am ${name}, and I would like to join you.\n\nKind regards,\n${name}` }
+          : { description: 'Answer for the "Full name" field', text: name };
+        send({ choices: [{ delta: { content: 'Written from your CV.' } }] });
+        send({ choices: [{ delta: { tool_calls: [{ index: 0, id: `call_wt_${Date.now()}`, type: 'function', function: { name: 'write_text', arguments: JSON.stringify(answer) } }] } }] });
+        send({ choices: [{ delta: {}, finish_reason: 'tool_calls' }] });
+      } else {
+        send({ choices: [{ delta: { content: 'Check the names before you send it.' } }] });
         send({ choices: [{ delta: {}, finish_reason: 'stop' }] });
       }
       return res.end('data: [DONE]\n\n');
@@ -142,7 +198,7 @@ const ollama = http.createServer((req, res) => {
 }).listen(PORTS.ollama);
 
 const chrome = spawn(CHROME, ['--headless=new', `--remote-debugging-port=${PORTS.cdp}`, '--enable-unsafe-extension-debugging',
-  '--hide-scrollbars', `--user-data-dir=${join(WORK, 'chrome')}`, ...(process.env.UI_LANG ? [`--lang=${process.env.UI_LANG}`] : []), 'about:blank'], { stdio: 'ignore' });
+  '--hide-scrollbars', '--autoplay-policy=no-user-gesture-required', `--user-data-dir=${join(WORK, 'chrome')}`, ...(process.env.UI_LANG ? [`--lang=${process.env.UI_LANG}`] : []), 'about:blank'], { stdio: 'ignore' });
 const axe = await (await fetch(AXE_URL)).text();
 await sleep(3000);
 
@@ -331,6 +387,29 @@ try {
   await shot(light.panel, 'panel-07-answer-light-narrow', 360, 700);
   await audit(light.panel.session, 'panel answer (light, narrow)');
   await checkLayout(light.panel.session, 'panel answer (light, narrow)', PANEL_LAYOUT);
+
+  // Write… → "Answer the selected question": a text card; it goes into the selected field, and Undo takes it out.
+  await ev(sw, `chrome.storage.local.set({ profile: { cv: 'Alp Kavakli\\nJava and Spring Boot', notes: 'Backend roles', cvName: 'cv.pdf', updatedAt: 1 } })`);
+  const writer = await openPanel('signup.html', '#name', 'default');
+  if (await writer.ui(`document.getElementById('profile-chip').hidden`)) violations.push('write: the About me chip is not shown though a CV is saved');
+  const beforeAnswer = chatRequests.length;
+  await writer.ui(`(() => { const s = document.getElementById('write-menu'); s.value = 'answer'; s.dispatchEvent(new Event('change')); })()`);
+  for (let i = 0; i < 60 && !(await writer.ui(`!!document.querySelector('ai-action-card textarea.written') && !document.querySelector('.thinking')`)); i++) await sleep(500);
+  await sleep(600);
+  const answerAsk = JSON.stringify(chatRequests[beforeAnswer]?.messages.findLast((/** @type {any} */ m) => m.role === 'user') ?? '');
+  if (!/<about_me/.test(answerAsk) || !/Spring Boot/.test(answerAsk)) violations.push(`write: the CV was not attached to the request (${answerAsk.slice(0, 200)})`);
+  if (await writer.ui(`document.getElementById('ctx-profile').checked`)) violations.push('write: the About me chip stayed ticked after sending');
+  await shot(writer.panel, 'panel-11-written-text-light');
+  await audit(writer.panel.session, 'panel written text (light)');
+  await writer.click('Put into the selected field');
+  await sleep(1000);
+  const filled = await ev(writer.page.session, `document.getElementById('name').value`);
+  log(`write: put into the selected field → "${filled}"`);
+  if (filled !== 'Alp Kavakli') violations.push(`write: the text was not put into the selected field ("${filled}")`);
+  await writer.click('Undo');
+  await sleep(800);
+  const emptied = await ev(writer.page.session, `document.getElementById('name').value`);
+  if (emptied !== '') violations.push(`write: Undo did not take the text out again ("${emptied}")`);
 
   // Agent mode: the AI fills in a form, asks before the risky click, then opens another page.
   const agent = await openPanel('signup.html', '#signup', 'default');
@@ -593,6 +672,19 @@ try {
   else if ((noneRequest.tools ?? []).length) violations.push(`card: just answer: tools were offered (${noneRequest.tools.length})`);
   if (/pricing|Simple, honest|"page"/.test(noneText)) violations.push(`card: just answer: page content was sent (${noneText.slice(0, 300)})`);
   await ev(cardSession, `(() => { const s = document.getElementById('page-access'); s.value = 'full'; s.dispatchEvent(new Event('change')); })()`);
+
+  // The Write… menu in the card: a cover letter from the CV, as a card with the text (editable).
+  await sleep(400);
+  const beforeCover = chatRequests.length;
+  await ev(cardSession, `(() => { const s = document.getElementById('write-menu'); s.value = 'cover'; s.dispatchEvent(new Event('change')); })()`);
+  await waitAnswer(beforeCover);
+  let letter = '';
+  for (let i = 0; i < 40 && !(letter = await ev(cardSession, `document.querySelector('ai-action-card textarea.written')?.value ?? ''`)); i++) await sleep(250);
+  const coverAsk = JSON.stringify(chatRequests[beforeCover]?.messages.findLast((/** @type {any} */ m) => m.role === 'user') ?? '');
+  log(`card: cover letter → ${JSON.stringify(letter.slice(0, 60))}`);
+  if (!/<about_me/.test(coverAsk) || !/Spring Boot/.test(coverAsk)) violations.push('card: write: the CV was not attached to the request');
+  if (!/^Dear Lumen Cloud team/.test(letter) || !/Alp Kavakli/.test(letter)) violations.push(`card: write: no cover letter card (${letter.slice(0, 80)})`);
+  if (!(chatRequests[beforeCover]?.tools ?? []).some((/** @type {any} */ t) => t.function.name === 'write_text')) violations.push('card: write: write_text was not offered');
   await ev(sw, `chrome.storage.session.set({ 'card:${cardTab}': { open: false } })`);
 
   // Nothing set up yet: the panel's first-run screen.
@@ -621,6 +713,109 @@ try {
   await shot(options, 'setup-02-ollama-ready-advanced', 900, 1700);
   await audit(options.session, 'setup page, Ollama ready, advanced settings');
   await checkLayout(options.session, 'setup page, Ollama ready', SETUP_LAYOUT);
+
+  // About you: a real PDF is read in the page (the packaged pdf.js, in a worker), and its text shows for checking.
+  const pdfPath = join(WORK, 'cv.pdf');
+  fs.writeFileSync(pdfPath, makePdf([['Alp Kavakli', 18], ['Software Engineer (Java, Spring Boot)', 12], ['§Experience', 14], ['Built a credit-scoring app', 11]]));
+  await cdp('DOM.enable', {}, options.session);
+  const optionsDoc = (await cdp('DOM.getDocument', {}, options.session)).result.root;
+  const fileInput = (await cdp('DOM.querySelector', { nodeId: optionsDoc.nodeId, selector: '#profile-file' }, options.session)).result.nodeId;
+  await cdp('DOM.setFileInputFiles', { files: [pdfPath], nodeId: fileInput }, options.session);
+  let cvText = '';
+  for (let i = 0; i < 60 && !/Software Engineer/.test(cvText = await ev(options.session, `document.getElementById('profile-cv').value`)); i++) await sleep(250);
+  const cvStatus = await ev(options.session, `document.getElementById('profile-status').textContent`);
+  log(`setup: PDF read → ${JSON.stringify(cvText.slice(0, 70))} (${cvStatus})`);
+  if (cvText !== 'Alp Kavakli\nSoftware Engineer (Java, Spring Boot)\n\nExperience\nBuilt a credit-scoring app') violations.push(`setup: the uploaded PDF was not read right (${cvStatus || 'no status'}: ${JSON.stringify(cvText.slice(0, 120))})`);
+  const savedCv = await ev(sw, `chrome.storage.local.get('profile').then((r) => r.profile?.cv ?? '')`);
+  if (!/Software Engineer/.test(savedCv)) violations.push('setup: the CV text was not saved');
+  await ev(options.session, `document.getElementById('about-you').scrollIntoView()`);
+  await shot(options, 'setup-03-about-you', 900, 900);
+
+  // Your ChatGPT history: the export ZIP is read on the page, kept in the browser, and the AI can search it.
+  const zipPath = join(WORK, 'chatgpt-export.zip');
+  fs.writeFileSync(zipPath, makeZip([
+    { name: 'chat.html', data: '<html></html>' },
+    { name: 'conversations.json', data: JSON.stringify([
+      exportedChat('c1', 'Trip plan', [['user', 'Where should I go in May?'], ['assistant', 'Lisbon is lovely in May. Book the flight early.']]),
+      exportedChat('c2', 'Cooking', [['user', 'How long do I boil an egg?'], ['assistant', 'Seven minutes.']]),
+      exportedChat('c3', 'Empty', []),
+    ]) },
+  ]));
+  const chatsInput = (await cdp('DOM.querySelector', { nodeId: optionsDoc.nodeId, selector: '#chats-file' }, options.session)).result.nodeId;
+  await cdp('DOM.setFileInputFiles', { files: [zipPath], nodeId: chatsInput }, options.session);
+  let chatsStatus = '';
+  for (let i = 0; i < 60 && !/Chats here: 2/.test(chatsStatus = await ev(options.session, `document.getElementById('chats-status').textContent`)); i++) await sleep(250);
+  log(`setup: ChatGPT export → "${chatsStatus}"`);
+  if (!/Chats here: 2/.test(chatsStatus)) violations.push(`setup: the ChatGPT export was not brought in (${chatsStatus || 'no status'})`);
+  if (!(await ev(sw, `chrome.storage.local.get('settings').then((r) => r.settings?.pastChats === true)`))) violations.push('setup: bringing in chats did not switch the search on');
+  if (!(await ev(options.session, `document.getElementById('pastChats').checked && !document.getElementById('chats-clear').hidden`))) violations.push('setup: past chats: the box is not ticked, or there is no remove button');
+  await ev(options.session, `document.getElementById('past-chats').scrollIntoView()`);
+  await shot(options, 'setup-04-past-chats', 900, 900);
+  await audit(options.session, 'setup page, past chats');
+  // In the panel: the AI asks for a search, gets the chat with an excerpt, and can read the whole chat.
+  const chats = await openPanel('blog.html', 'article p', 'light');
+  const beforeChats = chatRequests.length;
+  await ev(chats.panel.session, `document.getElementById('prompt').value = 'CHATS-TEST where did I plan to go in May?'; document.getElementById('composer').requestSubmit()`);
+  await waitAnswer(beforeChats);
+  for (let i = 0; i < 40 && chatRequests.length < beforeChats + 2; i++) await sleep(250);
+  const chatsFound = String(chatRequests.slice(beforeChats).flatMap((/** @type {any} */ r) => r.messages).findLast((/** @type {any} */ m) => m.role === 'tool')?.content ?? '');
+  log(`panel: search_chats → ${chatsFound.slice(0, 160)}`);
+  if (!/"title":\s*"Trip plan"/.test(chatsFound) || !/Lisbon is lovely in May/.test(chatsFound)) violations.push(`panel: past chats: the search did not return the chat (${chatsFound.slice(0, 200) || 'no tool result'})`);
+  if (/Cooking/.test(chatsFound)) violations.push('panel: past chats: a chat that does not match came back');
+  const wholeChat = await ev(chats.panel.session, `chrome.runtime.sendMessage({ cmd: 'chats.search', input: { id: 'c1' } }).then((r) => r.value?.text ?? JSON.stringify(r))`);
+  if (wholeChat !== 'You: Where should I go in May?\n\nChatGPT: Lisbon is lovely in May. Book the flight early.') violations.push(`panel: past chats: reading a chat by id gave ${JSON.stringify(String(wholeChat).slice(0, 120))}`);
+  // Removing them: gone, and the search is off.
+  await ev(options.session, `document.getElementById('chats-clear').click(); document.getElementById('chats-clear').click()`);
+  await sleep(800);
+  const afterRemove = await ev(chats.panel.session, `chrome.runtime.sendMessage({ cmd: 'chats.search', input: { query: 'Lisbon' } }).then((r) => r.value?.available)`);
+  if (afterRemove !== false) violations.push('setup: past chats: still searchable after removing them');
+  if (await ev(sw, `chrome.storage.local.get('settings').then((r) => r.settings?.pastChats === true)`)) violations.push('setup: past chats: removing them left the search switched on');
+  log('setup: past chats removed');
+
+  // watch_video: a muted, looping clip (like a reel) with a tone in it. Pictures every 1.5 s on a contact sheet, and
+  // the sound recorded even though the video is muted (the stand-in, as "Ollama", is told it can't be heard).
+  const clip = await openPanel('video.html', 'h1', 'light');
+  for (let i = 0; i < 40 && (await ev(clip.page.session, `document.getElementById('state').textContent`)) !== 'Playing'; i++) await sleep(250);
+  // (Here the panel is a tab of its own: the page has to be the one showing, as it is next to docked DevTools.)
+  await cdp('Target.activateTarget', { targetId: clip.page.targetId });
+  const beforeVideo = chatRequests.length;
+  await ev(clip.panel.session, `document.getElementById('prompt').value = 'VIDEO-TEST what is in this clip?'; document.getElementById('composer').requestSubmit()`);
+  await waitAnswer(beforeVideo);
+  for (let i = 0; i < 80 && chatRequests.length < beforeVideo + 2; i++) await sleep(250);
+  const videoRequest = chatRequests[beforeVideo + 1];
+  const videoResult = String(videoRequest?.messages.findLast((/** @type {any} */ m) => m.role === 'tool')?.content ?? '');
+  log(`panel: watch_video → ${videoResult.slice(0, 400)}`);
+  if (!/"images":"1 attached"/.test(videoResult)) violations.push(`watch_video: no contact sheet (${videoResult.slice(0, 300) || 'no tool result'})`);
+  if (!/"sound":"attached/.test(videoResult)) violations.push(`watch_video: the sound of the muted clip was not recorded (${videoResult.slice(0, 300)})`);
+  if (!/can't hear it/.test(videoResult)) violations.push('watch_video: an AI that can\'t listen was not told the sound was left out');
+  if (!/to the end/.test(videoResult)) violations.push('watch_video: the loop (the clip starting over) was not noticed');
+  if (!JSON.stringify(videoRequest?.messages ?? []).includes('image_url')) violations.push('watch_video: the contact sheet did not reach the AI');
+  const sheets = await ev(clip.panel.session, `document.querySelectorAll('ai-chat-view img, .screenshot img, img.screenshot').length`);
+  if (!sheets) violations.push('watch_video: the contact sheet is not shown in the chat');
+  await shot(clip.panel, 'panel-14-watched-video-light');
+
+  // read_more: comments that load 10 at a time as the page scrolls, with "View 3 replies" on every 10th.
+  const thread = await openPanel('comments.html', 'h1', 'light');
+  await cdp('Target.activateTarget', { targetId: thread.page.targetId });
+  const beforeComments = chatRequests.length;
+  await ev(thread.panel.session, `document.getElementById('prompt').value = 'COMMENTS-TEST summarize the comments'; document.getElementById('composer').requestSubmit()`);
+  await waitAnswer(beforeComments);
+  for (let i = 0; i < 160 && chatRequests.length < beforeComments + 2; i++) await sleep(250);
+  const loaded = String(chatRequests[beforeComments + 1]?.messages.findLast((/** @type {any} */ m) => m.role === 'tool')?.content ?? '');
+  log(`panel: read_more → ${loaded.slice(0, 260)} … ${loaded.slice(-700)}`);
+  if (!/Comment 60:/.test(loaded)) violations.push(`read_more: not every comment was loaded (${loaded.slice(0, 300) || 'no tool result'})`);
+  if (!/Reply 3 to comment 60/.test(loaded) || !/View 3 replies\\" ×6/.test(loaded)) violations.push('read_more: the replies were not opened');
+  // What's new: after an update, the panel says what's new once; the next time it's gone.
+  await ev(sw, `chrome.storage.local.remove('whatsNewSeen').then(() => chrome.storage.local.set({ updated: { from: '0.2.0', to: chrome.runtime.getManifest().version } }))`);
+  const updatedPanel = await openPanel('blog.html', 'article p', 'light');
+  const note = await ev(updatedPanel.panel.session, `document.getElementById('whats-new').hidden ? '' : document.getElementById('whats-new-text').textContent`);
+  log(`panel: what's new → "${note}"`);
+  if (!/^Updated to 0\.3/.test(note)) violations.push(`what's new: no note after the update (${note || 'hidden'})`);
+  await shot(updatedPanel.panel, 'panel-15-whats-new-light');
+  await audit(updatedPanel.panel.session, "panel, what's new");
+  const again = await openPanel('blog.html', 'article p', 'light');
+  if (!(await ev(again.panel.session, `document.getElementById('whats-new').hidden`))) violations.push("what's new: shown a second time");
+  if (!/nothing more loaded/.test(loaded)) violations.push(`read_more: it did not stop at the end of the list (${(/"stoppedAt":"[^"]*"/.exec(loaded) ?? [''])[0]})`);
 } catch (err) {
   failed = true;
   console.error(err);

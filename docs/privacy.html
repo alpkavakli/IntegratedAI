@@ -20,7 +20,7 @@
 </head>
 <body><main>
 <h1>Browser IntegratedAI DevTools: Privacy Policy</h1>
-<p><em>Last updated: 2026-10-08</em></p>
+<p><em>Last updated: 2026-10-10</em></p>
 <p>Browser IntegratedAI DevTools (&quot;the extension&quot;) adds an AI panel to Chrome DevTools. This policy explains what data the extension handles and where it goes. In short: <strong>the developer does not collect, receive or sell any of your data.</strong> Depending on the connection you choose in Options, the extension talks either directly to the AI provider you choose (such as Anthropic, OpenAI or Google Gemini; the full list is below) with your own API key, or to Ollama running on your own computer (&quot;direct mode&quot;), or to an agent server that runs on your own computer, which talks to the AI provider you choose (Claude through Claude Code, or ChatGPT through OpenAI's Codex CLI, each signed in with your own account).</p>
 <h2>What the extension reads</h2>
 <p>You choose how much of the page the AI may see, in the <strong>Page access</strong> menu next to the message box:</p>
@@ -30,6 +30,7 @@
 <li><strong>Just answer:</strong> nothing from the page is sent; only your question.</li>
 </ul>
 <p>In every mode, values of hidden fields, password and card-number fields, script contents and token-like values are removed from any HTML that is sent.</p>
+<p><strong>Your CV (&quot;About you&quot;, optional).</strong> If you add your CV and notes on the options page, they are kept in this browser. A PDF you upload is read on your computer; the file itself is not stored or sent. The CV's text and your notes are sent to the AI provider you chose only with a message you attach them to (the &quot;About me&quot; box above the message box, which the Write… menu ticks), so it can write a cover letter or an answer from them. They are never part of an export, and &quot;Remove my CV and notes&quot; or &quot;Delete extension data&quot; deletes them.</p>
 <p>Only when you use the AI panel, and only from the tab you are inspecting:</p>
 <ul>
 <li><strong>Page content you choose to share.</strong> For example, the element selected in the Elements panel (its HTML excerpt, CSS selector and computed styles), page URL and title, and more details the AI asks for while answering (matching CSS rules, element lists, an outline of what's on screen, the text of the page or of part of it including the values in its form fields, page resources), also from frames embedded in the page. Password fields are never read out: the AI only learns whether one is filled in. Whatever the page shows can be part of this: if you ask the AI to read or work on a page with messages, email or personal details, that text is sent to the AI provider you chose, as part of answering you.</li>

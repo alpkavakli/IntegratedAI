@@ -60,6 +60,9 @@
       .found { display: flex; align-items: center; gap: 12px; justify-content: space-between; margin: 0 0 12px;
         padding: 8px 12px; border: 1px solid var(--accent); border-radius: 6px; background: var(--bg-alt); }
       .found[hidden] { display: none; }
+      #about-you textarea { display: block; width: 100%; box-sizing: border-box; padding: 6px 8px; border-radius: 4px; font: 12px/1.5 ui-monospace, Menlo, Consolas, monospace; resize: vertical; }
+      #about-you #profile-notes { font-family: inherit; font-size: 13px; }
+      label.stacked { display: block; margin: 10px 0 4px; color: var(--fg-muted); font-size: 12px; }
       .key-row { display: flex; gap: 8px; }
       .key-row input { flex: 1; min-width: 0; }
       input[type="text"], input[type="password"], select { padding: 6px 8px; border-radius: 4px; font-size: 13px; }
@@ -179,16 +182,16 @@
 
       <div id="server-setup" hidden>
         <ol>
-          <li data-i18n-html="optServer1">Install <a href="https://nodejs.org" target="_blank" rel="noopener">Node.js</a> and Claude Code (for Claude) or Codex CLI (for ChatGPT: <code>npm install -g @openai/codex</code>, then <code>codex login</code>), then start the
-            agent server (<a href="https://github.com/alpkavakli/IntegratedAI#setup" target="_blank" rel="noopener">setup guide</a>).</li>
+          <li data-i18n-html="optServer1">Install <a href="https://nodejs.org" target="_blank" rel="noopener">Node.js</a> (the LTS version; keep the installer's default options), then open a new terminal.</li>
+          <li data-i18n-html="optServer1b">Sign in, with the one you pay for. ChatGPT: <code>npm install -g @openai/codex</code>, then <code>codex login</code>. Claude: <code>npm install -g @anthropic-ai/claude-code</code>, then <code>claude</code>.</li>
+          <li data-i18n-html="optServer1c">Start the server: <code>npx integratedai</code>, and keep that window open (<a href="https://github.com/alpkavakli/IntegratedAI#setup" target="_blank" rel="noopener">step-by-step guide</a>).</li>
           <li data-i18n="optServer2">Paste the pairing token it prints (one token for the server: Claude and ChatGPT each use their own login, no keys here):</li>
         </ol>
         <div class="key-row">
           <input type="password" id="token" spellcheck="false" autocomplete="off" placeholder="Pairing token" aria-label="Pairing token" data-i18n-placeholder="pairingToken" data-i18n-aria-label="pairingToken">
         </div>
-        <div class="hint"><span data-i18n-html="optServerButton">No need to run <code>npm start</code> each time: the panel's <strong>Server</strong> button starts
-          and stops the server. It needs a one-time setup in the IntegratedAI folder:</span>
-          <code id="services-command">npm run services:install -- --id …</code><span data-i18n="optAndYourOk">, and your OK:</span>
+        <div class="hint"><span data-i18n-html="optServerButton">No need to start it in a terminal each time: the panel's <strong>Server</strong> button starts and stops the server. It needs a one-time setup, in a terminal:</span>
+          <code id="services-command">npx integratedai install --id …</code><span data-i18n="optAndYourOk">, and your OK:</span>
           <button data-i18n="optAllowServer" type="button" id="services-allow" class="link">allow the Server button</button>
           <span id="services-status" role="status"></span></div>
       </div>
@@ -237,6 +240,48 @@
       <p data-i18n="optReloadHint" class="hint">Pages that were already open need a reload. Nothing changes on a page until you approve it.</p>
     </section>
 
+    <section class="step" id="about-you">
+      <h2 data-i18n="aboutTitle">About you, for job applications (optional)</h2>
+      <p data-i18n-html="aboutIntro">Add your CV once, and the AI can write cover letters, answers to application questions and messages from it:
+        the <strong>Write…</strong> menu above the message box. It only uses what your CV and notes say.</p>
+      <div class="row-buttons">
+        <label class="button-like"><span data-i18n="aboutUpload">Upload your CV (PDF or text)…</span>
+          <input type="file" id="profile-file" accept=".pdf,.txt,.md,application/pdf,text/plain,text/markdown" hidden></label>
+        <span id="profile-status" role="status"></span>
+      </div>
+      <label class="stacked" for="profile-cv" data-i18n="aboutCvLabel">Your CV as text (what the AI gets: check it after uploading, and fix anything that came out wrong)</label>
+      <textarea id="profile-cv" rows="10" spellcheck="false" placeholder="Upload a PDF above, or paste your CV here" data-i18n-placeholder="aboutCvPlaceholder"></textarea>
+      <label class="stacked" for="profile-notes" data-i18n="aboutNotesLabel">Notes for the AI (optional)</label>
+      <textarea id="profile-notes" rows="3" placeholder="e.g. Looking for backend internships in Singapore from January. Keep letters short and direct." data-i18n-placeholder="aboutNotesPlaceholder"></textarea>
+      <div class="row-buttons">
+        <button type="button" id="profile-clear" class="danger" data-i18n="aboutRemove">Remove my CV and notes</button>
+      </div>
+      <div class="hint" data-i18n="aboutHint">Stays in this browser. It is sent to the AI you chose only with a message you attach it to (the
+        "About me" box above the message box, which the Write… menu ticks for you), and is never part of an export.</div>
+    </section>
+    <section class="step" id="past-chats">
+      <h2 data-i18n="chatsTitle">Your ChatGPT history (optional)</h2>
+      <p data-i18n-html="chatsIntro">Bring your past ChatGPT chats here, and the AI can look things up in them when you ask
+        ("what did I decide about…", "find the script we wrote"). In ChatGPT: <strong>Settings → Data controls → Export data</strong>.
+        ChatGPT emails you a link to a ZIP file; choose that file here (no need to unpack it).</p>
+      <div class="row-buttons">
+        <label class="button-like"><span data-i18n="chatsUpload">Choose the export from ChatGPT (.zip)…</span>
+          <input type="file" id="chats-file" accept=".zip,.json,application/zip,application/json" hidden></label>
+        <span id="chats-status" role="status"></span>
+      </div>
+      <label class="check"><input type="checkbox" id="pastChats" disabled>
+        <span data-i18n="chatsAllow">Let the AI search these chats when a question needs it</span></label>
+      <div class="row-buttons">
+        <button type="button" id="chats-clear" class="danger" data-i18n="chatsRemove" hidden>Remove these chats</button>
+      </div>
+      <div class="hint" data-i18n="chatsHint">The chats are copied into this browser and searched here; pictures and files in the export are
+        not read. It is a snapshot: export again to bring newer chats. When the AI searches, the parts it finds go to the AI
+        you chose, like the rest of your conversation. They are never part of an export of this extension's data.</div>
+    </section>
+    <section class="step" id="whats-new">
+      <h2 data-i18n="whatsNewTitle">What's new</h2>
+      <div data-i18n-html="whatsNewList030"><strong>0.3</strong><ul class="data-list"><li><strong>Writing from your CV:</strong> add your CV once (a PDF works), then use the <strong>Write…</strong> menu for a cover letter for the job on the page, an answer to a form question, or a message. You can edit the text, copy it, or put it into the form.</li><li><strong>Your ChatGPT history:</strong> bring in ChatGPT's data export, and the AI can look things up in your past chats.</li><li><strong>Videos:</strong> the AI can watch a video on the page while it plays (with Gemini it hears the sound too), and summarize reels or clips.</li><li><strong>Whole lists:</strong> for "summarize the comments" and the like, the AI first loads all of them, not just what's on screen.</li><li><strong>Claude or ChatGPT subscription:</strong> the server now starts with one command, <code>npx integratedai</code>: no download.</li></ul></div>
+    </section>
     <details class="advanced">
       <summary data-i18n="optAdvanced">Advanced settings</summary>
 
@@ -256,6 +301,10 @@
         <span data-i18n-html="optModeAuto"><strong>Auto.</strong> It works on the page by itself and only asks before risky steps: submitting, sending,
           paying, deleting, password fields, or going to another site.</span></label>
       <div data-i18n="optFullAutoHint" class="hint">Full auto (never asks) can only be switched on per conversation. Style changes and scripts always wait for your click.</div>
+      <label class="check">
+        <input type="checkbox" id="videoSound">
+        <span data-i18n="optVideoSound">When it watches a video on the page, let it hear the sound too (only AIs that can listen get it, like Gemini)</span>
+      </label>
       <label class="check">
         <input type="checkbox" id="webTools">
         <span data-i18n="optWebTools">Search the web and read documentation (Claude only). It never sees your files, cookies or passwords.</span>
@@ -301,7 +350,7 @@
       <div class="hint" data-i18n="optExportHint">
         Export saves your patches, settings, conversations and memory to a file, for example to move them to another
         copy of the extension. Importing adds to what's here and never overwrites something newer. API keys and the
-        pairing token are never exported.
+        pairing token are never exported, and neither is your CV.
       </div>
     </details>
 

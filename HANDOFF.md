@@ -202,6 +202,41 @@ harness) or the owner's GitHub/Telegram test is the next thing to do.
 - Ideas discussed for later: OpenRouter sign-in (OAuth PKCE), Chrome's built-in AI (no key), "never read this site"
   list, personal-detail masking in page text, "what the AI saw" view, fewer host permissions (activeTab).
 
+## v0.3 branch (2026-10-10; 0.2.0 is in store review from main)
+
+- **Writing from the CV** (the owner applies for jobs with Simplify for autofill; this does the writing). Options →
+  *About you*: CV as text (PDF upload read in the page with a packaged pdf.js, legacy build, `npm run vendor:pdf`;
+  `shared/pdf-text.js`) + notes, in storage.local `profile` (`panel/lib/profile.js`; never exported). The panel's
+  **Write…** menu (cover letter / answer the selected question / tailor CV / referral message) ticks the **About me**
+  chip, which adds `context.aboutMe` to that one message (rendered as `<about_me>`, `providers/common.js`). New
+  action **write_text** (a card with the editable text: Copy, Download, Put into the selected field = an interact
+  "type" step on $0 / the picked element, undoable). Prompt rules: only facts from the CV, never invent.
+  Store: tick "Personally identifiable information" in Data usage from this version (kit updated).
+- **read_more** (the owner: "summarize the YouTube comments" only got what was on screen). Decided with the
+  owner: no helper model; a tool + prompt rules. `readMoreStep` in page-scripts.js (one scroll + "Show more"
+  buttons per call; the panel repeats it, because DevTools' eval doesn't await), then `readText`. In the card too,
+  not with a marked area. Checked in ui-check on store/demo-pages/comments.html (60 lazy comments, replies).
+- **watch_video** (the owner asked the AI to watch and summarize reels; it took screenshots and waited). Pictures
+  every 1.5 s+ for up to 60 s → 1–2 contact sheets (one image each for the image cap), sound via
+  `video.captureStream()` + MediaRecorder in the page (works on muted videos; checked in ui-check with a generated
+  clip) → WAV 16 kHz in the panel. Only Gemini gets the sound (`audioInput`, `input_audio` on its OpenAI endpoint;
+  retried without sound if refused); Claude/OpenAI/CLIs get the pictures and a note. Setting `videoSound`
+  (default on). Gemini's native API takes whole video files; not used, because everything else goes through its
+  OpenAI-compatible endpoint. Tab must be visible.
+- **Past ChatGPT chats** (the owner wanted Codex to reach their ChatGPT history and memory). Options → *Your ChatGPT
+  history*: the export ZIP (or conversations.json) is streamed (`shared/zip-read.js`, `shared/chatgpt-export.js`)
+  into IndexedDB `integratedai-chats` (`shared/past-chats.js`; docs `{id, title, time, text}`, plus
+  `chatgpt-memory` / `chatgpt-instructions` when the export has them). Setting `pastChats` (switched on by an
+  import) offers the read-only tool **search_chats** (`query` → matches with excerpts, `id` → the chat in 8,000
+  character parts); it runs in the service worker (`chats.search`) so the panel and the card share it, and goes to
+  the CLIs over the page tool server like the other read-only tools. Available in every page access mode
+  (`NO_PAGE_ACTIONS`). Word matching only (`shared/chat-search.js`): no embeddings. Not in the data export;
+  "Delete extension data" removes it. Store: also tick "Personal communications".
+  Not checked against a real export of the owner's account yet (the format is from public descriptions of it;
+  the unit tests build exports by hand): the first real import is the test.
+- **Not built (decided with the owner):** a formatted PDF résumé generator; reading ChatGPT history live (no
+  official way, and not through chatgpt.com's private requests).
+
 ## Next work, in order
 
 0. **Chinese models: presets done (seventh session), not tried with real keys.** Check each one's tool-calling
@@ -296,6 +331,11 @@ offers the AI tools an older extension can't run, and the other way round.
 - **Publish the server whenever something it ships changed:** `server/`, `extension/shared/` (the agent code,
   actions, prompt and providers live there) or `scripts/services.mjs`. In practice: with every store release, and
   in between only for server-only fixes (then bump the patch version of both, e.g. 0.2.0 → 0.2.1).
+- **Tell users what's new** (a release with new features): a line for the version in
+  `extension/panel/lib/whats-new.js` (the panel or the card shows it once, the first time it opens after Chrome
+  updated the extension; bug-fix versions without a line say nothing), and the list in the setup page's
+  "What's new" section (`whatsNewList…` in both locales). Outside the extension: the store description and a
+  GitHub release.
 - **Order:** 1. bump both versions; 2. `npm test`, `npm run package`; 3. upload the zip to the store;
   4. `npm publish` from the same commit (it runs the tests first; npm asks for the 2FA code); 5. push, so the README
   on GitHub matches what's on npm. Publish from the branch the store version came from (0.2.0: `main`; 0.3.0:

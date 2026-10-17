@@ -64,7 +64,7 @@ import { buildSystemPrompt } from './system-prompt.js';
  * conversations that haven't chosen one (never "full", see requests.js). surface "card": the message
  * comes from the basic card on the page, which offers only CARD_ACTIONS and never runs page actions.
  * pageAccess: what of the page the user lets the AI see ("full", "area" or "none", see PAGE_ACCESS in actions.js).
- * @typedef {{ executeJs?: boolean, webTools?: boolean, agentMode?: string, surface?: 'card', pageAccess?: 'full' | 'area' | 'none' }} TurnSettings
+ * @typedef {{ executeJs?: boolean, webTools?: boolean, pastChats?: boolean, agentMode?: string, surface?: 'card', pageAccess?: 'full' | 'area' | 'none' }} TurnSettings
  */
 
 /**
@@ -501,8 +501,8 @@ export class Orchestrator {
         needsResults = true;
         const res = await this.panel.requestTool(session.id, call.name, call.input, signal);
         if (res.ok) {
-          const { text, images } = formatResult(res.result);
-          results.push({ type: 'tool_result', toolCallId: call.id, content: text, ...(images ? { images } : {}) });
+          const { text, images, audio } = formatResult(res.result);
+          results.push({ type: 'tool_result', toolCallId: call.id, content: text, ...(images ? { images } : {}), ...(audio ? { audio } : {}) });
         } else {
           results.push({ type: 'tool_result', toolCallId: call.id, isError: true, content: `Inspection failed: ${res.error ?? 'unknown error'}` });
         }

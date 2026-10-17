@@ -46,6 +46,11 @@
             <kbd>F12</kbd> and open the <strong>AI</strong> tab. Don't see it? Click <strong>»</strong> in the DevTools tab bar.</span>
           <button type="button" id="card-tip-ok" data-i18n="gotIt">Got it</button>
         </div>
+        <div id="whats-new" class="tip" role="note" hidden>
+          <span id="whats-new-text"></span>
+          <button type="button" id="whats-new-more" class="link" data-i18n="whatsNewMore">What's new</button>
+          <button type="button" id="whats-new-ok" data-i18n="gotIt">Got it</button>
+        </div>
         <ai-chat id="chat" role="log" aria-live="polite" aria-label="Conversation"></ai-chat>
         <form id="composer" autocomplete="off">
           <div class="composer-box">
@@ -70,6 +75,17 @@
                 <label class="chip devtools-only" title="Send failed and recent network requests (sensitive headers removed)" data-i18n-title="chipNetworkTitle">
                   <input type="checkbox" id="ctx-network"> <span data-i18n="chipNetwork">Network</span>
                 </label>
+                <label class="chip" id="profile-chip" hidden title="Attach your CV and notes (from the settings) to this message" data-i18n-title="chipAboutMeTitle">
+                  <input type="checkbox" id="ctx-profile"> <span data-i18n="chipAboutMe">About me</span>
+                </label>
+                <select id="write-menu" class="chip-select" aria-label="Write something from your CV" title="Cover letters, answers and messages written from your CV" data-i18n-title="writeMenuTitle" data-i18n-aria-label="writeMenuLabel">
+                  <option value="" data-i18n="writeMenu">Write…</option>
+                  <option value="cover" data-i18n="writeCover">Cover letter for this job</option>
+                  <option value="answer" data-i18n="writeAnswer">Answer the selected question</option>
+                  <option value="tailor" data-i18n="writeTailor">Tailor my CV to this job</option>
+                  <option value="message" data-i18n="writeMessage">Referral or intro message</option>
+                  <option value="settings" data-i18n="writeSettings">Add or change my CV…</option>
+                </select>
                 <button type="button" id="copy-text" class="chip-button" title="Copy the text of the selected element to the clipboard (no AI involved)" data-i18n-title="copyTextTitle" data-i18n="copyText">Copy text</button>
             </div>
             <textarea id="prompt" rows="2" placeholder="Ask about this page or the selected element" aria-label="Message" data-i18n-placeholder="promptPlaceholder" data-i18n-aria-label="message"></textarea>

@@ -19,6 +19,7 @@ import { scopeMatches } from '../shared/url-scope.js';
 import { buildExport, conversationsToWrite, mergeMemory, mergePatches, mergeTasks, parseImport } from '../shared/data-transfer.js';
 import { indexEntry } from '../shared/agent/session-model.js';
 import { DB_NAME as DIRECT_DB, openDb as openDirectDb } from '../panel/direct/stores.js';
+import { chatsInfo, clearChats, searchChats } from '../shared/past-chats.js';
 
 /**
  * @typedef {object} Patch
@@ -66,7 +67,10 @@ const handlers = {
   'patches.update': async ({ id, changes }) => updatePatch(id, changes),
   'patches.remove': async ({ id }) => removePatch(id),
 
-  'options.open': async () => chrome.runtime.openOptionsPage(),
+  // (section: a part of the page to open at, e.g. "about-you")
+  'options.open': async ({ section } = {}) => (/^[a-z-]{1,30}$/.test(String(section ?? ''))
+    ? chrome.tabs.create({ url: chrome.runtime.getURL(`options/options.html#${section}`) })
+    : chrome.runtime.openOptionsPage()),
 
   // The panel's Server button: start / stop / check the local agent server through the native host.
   'services.call': async ({ action }) => servicesCall(action),
@@ -83,8 +87,12 @@ const handlers = {
     if ((await sessionGet(`card:${tabId}`))?.open) chrome.tabs.sendMessage(tabId, { type: 'card.devtools' }).catch(() => {});
   },
 
+  // The user's imported ChatGPT chats (Options → Your ChatGPT history): the search_chats tool.
+  'chats.search': async ({ input }) => searchChats(input ?? {}),
+
   // Options → Your data
   'data.summary': async () => ({
+    pastChats: (await chatsInfo())?.count ?? 0,
     patches: (await getPatches()).length,
     tasks: ((await chrome.storage.local.get('tasks')).tasks ?? []).length,
     storageVersion: STORAGE_VERSION,
@@ -323,7 +331,7 @@ chrome.webNavigation.onCommitted.addListener(async ({ tabId, frameId, url }) => 
 
 // ─────────────────────────────────────────────────────────── the local server (Server button)
 
-/** The native messaging host registered by `npm run services:install` (server/native-host/host.js). */
+/** The native messaging host registered by `npx integratedai install` (server/native-host/host.js). */
 const SERVICES_HOST = 'com.integratedai.server';
 
 /**
@@ -343,7 +351,7 @@ async function servicesCall(cmd) {
   } catch (err) {
     const message = String(/** @type {any} */ (err)?.message ?? err);
     if (/not found|forbidden|access.*denied/i.test(message)) {
-      return { notInstalled: true, installCommand: `npm run services:install -- --id ${chrome.runtime.id}` };
+      return { notInstalled: true, installCommand: `npx integratedai install --id ${chrome.runtime.id}` };
     }
     return { error: message };
   }
@@ -426,8 +434,13 @@ async function migrateStorage() {
   await chrome.storage.local.set(next);
 }
 
-chrome.runtime.onInstalled.addListener(async ({ reason }) => {
+chrome.runtime.onInstalled.addListener(async ({ reason, previousVersion }) => {
   await migrateStorage();
+  // An update: the panel and the card show a line about what's new, once (panel/lib/whats-new.js).
+  const version = chrome.runtime.getManifest().version;
+  if (reason === chrome.runtime.OnInstalledReason.UPDATE && previousVersion !== version) {
+    await chrome.storage.local.set({ updated: { from: previousVersion, to: version } });
+  }
   // First install: open the options page so the user can connect the agent server.
   if (reason === chrome.runtime.OnInstalledReason.INSTALL) chrome.runtime.openOptionsPage();
 });
@@ -471,6 +484,7 @@ async function clearData() {
     const req = indexedDB.deleteDatabase(DIRECT_DB);
     req.onsuccess = req.onerror = req.onblocked = () => resolve(undefined);
   });
+  await clearChats();
   await chrome.storage.local.set({ storageVersion: STORAGE_VERSION });
 }
 

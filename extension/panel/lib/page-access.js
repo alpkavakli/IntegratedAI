@@ -248,7 +248,9 @@ export class PageAccess {
 
   /** The page context for a message: less (or nothing) with an area or "Just answer". @param {Record<string, any>} context */
   limitContext(context) {
-    if (this.mode === 'none') return {};
+    // (What the user attached about themselves is theirs to send, whatever the page access.)
+    const about = context.aboutMe ? { aboutMe: context.aboutMe } : {};
+    if (this.mode === 'none') return about;
     if (this.mode !== 'area') return context;
     const { page, selected } = context;
     let site = '';
@@ -256,6 +258,7 @@ export class PageAccess {
     return {
       page: { site, viewport: page?.viewport, area: 'Only an area the user marked is shared (see the tools)' },
       ...(selected ? { selected } : {}),
+      ...about,
     };
   }
 

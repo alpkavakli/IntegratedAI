@@ -7,6 +7,7 @@ import { loadSettings, saveSettings } from '../panel/lib/settings.js';
 import { PRESETS, baseUrlFor, presetFetch } from '../shared/providers/openai-compatible.js';
 import { localize, t } from '../shared/i18n.js';
 import { providerForKey } from '../shared/key-detect.js';
+import { MAX_CV_CHARS, clearProfile, loadProfile, saveProfile } from '../panel/lib/profile.js';
 
 const $ = (/** @type {string} */ id) => /** @type {HTMLInputElement} */ (document.getElementById(id));
 /** @param {string} id @param {boolean} hidden */
@@ -21,6 +22,7 @@ $('token').value = settings.token;
 $('executeJs').checked = settings.executeJs;
 $('askBeforeInspections').checked = settings.askBeforeInspections;
 $('webTools').checked = settings.webTools;
+$('videoSound').checked = settings.videoSound !== false;
 $('ctx-selected').checked = settings.contextDefaults.selected;
 $('ctx-console').checked = settings.contextDefaults.console;
 $('ctx-network').checked = settings.contextDefaults.network;
@@ -462,7 +464,7 @@ for (const input of /** @type {NodeListOf<HTMLInputElement>} */ (document.queryS
 $('ollamaCompact').checked = settings.ollamaCompact;
 
 // The panel's Server button (local server mode): its setup command, and the permission it needs.
-$('services-command').textContent = `npm run services:install -- --id ${chrome.runtime.id}`;
+$('services-command').textContent = `npx integratedai install --id ${chrome.runtime.id}`;
 const showServicesPermission = async () => {
   const granted = await chrome.permissions.contains({ permissions: ['nativeMessaging'] });
   $('services-allow').hidden = granted;
@@ -473,7 +475,7 @@ $('services-allow').addEventListener('click', async () => {
   showServicesPermission();
 });
 showServicesPermission();
-for (const id of ['executeJs', 'askBeforeInspections', 'webTools', 'ollamaCompact']) {
+for (const id of ['executeJs', 'askBeforeInspections', 'webTools', 'ollamaCompact', 'videoSound']) {
   $(id).addEventListener('change', () => saveSettings({ [id]: $(id).checked }));
 }
 for (const key of ['selected', 'console', 'network']) {
@@ -520,6 +522,7 @@ function serverDataInfo() {
 async function showDataSummary() {
   const summary = await worker('data.summary');
   $('data-extension').textContent = t('dataExtension', 'saved patches: $1, saved tasks: $2, and your settings (extension $3)', summary.patches, summary.tasks ?? 0, summary.extensionVersion);
+  if (summary.pastChats) $('data-extension').textContent += `; ${t('dataChats', 'ChatGPT chats you brought in: $1', summary.pastChats.toLocaleString())}`;
   if ((await loadSettings()).mode === 'direct') {
     $('data-extension').textContent += `; ${t('dataDirect', 'in direct mode also conversations: $1, sites with memory: $2', summary.conversations, summary.memorySites)}`;
     // The server isn't used in direct mode, so its line is left out.
@@ -593,6 +596,135 @@ $('clear').addEventListener('click', async () => {
     dataResult(String(/** @type {any} */ (err).message ?? err), false);
   }
 });
+
+// ── About you: the CV (a PDF's text is read here, on this computer) and notes, for the panel's Write… menu.
+
+/** @param {string} text @param {'ok' | 'bad' | ''} [kind] */
+const profileStatus = (text, kind = '') => {
+  $('profile-status').className = kind;
+  $('profile-status').textContent = text;
+};
+const profile = await loadProfile();
+$('profile-cv').value = profile.cv;
+$('profile-notes').value = profile.notes;
+if (profile.cv) {
+  profileStatus(profile.cvName ? t('aboutSavedFile', 'Saved: $1 ($2 characters)', profile.cvName, profile.cv.length.toLocaleString())
+    : t('aboutSaved', 'Saved ($1 characters)', profile.cv.length.toLocaleString()), 'ok');
+}
+let profileTimer = 0;
+for (const id of ['profile-cv', 'profile-notes']) {
+  $(id).addEventListener('input', () => {
+    clearTimeout(profileTimer);
+    profileTimer = /** @type {any} */ (setTimeout(async () => {
+      const saved = await saveProfile({ cv: $('profile-cv').value, notes: $('profile-notes').value });
+      profileStatus(saved.cv.length >= MAX_CV_CHARS ? t('aboutCut', 'Saved the first $1 characters (the rest is too long to send).', MAX_CV_CHARS.toLocaleString())
+        : t('aboutSaved', 'Saved ($1 characters)', saved.cv.length.toLocaleString()), 'ok');
+    }, 500));
+  });
+}
+$('profile-file').addEventListener('change', async () => {
+  const file = $('profile-file').files?.[0];
+  $('profile-file').value = '';
+  if (!file) return;
+  try {
+    if (file.size > 15 * 1024 * 1024) throw new Error(t('aboutTooBig', 'That file is larger than 15 MB. Is it the right one?'));
+    profileStatus(t('aboutReading', 'Reading $1…', file.name));
+    let text;
+    let pages = 0;
+    if (/\.pdf$/i.test(file.name) || file.type === 'application/pdf') {
+      const { pdfToText } = await import('../shared/pdf-text.js');
+      ({ text, pages } = await pdfToText(await file.arrayBuffer()));
+      // No text in it: a scan (pictures of pages). The AI needs the words.
+      if (!text.trim()) throw new Error(t('aboutNoText', 'No text was found in this PDF (it may be a scan). Paste your CV as text instead.'));
+    } else {
+      text = await file.text();
+    }
+    const saved = await saveProfile({ cv: text, cvName: file.name });
+    $('profile-cv').value = saved.cv;
+    profileStatus(text.length > MAX_CV_CHARS
+      ? t('aboutCut', 'Saved the first $1 characters (the rest is too long to send).', MAX_CV_CHARS.toLocaleString())
+      : pages ? t('aboutReadPdf', 'Read $1 (pages: $2, characters: $3). Check the text below.', file.name, pages, saved.cv.length.toLocaleString())
+        : t('aboutSavedFile', 'Saved: $1 ($2 characters)', file.name, saved.cv.length.toLocaleString()), 'ok');
+  } catch (err) {
+    profileStatus(String(/** @type {any} */ (err)?.message ?? err), 'bad');
+  }
+});
+// Two clicks to remove (no native confirm dialogs).
+$('profile-clear').addEventListener('click', async () => {
+  const button = $('profile-clear');
+  if (!button.dataset.armed) {
+    button.dataset.armed = '1';
+    button.textContent = t('aboutRemoveConfirm', 'Click again to remove them');
+    setTimeout(() => { delete button.dataset.armed; button.textContent = t('aboutRemove', 'Remove my CV and notes'); }, 4000);
+    return;
+  }
+  delete button.dataset.armed;
+  button.textContent = t('aboutRemove', 'Remove my CV and notes');
+  await clearProfile();
+  $('profile-cv').value = '';
+  $('profile-notes').value = '';
+  profileStatus(t('aboutRemoved', 'Removed.'), 'ok');
+});
+// ───────────────────────── Your ChatGPT history
+const chatsStatus = (text, kind = '') => {
+  $('chats-status').className = kind;
+  $('chats-status').textContent = text;
+};
+const day = (/** @type {number} */ time) => new Date(time).toLocaleDateString();
+/** @param {import('../shared/past-chats.js').ChatsInfo | null} info */
+const showChats = (info) => {
+  $('pastChats').disabled = !info;
+  $('chats-clear').hidden = !info;
+  if (!info) { $('pastChats').checked = false; return; }
+  chatsStatus(info.oldest
+    ? t('chatsHave', 'Chats here: $1, from $2 to $3 (brought in on $4)', info.count.toLocaleString(), day(info.oldest), day(info.newest), day(info.importedAt))
+    : t('chatsHaveNoDates', 'Chats here: $1 (brought in on $2)', info.count.toLocaleString(), day(info.importedAt)), 'ok');
+};
+const pastChats = await import('../shared/past-chats.js');
+$('pastChats').checked = settings.pastChats === true;
+showChats(await pastChats.chatsInfo().catch(() => null));
+$('pastChats').addEventListener('change', () => saveSettings({ pastChats: $('pastChats').checked }));
+$('chats-file').addEventListener('change', async () => {
+  const file = $('chats-file').files?.[0];
+  $('chats-file').value = '';
+  if (!file) return;
+  $('chats-file').disabled = true;
+  try {
+    chatsStatus(t('chatsReading', 'Reading $1…', file.name));
+    const info = await pastChats.importExport(file, (count) => chatsStatus(t('chatsProgress', 'Reading $1… chats so far: $2', file.name, count.toLocaleString())));
+    // Bringing them in is for the AI to search them: switched on, and the box above switches it off.
+    await saveSettings({ pastChats: true });
+    $('pastChats').checked = true;
+    showChats(info);
+  } catch (err) {
+    showChats(null);
+    await saveSettings({ pastChats: false });
+    chatsStatus(String(/** @type {any} */ (err)?.message ?? err), 'bad');
+  } finally {
+    $('chats-file').disabled = false;
+  }
+});
+// Two clicks to remove (no native confirm dialogs).
+$('chats-clear').addEventListener('click', async () => {
+  const button = $('chats-clear');
+  if (!button.dataset.armed) {
+    button.dataset.armed = '1';
+    button.textContent = t('chatsRemoveConfirm', 'Click again to remove them');
+    setTimeout(() => { delete button.dataset.armed; button.textContent = t('chatsRemove', 'Remove these chats'); }, 4000);
+    return;
+  }
+  delete button.dataset.armed;
+  button.textContent = t('chatsRemove', 'Remove these chats');
+  await pastChats.clearChats();
+  await saveSettings({ pastChats: false });
+  showChats(null);
+  chatsStatus(t('chatsRemoved', 'Removed.'), 'ok');
+});
+
+// Opened at this section (the panel's "Add or change my CV…"): bring it into view.
+// Opened at a section (the panel's "Add or change my CV…", "What's new"): bring it into view.
+const section = /^#([a-z-]{1,30})$/.exec(location.hash)?.[1];
+if (section && document.getElementById(section)) document.getElementById(section)?.scrollIntoView({ block: 'start' });
 
 // Last, so everything above is defined when the first check runs.
 showChoice();

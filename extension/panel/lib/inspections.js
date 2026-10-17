@@ -6,7 +6,8 @@
 
 import { bg } from './bg.js';
 import { callInPage, hasPageArea } from './inspected.js';
-import { findElements, frameBox, inspectElement, pageOutline, prepareScreenshot, readConsole, readText, restoreScroll, setCardHidden } from './page-scripts.js';
+import { findElements, frameBox, inspectElement, pageOutline, prepareScreenshot, readConsole, readMoreStep, readText, restoreScroll, setCardHidden, videoWatchStart, videoWatchStatus, videoWatchStop } from './page-scripts.js';
+import { FRAMES_PER_SHEET, SOUND_RATE, clock, encodeWav, peakLevel, sheetLayout, watchPlan } from '../../shared/video-watch.js';
 
 // Headers that must never be sent to the AI.
 const SENSITIVE_HEADERS = /^(cookie|set-cookie|authorization|proxy-authorization|x-api-key|api-key|x-auth-token|x-csrf-token|x-xsrf-token|x-amz-security-token)$/i;
@@ -17,7 +18,7 @@ const SENSITIVE_PARAMS = /^(token|access_token|id_token|refresh_token|code|key|a
  * Run one inspection.
  * @param {string} name
  * @param {any} input
- * @param {{ selectedSelector?: string, tabId: number }} ctx
+ * @param {{ selectedSelector?: string, tabId: number, videoSound?: boolean }} ctx
  */
 export async function runInspection(name, input, ctx) {
   switch (name) {
@@ -37,6 +38,13 @@ export async function runInspection(name, input, ctx) {
       return inspectResources(input);
     case 'screenshot':
       return screenshot(input, ctx);
+    case 'read_more':
+      return readMore(input);
+    case 'watch_video':
+      return watchVideo(input, ctx);
+    case 'search_chats':
+      // The user's imported ChatGPT chats: kept by the extension, searched in its background page.
+      return bg('chats.search', { input });
     default:
       throw new Error(`Unknown inspection ${name}`);
   }
@@ -169,6 +177,165 @@ async function frameTarget(input, selector) {
     frameScroll: inner?.scroll, frameScrolled: Boolean(inner?.scrolled),
     rect, selector: inner?.selector ?? frame, label: inner ? `${inner.label} (in ${frame})` : `the frame ${frame}`,
   };
+}
+
+/**
+ * read_more: load more of a list that grows as you scroll (comments, feeds, results, reviews): scroll it a screen at
+ * a time and open "Show more" buttons until nothing new comes (2.5 s at its end), there is enough text, or time is up;
+ * then read it (read_text, from the start).
+ * @param {{ ref?: string, selector?: string, expand?: boolean, seconds?: number, enough?: number }} input
+ */
+async function readMore(input) {
+  const seconds = Math.min(45, Math.max(3, Number(input.seconds) || 20));
+  const enough = Math.min(150_000, Math.max(5000, Number(input.enough) || 40_000));
+  const target = { ref: input.ref, selector: input.selector };
+  const began = Date.now();
+  /** @type {Record<string, number>} */
+  const opened = {};
+  let first = null;
+  let last = null;
+  let quiet = 0;
+  let steps = 0;
+  let stopped = `the time limit (${seconds} s)`;
+  while (Date.now() - began < seconds * 1000) {
+    const step = await callInPage(readMoreStep, { ...target, expand: input.expand });
+    steps++;
+    first ??= step;
+    for (const text of step.clicked) opened[text] = (opened[text] ?? 0) + 1;
+    // Nothing new since the last step, at the end of the list, with nothing opened: count it; three in a row = done.
+    const same = last && step.chars === last.chars && step.height === last.height;
+    quiet = same && step.atEnd && !step.clicked.length ? quiet + 1 : 0;
+    last = step;
+    if (quiet >= 3) { stopped = 'nothing more loaded'; break; }
+    if (step.chars >= enough) { stopped = `enough text (${enough.toLocaleString('en')} characters)`; break; }
+    await new Promise((r) => setTimeout(r, 800));
+  }
+  const read = await callInPage(readText, target);
+  const buttons = Object.entries(opened).map(([text, n]) => (n > 1 ? `"${text}" ×${n}` : `"${text}"`));
+  return {
+    loaded: `scrolled ${last?.scroller ?? 'the page'} ${steps} times in ${Math.round((Date.now() - began) / 1000)} s; the text grew from ${(first?.chars ?? 0).toLocaleString('en')} to ${(last?.chars ?? 0).toLocaleString('en')} characters`,
+    stoppedAt: stopped,
+    ...(buttons.length ? { opened: buttons.slice(0, 12).join(', ') + (buttons.length > 12 ? `, and ${buttons.length - 12} more` : '') } : {}),
+    ...read,
+  };
+}
+
+/**
+ * watch_video: watch a video on the page while it plays. Pictures of it every second or two (put together on one or
+ * two contact sheets, each frame with its time), and its sound as a WAV file when the user allows it (only AIs that
+ * can listen get it; see the providers). The tab has to stay on screen: hidden tabs can't be captured, and most
+ * sites pause their videos in them.
+ * @param {{ ref?: string, selector?: string, seconds?: number }} input
+ * @param {{ selectedSelector?: string, tabId: number, videoSound?: boolean }} ctx
+ */
+async function watchVideo(input, ctx) {
+  const start = await callInPage(videoWatchStart, { ref: input.ref, selector: input.selector, sound: ctx.videoSound !== false });
+  const plan = watchPlan(input, start);
+  /** @type {{ at: number, image: { mediaType: string, data: string } }[]} */
+  const frames = [];
+  const began = Date.now();
+  let ended = false;
+  let gone = false;
+  let furthest = start.currentTime;
+  /** @type {any} */
+  let stopped = { done: false };
+  try {
+    for (;;) {
+      const tookAt = Date.now();
+      const status = await callInPage(videoWatchStatus, {});
+      if (status.gone) { gone = true; break; }
+      furthest = Math.max(furthest, status.time);
+      const shot = await screenshot({ ref: start.ref }, ctx);
+      frames.push({ at: status.time, image: shot.image });
+      if (status.ended && frames.length > 1) { ended = true; break; }
+      if ((Date.now() - began) / 1000 >= plan.seconds) break;
+      await new Promise((r) => setTimeout(r, Math.max(0, plan.everyMs - (Date.now() - tookAt))));
+    }
+  } finally {
+    for (let i = 0; i < 50 && !stopped.done; i++) {
+      stopped = await callInPage(videoWatchStop, {}).catch(() => ({ done: true }));
+      if (!stopped.done) await new Promise((r) => setTimeout(r, 100));
+    }
+  }
+  const watched = Math.round((Date.now() - began) / 100) / 10;
+  const sheets = await contactSheets(frames);
+  const sound = stopped.audio ? await soundToWav(stopped.audio).catch((err) => ({ error: String(err?.message ?? err) })) : null;
+  /** @type {string} */
+  let soundNote = start.sound;
+  if (stopped.error) soundNote = `not recorded (${stopped.error})`;
+  else if (sound && 'error' in sound) soundNote = `recorded, but it could not be read (${sound.error})`;
+  else if (sound?.silent) soundNote = 'silent (nothing could be heard: the video may be muted for recording, protected, or quiet)';
+  else if (sound) soundNote = `attached (${clock(sound.seconds)})`;
+  return {
+    video: start.label,
+    ref: start.ref,
+    watched: ended
+      ? `${watched} s, from ${clock(start.currentTime)} to the end${start.duration ? ` (${clock(start.duration)})` : ''}, where it stopped or started over`
+      : `${watched} s, from ${clock(start.currentTime)} to ${clock(furthest)}${start.duration ? ` of ${clock(start.duration)}` : ''}`,
+    ...(gone ? { note: 'The video was removed from the page while watching (the page moved on?).' } : {}),
+    frames: `${frames.length} pictures, about every ${Math.round(plan.everyMs / 100) / 10} s, on ${sheets.length} contact sheet${sheets.length === 1 ? '' : 's'}: each picture shows its time in the video at its top left`,
+    sound: soundNote,
+    images: sheets,
+    ...(sound && !('error' in sound) && !sound.silent ? { audio: { mediaType: 'audio/wav', data: sound.data } } : {}),
+  };
+}
+
+/**
+ * Frames → contact sheets (JPEG): a grid per sheet, each frame with its time.
+ * @param {{ at: number, image: { mediaType: string, data: string } }[]} frames
+ */
+async function contactSheets(frames) {
+  /** @type {{ mediaType: string, data: string }[]} */
+  const sheets = [];
+  for (let first = 0; first < frames.length; first += FRAMES_PER_SHEET) {
+    const part = frames.slice(first, first + FRAMES_PER_SHEET);
+    const bitmaps = await Promise.all(part.map(async (f) => createImageBitmap(await (await fetch(`data:${f.image.mediaType};base64,${f.image.data}`)).blob())));
+    const layout = sheetLayout(part.length, bitmaps[0].width / bitmaps[0].height);
+    const canvas = new OffscreenCanvas(layout.width, layout.height);
+    const c = /** @type {OffscreenCanvasRenderingContext2D} */ (canvas.getContext('2d'));
+    c.fillStyle = '#202124';
+    c.fillRect(0, 0, layout.width, layout.height);
+    const font = Math.max(12, Math.round(layout.cellW / 14));
+    c.font = `600 ${font}px system-ui, sans-serif`;
+    bitmaps.forEach((bitmap, i) => {
+      const x = (i % layout.cols) * layout.cellW;
+      const y = Math.floor(i / layout.cols) * layout.cellH;
+      // Fit the frame into its cell, keeping its shape.
+      const k = Math.min(layout.cellW / bitmap.width, layout.cellH / bitmap.height);
+      const w = bitmap.width * k;
+      const h = bitmap.height * k;
+      c.drawImage(bitmap, x + (layout.cellW - w) / 2, y + (layout.cellH - h) / 2, w, h);
+      bitmap.close();
+      const label = clock(part[i].at);
+      const pad = Math.round(font / 3);
+      c.fillStyle = 'rgba(0, 0, 0, 0.75)';
+      c.fillRect(x + 2, y + 2, c.measureText(label).width + pad * 2, font + pad * 2);
+      c.fillStyle = '#ffffff';
+      c.fillText(label, x + 2 + pad, y + 2 + pad + font * 0.85);
+      c.strokeStyle = '#202124';
+      c.strokeRect(x + 0.5, y + 0.5, layout.cellW - 1, layout.cellH - 1);
+    });
+    sheets.push({ mediaType: 'image/jpeg', data: await toBase64(await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.8 })) });
+  }
+  return sheets;
+}
+
+/**
+ * The recorded sound (webm/opus, base64) → 16 kHz mono WAV (base64), and whether anything can be heard in it.
+ * @param {string} base64
+ */
+async function soundToWav(base64) {
+  const bytes = Uint8Array.from(atob(base64), (ch) => ch.charCodeAt(0));
+  const decoded = await new OfflineAudioContext(1, 1, SOUND_RATE).decodeAudioData(bytes.buffer);
+  const length = Math.max(1, Math.ceil(decoded.duration * SOUND_RATE));
+  const mono = new OfflineAudioContext(1, length, SOUND_RATE);
+  const source = mono.createBufferSource();
+  source.buffer = decoded;
+  source.connect(mono.destination);
+  source.start();
+  const samples = (await mono.startRendering()).getChannelData(0);
+  const silent = peakLevel(samples) < 0.003;
+  return { silent, seconds: decoded.duration, data: silent ? '' : await toBase64(new Blob([encodeWav(samples, SOUND_RATE)])) };
 }
 
 /** @param {Blob} blob */

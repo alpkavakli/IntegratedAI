@@ -2,6 +2,60 @@
   "aTerminal": {
     "message": "a terminal"
   },
+  "aboutCut": {
+    "message": "Saved the first $1 characters (the rest is too long to send)."
+  },
+  "aboutCvLabel": {
+    "message": "Your CV as text (what the AI gets: check it after uploading, and fix anything that came out wrong)"
+  },
+  "aboutCvPlaceholder": {
+    "message": "Upload a PDF above, or paste your CV here"
+  },
+  "aboutHint": {
+    "message": "Stays in this browser. It is sent to the AI you chose only with a message you attach it to (the \"About me\" box above the message box, which the Write… menu ticks for you), and is never part of an export."
+  },
+  "aboutIntro": {
+    "message": "Add your CV once, and the AI can write cover letters, answers to application questions and messages from it: the <strong>Write…</strong> menu above the message box. It only uses what your CV and notes say."
+  },
+  "aboutNoText": {
+    "message": "No text was found in this PDF (it may be a scan). Paste your CV as text instead."
+  },
+  "aboutNotesLabel": {
+    "message": "Notes for the AI (optional)"
+  },
+  "aboutNotesPlaceholder": {
+    "message": "e.g. Looking for backend internships in Singapore from January. Keep letters short and direct."
+  },
+  "aboutReadPdf": {
+    "message": "Read $1 (pages: $2, characters: $3). Check the text below."
+  },
+  "aboutReading": {
+    "message": "Reading $1…"
+  },
+  "aboutRemove": {
+    "message": "Remove my CV and notes"
+  },
+  "aboutRemoveConfirm": {
+    "message": "Click again to remove them"
+  },
+  "aboutRemoved": {
+    "message": "Removed."
+  },
+  "aboutSaved": {
+    "message": "Saved ($1 characters)"
+  },
+  "aboutSavedFile": {
+    "message": "Saved: $1 ($2 characters)"
+  },
+  "aboutTitle": {
+    "message": "About you, for job applications (optional)"
+  },
+  "aboutTooBig": {
+    "message": "That file is larger than 15 MB. Is it the right one?"
+  },
+  "aboutUpload": {
+    "message": "Upload your CV (PDF or text)…"
+  },
   "accessArea": {
     "message": "Only an area…"
   },
@@ -25,6 +79,9 @@
   },
   "add": {
     "message": "Add"
+  },
+  "addCvFirst": {
+    "message": "Add your CV in the settings first: these are written from it."
   },
   "addNoteExample": {
     "message": "Add a note, e.g. \"I prefer a serif font for reading\""
@@ -91,6 +148,9 @@
   },
   "alTranslate": {
     "message": "Translate the page"
+  },
+  "alWriteText": {
+    "message": "Written text"
   },
   "allow": {
     "message": "Allow"
@@ -161,6 +221,18 @@
   "askAi": {
     "message": "Allow the AI to $1?"
   },
+  "askAnswer": {
+    "message": "Write an answer to the question in the field I selected, for this application, from my CV."
+  },
+  "askCover": {
+    "message": "Write a cover letter for the job on this page, from my CV."
+  },
+  "askMessage": {
+    "message": "Write a short message asking for a referral or an introduction for the job on this page, from my CV."
+  },
+  "askTailor": {
+    "message": "Tailor my CV to the job on this page: a short summary and my most relevant experience as bullet points, using only what my CV says."
+  },
   "askTask": {
     "message": "Allow this task to $1?"
   },
@@ -175,6 +247,9 @@
   },
   "cannotUndo": {
     "message": "Cannot be undone automatically; reload the page to revert."
+  },
+  "capAboutMe": {
+    "message": "about me (CV)"
   },
   "capConsole": {
     "message": "console"
@@ -211,6 +286,12 @@
   },
   "checking": {
     "message": "Checking…"
+  },
+  "chipAboutMe": {
+    "message": "About me"
+  },
+  "chipAboutMeTitle": {
+    "message": "Attach your CV and notes (from the settings) to this message"
   },
   "chipConsole": {
     "message": "Console"
@@ -368,6 +449,9 @@
   "done": {
     "message": "Done"
   },
+  "download": {
+    "message": "Download"
+  },
   "edit": {
     "message": "Edit"
   },
@@ -415,6 +499,15 @@
   },
   "fadeStrong": {
     "message": "See-through: strong (when the mouse is elsewhere)"
+  },
+  "fillFieldHelp": {
+    "message": "Types the text into the field you selected on the page. Undo puts back what was there."
+  },
+  "fillPicked": {
+    "message": "Put into the picked field"
+  },
+  "fillSelected": {
+    "message": "Put into the selected field"
   },
   "float": {
     "message": "Float"
@@ -813,7 +906,7 @@
     "message": "Export"
   },
   "optExportHint": {
-    "message": "Export saves your patches, settings, conversations and memory to a file, for example to move them to another copy of the extension. Importing adds to what's here and never overwrites something newer. API keys and the pairing token are never exported."
+    "message": "Export saves your patches, settings, conversations and memory to a file, for example to move them to another copy of the extension. Importing adds to what's here and never overwrites something newer. API keys and the pairing token are never exported, and neither is your CV."
   },
   "optForDevelopers": {
     "message": "For developers."
@@ -903,13 +996,13 @@
     "message": "These start switched on in the panel. You can switch them per message there."
   },
   "optServer1": {
-    "message": "Install <a href=\"https://nodejs.org\" target=\"_blank\" rel=\"noopener\">Node.js</a> and Claude Code (for Claude) or Codex CLI (for ChatGPT: <code>npm install -g @openai/codex</code>, then <code>codex login</code>), then start the agent server (<a href=\"https://github.com/alpkavakli/IntegratedAI#setup\" target=\"_blank\" rel=\"noopener\">setup guide</a>)."
+    "message": "Install <a href=\"https://nodejs.org\" target=\"_blank\" rel=\"noopener\">Node.js</a> (the LTS version; keep the installer's default options), then open a new terminal."
   },
   "optServer2": {
     "message": "Paste the pairing token it prints (one token for the server: Claude and ChatGPT each use their own login, no keys here):"
   },
   "optServerButton": {
-    "message": "No need to run <code>npm start</code> each time: the panel's <strong>Server</strong> button starts and stops the server. It needs a one-time setup in the IntegratedAI folder:"
+    "message": "No need to start it in a terminal each time: the panel's <strong>Server</strong> button starts and stops the server. It needs a one-time setup, in a terminal:"
   },
   "optSourceCode": {
     "message": "Source code"
@@ -1000,6 +1093,12 @@
   },
   "pickElementTitle": {
     "message": "Click an element on the page to ask about it (Esc cancels)"
+  },
+  "pickFieldFirst": {
+    "message": "Pick the field on the page first (Pick element), then click this again."
+  },
+  "pickQuestionFirst": {
+    "message": "Pick the question's field on the page first (Pick element)."
   },
   "pinned": {
     "message": "The IntegratedAI icon is pinned to your toolbar."
@@ -1133,8 +1232,14 @@
   "screenshotOf": {
     "message": "Screenshot of $1"
   },
+  "selectFieldFirst": {
+    "message": "Select the field in the Elements panel first (or right-click it on the page and choose Inspect), then click this again."
+  },
   "selectLink": {
     "message": "select"
+  },
+  "selectQuestionFirst": {
+    "message": "Select the question's field first: right-click it on the page and choose Inspect."
   },
   "send": {
     "message": "Send"
@@ -1170,10 +1275,10 @@
     "message": "The local server is running. Click to stop it"
   },
   "serverSetup": {
-    "message": "One-time setup: in the IntegratedAI folder, run  $1  then click Server again."
+    "message": "One-time setup: in a terminal, run  $1  then click Server again."
   },
   "serverSetupCopied": {
-    "message": "Copied. Run it in a terminal in the IntegratedAI folder, then click Server again."
+    "message": "Copied. Run it in a terminal, then click Server again."
   },
   "serverStarting": {
     "message": "Starting the local server…"
@@ -1493,11 +1598,44 @@
   "wholeSiteLower": {
     "message": "whole site"
   },
+  "wordCount": {
+    "message": "$1 words · $2 characters"
+  },
+  "writeAnswer": {
+    "message": "Answer the selected question"
+  },
+  "writeCover": {
+    "message": "Cover letter for this job"
+  },
   "writeFile": {
     "message": "Write to file"
   },
   "writeFiles": {
     "message": "Write to files"
+  },
+  "writeMenu": {
+    "message": "Write…"
+  },
+  "writeMenuLabel": {
+    "message": "Write something from your CV"
+  },
+  "writeMenuTitle": {
+    "message": "Cover letters, answers and messages written from your CV"
+  },
+  "writeMessage": {
+    "message": "Referral or intro message"
+  },
+  "writeSettings": {
+    "message": "Add or change my CV…"
+  },
+  "writeTailor": {
+    "message": "Tailor my CV to this job"
+  },
+  "writtenEmpty": {
+    "message": "The text is empty or too long."
+  },
+  "writtenLabel": {
+    "message": "The text (you can edit it)"
   },
   "writtenTo": {
     "message": "✓ Written to $1"
@@ -1507,5 +1645,74 @@
   },
   "yourProject": {
     "message": "your project"
+  },
+  "alSearchChats": {
+    "message": "Search past chats"
+  },
+  "chatsTitle": {
+    "message": "Your ChatGPT history (optional)"
+  },
+  "chatsIntro": {
+    "message": "Bring your past ChatGPT chats here, and the AI can look things up in them when you ask (\"what did I decide about…\", \"find the script we wrote\"). In ChatGPT: <strong>Settings → Data controls → Export data</strong>. ChatGPT emails you a link to a ZIP file; choose that file here (no need to unpack it)."
+  },
+  "chatsUpload": {
+    "message": "Choose the export from ChatGPT (.zip)…"
+  },
+  "chatsAllow": {
+    "message": "Let the AI search these chats when a question needs it"
+  },
+  "chatsRemove": {
+    "message": "Remove these chats"
+  },
+  "chatsRemoveConfirm": {
+    "message": "Click again to remove them"
+  },
+  "chatsRemoved": {
+    "message": "Removed."
+  },
+  "chatsHint": {
+    "message": "The chats are copied into this browser and searched here; pictures and files in the export are not read. It is a snapshot: export again to bring newer chats. When the AI searches, the parts it finds go to the AI you chose, like the rest of your conversation. They are never part of an export of this extension's data."
+  },
+  "chatsHave": {
+    "message": "Chats here: $1, from $2 to $3 (brought in on $4)"
+  },
+  "chatsHaveNoDates": {
+    "message": "Chats here: $1 (brought in on $2)"
+  },
+  "chatsReading": {
+    "message": "Reading $1…"
+  },
+  "chatsProgress": {
+    "message": "Reading $1… chats so far: $2"
+  },
+  "dataChats": {
+    "message": "ChatGPT chats you brought in: $1"
+  },
+  "alWatchVideo": {
+    "message": "Watch video"
+  },
+  "optVideoSound": {
+    "message": "When it watches a video on the page, let it hear the sound too (only AIs that can listen get it, like Gemini)"
+  },
+  "alReadMore": {
+    "message": "Load more and read"
+  },
+  "whatsNew030": {
+    "message": "Updated to 0.3: cover letters and answers from your CV, search in your ChatGPT history, watching videos, and whole comment sections read before a summary."
+  },
+  "whatsNewMore": {
+    "message": "What's new"
+  },
+  "whatsNewTitle": {
+    "message": "What's new"
+  },
+  "whatsNewList030": {
+    "message": "<strong>0.3</strong><ul class=\"data-list\"><li><strong>Writing from your CV:</strong> add your CV once (a PDF works), then use the <strong>Write…</strong> menu for a cover letter for the job on the page, an answer to a form question, or a message. You can edit the text, copy it, or put it into the form.</li><li><strong>Your ChatGPT history:</strong> bring in ChatGPT's data export, and the AI can look things up in your past chats.</li><li><strong>Videos:</strong> the AI can watch a video on the page while it plays (with Gemini it hears the sound too), and summarize reels or clips.</li><li><strong>Whole lists:</strong> for \"summarize the comments\" and the like, the AI first loads all of them, not just what's on screen.</li><li><strong>Claude or ChatGPT subscription:</strong> the server now starts with one command, <code>npx integratedai</code>: no download.</li></ul>"
+  },
+  "optServer1b": {
+    "message": "Sign in, with the one you pay for. ChatGPT: <code>npm install -g @openai/codex</code>, then <code>codex login</code>. Claude: <code>npm install -g @anthropic-ai/claude-code</code>, then <code>claude</code>."
+  },
+  "optServer1c": {
+    "message": "Start the server: <code>npx integratedai</code>, and keep that window open (<a href=\"https://github.com/alpkavakli/IntegratedAI#setup\" target=\"_blank\" rel=\"noopener\">step-by-step guide</a>)."
   }
 }

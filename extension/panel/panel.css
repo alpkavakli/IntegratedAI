@@ -227,11 +227,16 @@ ai-action-card ul.changes { margin: 2px 0; padding-left: 18px; font-family: ui-m
 }
 #prompt::placeholder { color: var(--fg-muted); }
 .composer-bar { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
-select.mode-select { flex: none; padding: 1px 4px; font-size: 11px; color: var(--fg-muted); }
+/* What the AI sees and may do: easy to spot next to the send button (full-strength text, a visible border). */
+select.mode-select {
+  flex: none; height: 26px; padding: 0 6px; font-size: 12px; font-weight: 600; color: var(--fg);
+  background: var(--bg-alt); border-color: var(--fg-muted); cursor: pointer;
+}
+select.mode-select:hover { background: var(--bg-hover); border-color: var(--fg); }
 /* The agent modes are visible at a glance: the menu takes the mode's colour. */
-body[data-agent-mode="ask"] select.mode-select, body[data-agent-mode="auto"] select.mode-select { border-color: var(--accent); color: var(--accent-text); }
+body[data-agent-mode="ask"] select#agent-mode, body[data-agent-mode="auto"] select#agent-mode { border-color: var(--accent); color: var(--accent-text); }
 body[data-agent-mode="full"] .composer-box { border-color: var(--warn); }
-body[data-agent-mode="full"] select.mode-select { border-color: var(--warn); color: var(--warn); }
+body[data-agent-mode="full"] select#agent-mode { border-color: var(--warn); color: var(--warn); }
 button.send {
   flex: none; display: grid; place-items: center; width: 26px; height: 26px; padding: 0;
   background: var(--accent); color: var(--accent-fg); border: 1px solid var(--accent); border-radius: 4px;
@@ -250,11 +255,15 @@ button.send.busy .i-stop { display: block; }
 .area-keep + .area-keep { margin-left: 0; }
 .area-keep { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; font-weight: 400; color: var(--fg); cursor: pointer; }
 body[data-page-access="area"] select#page-access, body[data-page-access="none"] select#page-access { border-color: var(--accent); color: var(--accent-text); }
-body[data-page-access="none"] .chips { display: none; }
+body[data-page-access="none"] .chips > :not(#profile-chip):not(#write-menu) { display: none; }
 body[data-page-access="area"] label.chip:has(#ctx-console), body[data-page-access="area"] label.chip:has(#ctx-network) { display: none; }
 .chip { display: inline-flex; align-items: center; gap: 3px; padding: 0 6px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg-alt); cursor: pointer; max-width: 100%; font-size: 11px; }
 .chip input { margin: 0; }
 .chip-button { padding: 0 6px; font-size: 11px; }
+select.chip-select { padding: 0 2px; font-size: 11px; height: 20px; max-width: 150px; }
+/* A text the AI wrote for the user (write_text): editable before copying or putting it into a field */
+ai-action-card textarea.written { display: block; width: 100%; box-sizing: border-box; margin: 4px 0 2px; padding: 6px 8px; resize: vertical;
+  font: 12px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; white-space: pre-wrap; }
 .chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 320px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11px; }
 
 /* ── patches & console lists ─────────────────────────────── */
@@ -278,6 +287,7 @@ body:not([data-provider="ollama"]) .ollama-only { display: none !important; }
   border-radius: 4px; background: var(--bg-alt); font-size: 12px; }
 .tip[hidden] { display: none; }
 .tip span { flex: 1; }
+.tip button.link { flex: none; color: var(--accent-text); }
 .tip kbd { border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 3px; padding: 0 3px; font-family: inherit; }
 .list-heading { font-weight: 600; margin: 8px 0 4px; color: var(--fg-muted); }
 .item { border: 1px solid var(--border); border-radius: 4px; padding: 6px 8px; margin-bottom: 6px; }

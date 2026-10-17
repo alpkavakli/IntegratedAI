@@ -109,6 +109,46 @@ result isn't returned. The page address, title, console, network and site memory
 page it was marked on: on any other page every tool refuses until the user confirms it there (the editor opens with
 the same shape). Tested in `npm run page-check` (tries to read outside in every way) and `npm run ui-check`.
 
+**Writing from your CV (job applications):** add your CV once in Options → *About you* (upload a PDF or a text
+file, or paste it; a PDF's text is read in the browser with a packaged [pdf.js](extension/vendor/), see
+[pdf-text.js](extension/shared/pdf-text.js); check the text it shows, that is what the AI gets). Then the **Write…**
+menu above the message box asks for a *cover letter for this job*, an *answer to the selected question*, *your CV
+tailored to this job* or a *referral message*: the request goes out with your CV attached (the "About me" chip,
+ticked for that one message; `context.aboutMe`, shown to the AI as an `<about_me>` block) and the AI reads the page
+and answers with a `write_text` card: the text, editable, with **Copy**, **Download** and **Put into the selected
+field** (typed into the field like a person would; Undo restores it). The AI is told to use only what the CV and
+notes say and never to invent experience. The CV stays in the browser, is not exported, and goes only to the AI you
+chose, only with messages you attach it to. `npm run vendor:pdf` rebuilds the packaged pdf.js after an upgrade.
+
+**Whole lists (comments, feeds, results):** pages load these bit by bit, so the read-only tool `read_more` loads
+the rest first: it scrolls the list's own scrolling box (or the page, or an app's main scrolling panel) a screen at a
+time and opens "Show more" / "View replies" buttons (buttons only, never links, each once) until nothing new comes
+for about 2.5 s, there is enough text (40,000 characters by default) or 20 s pass, then returns the text like
+`read_text`. The prompt tells the AI to use it for questions about a whole list and to say how much it read.
+
+**Watching videos:** the read-only tool `watch_video` watches a video on the page while it plays (the biggest one on
+screen, or a ref): a picture every 1.5 s or more, up to 60 s, put on contact sheets with each frame's time
+([video-watch.js](extension/shared/video-watch.js), capturing in [inspections.js](extension/panel/lib/inspections.js)),
+and its sound, recorded from the video element (`captureStream`, so a muted reel works too; never the microphone),
+turned into 16 kHz mono WAV. The sound goes to AIs that can listen (Gemini: `input_audio`; preset flag
+`audioInput`; the newest one only), and the others are told it was left out. Options → "let it hear the sound too"
+switches the sound off. The tab has to stay on screen (Chrome captures only the tab that shows, and sites pause
+video in hidden tabs).
+
+**Your past ChatGPT chats:** Options → *Your ChatGPT history* takes the data export from ChatGPT (Settings → Data
+controls → Export data; the ZIP as it is, or its `conversations.json`). The conversations file is read out of the
+ZIP as a stream ([zip-read.js](extension/shared/zip-read.js), ZIP64 too: exports with attachments run to several
+GB) and split one conversation at a time ([chatgpt-export.js](extension/shared/chatgpt-export.js)): each becomes
+plain text ("You: … / ChatGPT: …", the thread you saw, without hidden and tool messages) in the extension's
+IndexedDB ([past-chats.js](extension/shared/past-chats.js)); ChatGPT's saved memory and your custom instructions
+are kept too when the export carries them. With "Let the AI search these chats" on (an import switches it on), the
+AI gets a read-only tool, `search_chats`: `query` returns the best-matching chats with excerpts (word matching in
+the service worker, [chat-search.js](extension/shared/chat-search.js); no index, nothing sent anywhere), `id` reads
+one chat in parts. It works with every AI choice, the CLIs on the server included (over the page tool server), in
+the card, with a marked area and with "Just answer" (the chats are yours, not the page's). It is a snapshot: export
+again for newer chats. There is no live access to ChatGPT: it has no official way to read an account's history, and
+this extension does not use unofficial ones.
+
 **Copy text:** the button next to the context chips copies the selected element's text to the clipboard. The extension does this itself; no AI is involved.
 
 ### Quick start (direct mode)
@@ -132,6 +172,10 @@ To use your Claude or ChatGPT subscription instead of an API key, follow [Setup]
 This part is for using **your Claude or ChatGPT subscription** (Claude Pro/Max, ChatGPT Plus/Pro) instead of an API
 key. For an API key or Ollama you don't need any of this: see the quick start above.
 
+**In short, three commands** (after installing Node.js): `npm install -g @openai/codex` and `codex login` (or
+`npm install -g @anthropic-ai/claude-code` and `claude`), then `npx integratedai`, and paste the token it prints into
+the extension. The steps below explain each one.
+
 **Why there is something to install:** a subscription has no API key. The extension uses it through Claude Code or
 Codex (OpenAI's command-line app) on your computer, signed in with your account. A browser extension isn't allowed to
 start programs, so a small server runs on your computer and does it for the extension. It comes from npm with one
@@ -139,14 +183,23 @@ command; you don't need to download this project. About 10 minutes the first tim
 
 ### 1. Install Node.js
 
-Download the **LTS** version from [nodejs.org](https://nodejs.org) and install it (version 20 or newer). Open a new
-terminal afterwards and check that it works:
+Node.js is what runs the server (and Claude Code and Codex). On [nodejs.org](https://nodejs.org), download the
+**LTS** version for your computer (version 20 or newer) and run the installer:
+
+- **Windows:** the `.msi` installer. Click **Next** through it and keep the default options (they include "Add to
+  PATH", which lets the terminal find `node` and `npm`). Or, in a terminal: `winget install OpenJS.NodeJS.LTS`.
+- **macOS:** the `.pkg` installer, with the default options. Or, with Homebrew: `brew install node`.
+- **Linux:** your distribution's package (`nodejs` and `npm`), or the instructions on nodejs.org.
+
+Then **close the terminal and open a new one** (one opened before the installer doesn't know about Node.js yet),
+and check that it works:
 
 ```bash
 node -v
 ```
 
-(Windows: the terminal is **Command Prompt** or **PowerShell** from the Start menu. macOS: **Terminal**.)
+It prints a version like `v22.11.0`. (Windows: the terminal is **Command Prompt** or **PowerShell** from the Start
+menu. macOS: **Terminal**, in Applications → Utilities.)
 
 ### 2. Install Claude Code or Codex, and sign in
 
