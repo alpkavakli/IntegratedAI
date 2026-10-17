@@ -22,6 +22,7 @@ $('token').value = settings.token;
 $('executeJs').checked = settings.executeJs;
 $('askBeforeInspections').checked = settings.askBeforeInspections;
 $('webTools').checked = settings.webTools;
+$('videoSound').checked = settings.videoSound !== false;
 $('ctx-selected').checked = settings.contextDefaults.selected;
 $('ctx-console').checked = settings.contextDefaults.console;
 $('ctx-network').checked = settings.contextDefaults.network;
@@ -474,7 +475,7 @@ $('services-allow').addEventListener('click', async () => {
   showServicesPermission();
 });
 showServicesPermission();
-for (const id of ['executeJs', 'askBeforeInspections', 'webTools', 'ollamaCompact']) {
+for (const id of ['executeJs', 'askBeforeInspections', 'webTools', 'ollamaCompact', 'videoSound']) {
   $(id).addEventListener('change', () => saveSettings({ [id]: $(id).checked }));
 }
 for (const key of ['selected', 'console', 'network']) {

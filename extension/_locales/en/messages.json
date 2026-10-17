@@ -1687,5 +1687,11 @@
   },
   "dataChats": {
     "message": "ChatGPT chats you brought in: $1"
+  },
+  "alWatchVideo": {
+    "message": "Watch video"
+  },
+  "optVideoSound": {
+    "message": "When it watches a video on the page, let it hear the sound too (only AIs that can listen get it, like Gemini)"
   }
 }

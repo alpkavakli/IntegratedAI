@@ -619,9 +619,12 @@ export class App {
         const allowed = await this.chat.askPermission(`${ACTIONS[name].label} ${JSON.stringify(input)}`);
         if (!allowed) throw new Error('The user denied this inspection');
       }
-      const result = await runInspection(name, input, { selectedSelector: this.lastSentSelector, tabId: this.tabId });
+      const result = await runInspection(name, input, { selectedSelector: this.lastSentSelector, tabId: this.tabId, videoSound: this.settings.videoSound !== false });
       // Show the user what the AI looked at.
       if (result?.image) this.chat.addScreenshot(String(result.captured ?? ''), `data:${result.image.mediaType};base64,${result.image.data}`);
+      for (const sheet of Array.isArray(result?.images) ? result.images : []) {
+        this.chat.addScreenshot(String(result.video ?? ''), `data:${sheet.mediaType};base64,${sheet.data}`);
+      }
       reply({ ok: true, result });
     } catch (err) {
       reply({ ok: false, error: String(/** @type {any} */ (err)?.message ?? err) });

@@ -120,6 +120,15 @@ field** (typed into the field like a person would; Undo restores it). The AI is 
 notes say and never to invent experience. The CV stays in the browser, is not exported, and goes only to the AI you
 chose, only with messages you attach it to. `npm run vendor:pdf` rebuilds the packaged pdf.js after an upgrade.
 
+**Watching videos:** the read-only tool `watch_video` watches a video on the page while it plays (the biggest one on
+screen, or a ref): a picture every 1.5 s or more, up to 60 s, put on contact sheets with each frame's time
+([video-watch.js](extension/shared/video-watch.js), capturing in [inspections.js](extension/panel/lib/inspections.js)),
+and its sound, recorded from the video element (`captureStream`, so a muted reel works too; never the microphone),
+turned into 16 kHz mono WAV. The sound goes to AIs that can listen (Gemini: `input_audio`; preset flag
+`audioInput`; the newest one only), and the others are told it was left out. Options → "let it hear the sound too"
+switches the sound off. The tab has to stay on screen (Chrome captures only the tab that shows, and sites pause
+video in hidden tabs).
+
 **Your past ChatGPT chats:** Options → *Your ChatGPT history* takes the data export from ChatGPT (Settings → Data
 controls → Export data; the ZIP as it is, or its `conversations.json`). The conversations file is read out of the
 ZIP as a stream ([zip-read.js](extension/shared/zip-read.js), ZIP64 too: exports with attachments run to several

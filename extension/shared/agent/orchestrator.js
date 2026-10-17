@@ -501,8 +501,8 @@ export class Orchestrator {
         needsResults = true;
         const res = await this.panel.requestTool(session.id, call.name, call.input, signal);
         if (res.ok) {
-          const { text, images } = formatResult(res.result);
-          results.push({ type: 'tool_result', toolCallId: call.id, content: text, ...(images ? { images } : {}) });
+          const { text, images, audio } = formatResult(res.result);
+          results.push({ type: 'tool_result', toolCallId: call.id, content: text, ...(images ? { images } : {}), ...(audio ? { audio } : {}) });
         } else {
           results.push({ type: 'tool_result', toolCallId: call.id, isError: true, content: `Inspection failed: ${res.error ?? 'unknown error'}` });
         }

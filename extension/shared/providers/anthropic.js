@@ -300,6 +300,8 @@ export function toAnthropicMessages(messages) {
  * @param {boolean} withImages
  */
 function toolResultContent(b, withImages) {
+  // (Claude can't listen to sound: a watched video comes with its pictures only.)
+  if (b.audio) b = { ...b, content: `${b.content}\n(The video's sound was recorded, but this AI can't hear it: only its pictures were sent. Rely on subtitles and on-screen text.)` };
   if (!b.images?.length) return b.content;
   if (!withImages) return `${b.content}\n(The screenshot from this result is no longer attached.)`;
   return [

@@ -92,12 +92,13 @@ export function indexEntry(s) {
  * @param {NeutralMessage} message
  */
 export function forPanel({ raw, ...message }) {
-  if (!message.content.some((b) => b.type === 'tool_result' && /** @type {any} */ (b).images)) return message;
+  const media = (/** @type {any} */ b) => b.type === 'tool_result' && (b.images || b.audio);
+  if (!message.content.some(media)) return message;
   return {
     ...message,
     content: message.content.map((b) => {
-      if (b.type !== 'tool_result' || !(/** @type {any} */ (b).images)) return b;
-      const { images, ...rest } = /** @type {any} */ (b);
+      if (!media(b)) return b;
+      const { images, audio, ...rest } = /** @type {any} */ (b);
       return rest;
     }),
   };

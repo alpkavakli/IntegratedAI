@@ -25,7 +25,7 @@ const MODE_TEXT = {
  *   agentMode: "suggest" (default) or an agent mode, where interact/navigate run during the turn.
  */
 export function buildSystemPrompt({ actionNames, webTools = false, structuredEnvelope = false, pageTools = false, agentMode = 'suggest', compact = false, card = false, pageAccess = 'full' }) {
-  const access = (actionNames.includes('search_chats') ? CHATS_TEXT : '') + (ACCESS_TEXT[pageAccess] ?? '');
+  const access = (actionNames.includes('watch_video') && !compact ? VIDEO_TEXT : '') + (actionNames.includes('search_chats') ? CHATS_TEXT : '') + (ACCESS_TEXT[pageAccess] ?? '');
   if (compact && !structuredEnvelope) return buildCompactPrompt({ actionNames, agentMode }) + (card ? CARD_TEXT : '') + access;
   return buildFullPrompt({ actionNames, webTools, structuredEnvelope, pageTools, agentMode }) + (card ? CARD_TEXT : '') + access;
 }
@@ -55,6 +55,18 @@ The user chose "Just answer": you can't see the page, and there are no page tool
 and what the user wrote or attached. If you'd need to see the page, say what you'd need, and that they can
 switch the Page access menu (by the message box) to "Whole page" or "Only an area".`,
 };
+
+/** How to watch videos (reels, YouTube) with watch_video. */
+const VIDEO_TEXT = `
+
+## Videos
+To find out what a video shows or says (a reel, a YouTube video, a clip), watch it with watch_video; don't take
+screenshots and wait. It watches while the video plays and gives you contact sheets of pictures (each picture shows
+its time) and, when your AI can hear, its sound. Read the subtitles and on-screen text on the pictures; when the
+result says the sound wasn't sent, say your summary is from the pictures only. watch_video doesn't move on: go to
+the next video with interact (the site's "next" button, or press ArrowDown on reels), then watch again. Pictures and
+sound of older results are dropped from the conversation, so after each video write a line about what it showed
+before you watch the next. The tab has to stay on screen while you watch.`;
 
 /** Added when the user imported their ChatGPT chats and lets you search them. */
 const CHATS_TEXT = `

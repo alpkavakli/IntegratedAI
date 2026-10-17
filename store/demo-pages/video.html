@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Today's clip · Riverside Makers</title>
+    <style>
+      body { font-family: system-ui, sans-serif; margin: 24px; background: #fff; color: #202124; }
+      video { width: 270px; height: 480px; background: #000; display: block; border-radius: 8px; }
+    </style>
+  </head>
+  <body>
+    <h1>Today's clip</h1>
+    <!-- Muted and looping, like a reel. The clip is made here: five coloured scenes and a 440 Hz tone. -->
+    <video id="clip" muted loop playsinline aria-label="Workshop clip"></video>
+    <p id="state">Preparing the clip…</p>
+    <script>
+      (async () => {
+        const canvas = Object.assign(document.createElement('canvas'), { width: 270, height: 480 });
+        const g = canvas.getContext('2d');
+        const audio = new AudioContext();
+        const tone = audio.createOscillator();
+        tone.frequency.value = 440;
+        const out = audio.createMediaStreamDestination();
+        tone.connect(out);
+        tone.start();
+        const stream = new MediaStream([...canvas.captureStream(15).getVideoTracks(), ...out.stream.getAudioTracks()]);
+        const recorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp8,opus' });
+        const chunks = [];
+        recorder.ondataavailable = (e) => chunks.push(e.data);
+        const t0 = performance.now();
+        const draw = () => {
+          const s = (performance.now() - t0) / 1000;
+          g.fillStyle = `hsl(${Math.floor(s) * 70}, 65%, 40%)`;
+          g.fillRect(0, 0, 270, 480);
+          g.fillStyle = '#fff';
+          g.font = 'bold 40px system-ui, sans-serif';
+          g.fillText(`Scene ${Math.floor(s) + 1}`, 40, 250);
+          if (recorder.state === 'recording') setTimeout(draw, 60);
+        };
+        recorder.start();
+        draw();
+        await new Promise((r) => setTimeout(r, 5000));
+        await new Promise((r) => { recorder.onstop = r; recorder.stop(); });
+        tone.stop();
+        const video = document.getElementById('clip');
+        video.src = URL.createObjectURL(new Blob(chunks, { type: 'video/webm' }));
+        await video.play();
+        document.getElementById('state').textContent = 'Playing';
+      })();
+    </script>
+  </body>
+</html>

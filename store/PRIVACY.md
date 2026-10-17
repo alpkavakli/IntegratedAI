@@ -53,6 +53,10 @@ Only when you use the AI panel, and only from the tab you are inspecting:
   Network chip or the AI inspects the network. Cookies, authorization headers, API keys and token-like URL
   parameters are removed before anything is sent. Response bodies are never sent.
 - **Screenshots** of an element or of the visible page, when the AI needs to see how something looks.
+- **A video on the page, while it plays,** when you ask about a video: pictures of it every second or two, and,
+  unless you switch it off in Options ("let it hear the sound too"), its sound for that stretch. The sound is sent
+  only to AI providers that can listen to it; it is recorded from the video itself, never from your microphone,
+  and is not saved by the extension.
 - **The visible text of the page**, when you ask it to translate the page and click Translate, in batches to
   the AI provider you chose. The translation is shown in place of the text and is not stored.
 

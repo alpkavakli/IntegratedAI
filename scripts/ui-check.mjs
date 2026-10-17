@@ -91,6 +91,18 @@ const ollama = http.createServer((req, res) => {
     chatRequests.push(request);
     // Page access checks: read the page once (whatever the access allows), then answer.
     const lastText = request.messages.findLast((/** @type {any} */ m) => m.role === 'user' && typeof m.content === 'string')?.content ?? '';
+    // A video: watch it once, then answer.
+    if (/VIDEO-TEST/.test(lastText)) {
+      const sinceAsk = request.messages.slice(request.messages.findLastIndex((/** @type {any} */ m) => m.role === 'user' && typeof m.content === 'string'));
+      if (!sinceAsk.some((/** @type {any} */ m) => m.role === 'tool')) {
+        send({ choices: [{ delta: { tool_calls: [{ index: 0, id: `call_wv_${Date.now()}`, type: 'function', function: { name: 'watch_video', arguments: JSON.stringify({ seconds: 6 }) } }] } }] });
+        send({ choices: [{ delta: {}, finish_reason: 'tool_calls' }] });
+      } else {
+        send({ choices: [{ delta: { content: 'It shows coloured scenes.' } }] });
+        send({ choices: [{ delta: {}, finish_reason: 'stop' }] });
+      }
+      return res.end('data: [DONE]\n\n');
+    }
     // Past chats: search them once, then answer with what came back.
     if (/CHATS-TEST/.test(lastText)) {
       const sinceAsk = request.messages.slice(request.messages.findLastIndex((/** @type {any} */ m) => m.role === 'user' && typeof m.content === 'string'));
@@ -174,7 +186,7 @@ const ollama = http.createServer((req, res) => {
 }).listen(PORTS.ollama);
 
 const chrome = spawn(CHROME, ['--headless=new', `--remote-debugging-port=${PORTS.cdp}`, '--enable-unsafe-extension-debugging',
-  '--hide-scrollbars', `--user-data-dir=${join(WORK, 'chrome')}`, ...(process.env.UI_LANG ? [`--lang=${process.env.UI_LANG}`] : []), 'about:blank'], { stdio: 'ignore' });
+  '--hide-scrollbars', '--autoplay-policy=no-user-gesture-required', `--user-data-dir=${join(WORK, 'chrome')}`, ...(process.env.UI_LANG ? [`--lang=${process.env.UI_LANG}`] : []), 'about:blank'], { stdio: 'ignore' });
 const axe = await (await fetch(AXE_URL)).text();
 await sleep(3000);
 
@@ -747,6 +759,28 @@ try {
   if (afterRemove !== false) violations.push('setup: past chats: still searchable after removing them');
   if (await ev(sw, `chrome.storage.local.get('settings').then((r) => r.settings?.pastChats === true)`)) violations.push('setup: past chats: removing them left the search switched on');
   log('setup: past chats removed');
+
+  // watch_video: a muted, looping clip (like a reel) with a tone in it. Pictures every 1.5 s on a contact sheet, and
+  // the sound recorded even though the video is muted (the stand-in, as "Ollama", is told it can't be heard).
+  const clip = await openPanel('video.html', 'h1', 'light');
+  for (let i = 0; i < 40 && (await ev(clip.page.session, `document.getElementById('state').textContent`)) !== 'Playing'; i++) await sleep(250);
+  // (Here the panel is a tab of its own: the page has to be the one showing, as it is next to docked DevTools.)
+  await cdp('Target.activateTarget', { targetId: clip.page.targetId });
+  const beforeVideo = chatRequests.length;
+  await ev(clip.panel.session, `document.getElementById('prompt').value = 'VIDEO-TEST what is in this clip?'; document.getElementById('composer').requestSubmit()`);
+  await waitAnswer(beforeVideo);
+  for (let i = 0; i < 80 && chatRequests.length < beforeVideo + 2; i++) await sleep(250);
+  const videoRequest = chatRequests[beforeVideo + 1];
+  const videoResult = String(videoRequest?.messages.findLast((/** @type {any} */ m) => m.role === 'tool')?.content ?? '');
+  log(`panel: watch_video → ${videoResult.slice(0, 400)}`);
+  if (!/"images":"1 attached"/.test(videoResult)) violations.push(`watch_video: no contact sheet (${videoResult.slice(0, 300) || 'no tool result'})`);
+  if (!/"sound":"attached/.test(videoResult)) violations.push(`watch_video: the sound of the muted clip was not recorded (${videoResult.slice(0, 300)})`);
+  if (!/can't hear it/.test(videoResult)) violations.push('watch_video: an AI that can\'t listen was not told the sound was left out');
+  if (!/to the end/.test(videoResult)) violations.push('watch_video: the loop (the clip starting over) was not noticed');
+  if (!JSON.stringify(videoRequest?.messages ?? []).includes('image_url')) violations.push('watch_video: the contact sheet did not reach the AI');
+  const sheets = await ev(clip.panel.session, `document.querySelectorAll('ai-chat-view img, .screenshot img, img.screenshot').length`);
+  if (!sheets) violations.push('watch_video: the contact sheet is not shown in the chat');
+  await shot(clip.panel, 'panel-14-watched-video-light');
 } catch (err) {
   failed = true;
   console.error(err);

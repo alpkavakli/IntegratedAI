@@ -91,7 +91,7 @@ const MEMORY_SCHEMA = {
 };
 
 /** Settings that may be imported (never the token). */
-const IMPORTABLE_SETTINGS = ['serverUrl', 'executeJs', 'webTools', 'askBeforeInspections', 'contextDefaults', 'defaultAgentMode', 'ollamaCompact'];
+const IMPORTABLE_SETTINGS = ['serverUrl', 'executeJs', 'webTools', 'askBeforeInspections', 'videoSound', 'contextDefaults', 'defaultAgentMode', 'ollamaCompact'];
 
 /**
  * @param {{ patches: any[], settings: Record<string, any>, extensionVersion: string,

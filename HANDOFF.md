@@ -212,6 +212,13 @@ harness) or the owner's GitHub/Telegram test is the next thing to do.
   action **write_text** (a card with the editable text: Copy, Download, Put into the selected field = an interact
   "type" step on $0 / the picked element, undoable). Prompt rules: only facts from the CV, never invent.
   Store: tick "Personally identifiable information" in Data usage from this version (kit updated).
+- **watch_video** (the owner asked the AI to watch and summarize reels; it took screenshots and waited). Pictures
+  every 1.5 s+ for up to 60 s → 1–2 contact sheets (one image each for the image cap), sound via
+  `video.captureStream()` + MediaRecorder in the page (works on muted videos; checked in ui-check with a generated
+  clip) → WAV 16 kHz in the panel. Only Gemini gets the sound (`audioInput`, `input_audio` on its OpenAI endpoint;
+  retried without sound if refused); Claude/OpenAI/CLIs get the pictures and a note. Setting `videoSound`
+  (default on). Gemini's native API takes whole video files; not used, because everything else goes through its
+  OpenAI-compatible endpoint. Tab must be visible.
 - **Past ChatGPT chats** (the owner wanted Codex to reach their ChatGPT history and memory). Options → *Your ChatGPT
   history*: the export ZIP (or conversations.json) is streamed (`shared/zip-read.js`, `shared/chatgpt-export.js`)
   into IndexedDB `integratedai-chats` (`shared/past-chats.js`; docs `{id, title, time, text}`, plus

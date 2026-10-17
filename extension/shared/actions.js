@@ -169,6 +169,26 @@ export const ACTIONS = {
     },
   },
 
+  watch_video: {
+    label: 'Watch video',
+    readOnly: true,
+    risk: 'none',
+    description: 'Watch a video on the page while it plays (a reel, a YouTube video, a clip): pictures of it every second or two '
+      + 'on one or two contact sheets (each picture shows its time in the video), and its sound when your AI can hear it '
+      + '(the result says). Without ref/selector: the biggest video on screen. By default it watches until the video ends or '
+      + 'starts over, at most 60 seconds; "seconds" sets how long. Use it instead of taking screenshots and waiting. It does not '
+      + 'move on to the next video: do that with interact (then watch again).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        ref: { type: 'string', description: 'The video (or an element with the video inside), from find_elements or page_outline.' },
+        selector: { type: 'string' },
+        seconds: { type: 'integer', description: 'How long to watch (3–60). Default: to the end of the video, at most 60.' },
+      },
+      additionalProperties: false,
+    },
+  },
+
   search_chats: {
     label: 'Search past chats',
     readOnly: true,
@@ -512,6 +532,7 @@ const BRIEF = {
   read_text: 'Read the text of the page or one element (ref/selector). Use offset=nextOffset for more.',
   inspect_console: 'Recent console messages and errors.',
   inspect_network: 'Network requests since DevTools opened (redacted).',
+  watch_video: 'Watch a video while it plays (default: the biggest on screen, to its end, max 60 s): contact sheets of pictures with times, and its sound when available.',
   search_chats: 'Search the user\'s imported past ChatGPT chats by words (query), or read one (id from the matches; offset=nextOffset for more).',
   inspect_resources: 'List page resources, or read one (readContentOf: exact URL).',
   screenshot: 'An image of an element (ref/selector) or of the visible page.',
@@ -534,7 +555,7 @@ const BRIEF = {
  * pages), scripts and the network/resource tools stay in the DevTools panel ("Continue in DevTools").
  */
 export const CARD_ACTIONS = [
-  'find_elements', 'page_outline', 'read_text', 'inspect_element', 'inspect_console', 'screenshot', 'search_chats',
+  'find_elements', 'page_outline', 'read_text', 'inspect_element', 'inspect_console', 'screenshot', 'watch_video', 'search_chats',
   'remember', 'forget', 'define_page_group', 'inject_css', 'translate_page', 'write_text',
 ];
 
@@ -548,7 +569,7 @@ export const CARD_ACTIONS = [
  */
 export const PAGE_ACCESS = /** @type {const} */ (['full', 'area', 'none']);
 export const AREA_ACTIONS = [
-  'find_elements', 'page_outline', 'read_text', 'inspect_element', 'screenshot', 'search_chats',
+  'find_elements', 'page_outline', 'read_text', 'inspect_element', 'screenshot', 'watch_video', 'search_chats',
   'inject_css', 'modify_element', 'translate_page', 'write_text', 'interact', 'navigate', 'execute_js',
 ];
 
@@ -778,6 +799,7 @@ export function validateAction(name, input, settings) {
   }
   if (name === 'remember' && (!i.note.trim() || i.note.length > 300)) errors.push('note must be 1–300 characters');
   if (name === 'translate_page' && (!i.language.trim() || i.language.length > 40)) errors.push('language must be 1–40 characters');
+  if (name === 'watch_video' && i.seconds !== undefined && !(i.seconds >= 3 && i.seconds <= 60)) errors.push('seconds must be 3–60');
   if (name === 'search_chats' && !String(i.query ?? '').trim() && !String(i.id ?? '').trim()) errors.push('search_chats needs a query, or the id of a chat to read');
   if (name === 'write_text' && (!i.text.trim() || i.text.length > MAX_WRITTEN_TEXT)) errors.push(`text must be 1–${MAX_WRITTEN_TEXT} characters`);
   if (name === 'define_page_group') {

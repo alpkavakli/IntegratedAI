@@ -12,6 +12,7 @@ const LABELS = {
   read_text: t('alReadText', 'Read text'),
   inspect_console: t('alConsole', 'Read console'),
   search_chats: t('alSearchChats', 'Search past chats'),
+  watch_video: t('alWatchVideo', 'Watch video'),
   inspect_network: t('alNetwork', 'Read network log'),
   inspect_resources: t('alResources', 'Read page resources'),
   screenshot: t('alScreenshot', 'Screenshot'),

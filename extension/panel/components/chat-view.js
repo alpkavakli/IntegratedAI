@@ -148,7 +148,8 @@ export class ChatView extends HTMLElement {
       const i = call.input ?? {};
       const details = i.include?.join(', ') || i.urlContains || i.readContentOf || i.selector || i.ref || (i.text ? `"${i.text}"` : '') || i.query
         || (i.all ? 'whole page' : '')
-        || (i.fullViewport ? 'visible page' : '');
+        || (i.fullViewport ? 'visible page' : '')
+        || (i.seconds ? `${i.seconds} s` : '');
       return h('div', { class: 'inspection', 'data-action': call.id }, `${actionLabel(call.name)}${details ? ` (${details})` : ''}`);
     }
     const card = /** @type {ActionCard} */ (document.createElement('ai-action-card'));

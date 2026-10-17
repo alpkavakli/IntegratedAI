@@ -1087,6 +1087,104 @@ export function setCardHidden(h, selected, { hidden }) {
   return Boolean(card || area); // something to wait for (a repaint)
 }
 
+// ───────────────────────────────────────────────────────────── watch_video
+
+/**
+ * watch_video, step 1: find the video (the one asked for, or the biggest one on screen, a playing one first),
+ * make sure it plays, and start recording its sound (input.sound). The panel then takes pictures of it while it
+ * plays (videoWatchStatus between them) and collects the sound with videoWatchStop.
+ * Plain calls with no awaiting: DevTools' eval doesn't wait for promises.
+ */
+export function videoWatchStart(h, selected, input) {
+  h.assertPage();
+  const state = h.state();
+  if (state.videoWatch?.recorder?.state === 'recording') state.videoWatch.recorder.stop();
+  state.videoWatch = null;
+  /** @type {HTMLVideoElement | null} */
+  let video = null;
+  if (input.ref || input.selector) {
+    const el = h.target(input.selector, undefined, input.ref);
+    video = el.localName === 'video' ? el : el.querySelector('video');
+    if (!video) throw new Error(`${h.cssPath(el)} is not a video and has no video inside`);
+  } else {
+    const seen = [...document.querySelectorAll('video')]
+      .map((v) => ({ v, r: v.getBoundingClientRect() }))
+      .filter(({ r }) => r.width >= 60 && r.height >= 60 && r.bottom > 0 && r.right > 0 && r.top < innerHeight && r.left < innerWidth)
+      .filter(({ r }) => h.rectTouchesArea(r))
+      .map(({ v, r }) => ({ v, score: (Math.min(r.right, innerWidth) - Math.max(r.left, 0)) * (Math.min(r.bottom, innerHeight) - Math.max(r.top, 0)) * (v.paused ? 1 : 4) }))
+      .sort((a, b) => b.score - a.score);
+    video = seen[0]?.v ?? null;
+    if (!video) throw new Error(h.area ? 'No video is showing inside the marked area' : 'No video is showing on the screen (scroll to it, or give its ref)');
+  }
+  const r = video.getBoundingClientRect();
+  if (r.bottom <= 0 || r.top >= innerHeight) video.scrollIntoView({ block: 'center' });
+  if (video.paused) video.play().catch(() => {});
+  /** @type {any} */
+  const watch = { video, recorder: null, chunks: [], lastTime: video.currentTime, looped: false, audio: null, failed: '' };
+  let sound = 'not recorded';
+  if (input.sound) {
+    try {
+      const tracks = /** @type {any} */ (video).captureStream().getAudioTracks();
+      if (!tracks.length) {
+        sound = 'none (the video has no sound track, or it is protected)';
+      } else {
+        watch.tracks = tracks;
+        watch.recorder = new MediaRecorder(new MediaStream(tracks), { mimeType: 'audio/webm;codecs=opus', audioBitsPerSecond: 48000 });
+        watch.recorder.ondataavailable = (/** @type {BlobEvent} */ e) => { if (e.data.size) watch.chunks.push(e.data); };
+        watch.recorder.start(1000);
+        sound = 'recording';
+      }
+    } catch (err) {
+      sound = `can't be recorded here (${/** @type {any} */ (err)?.message ?? err})`;
+    }
+  }
+  state.videoWatch = watch;
+  const name = video.getAttribute('aria-label') || video.title || '';
+  return {
+    ref: h.refOf(video),
+    label: h.label(video) + (name ? ` "${name.slice(0, 80)}"` : ''),
+    duration: Number.isFinite(video.duration) ? Math.round(video.duration * 10) / 10 : null,
+    currentTime: Math.round(video.currentTime * 10) / 10,
+    paused: video.paused,
+    sound,
+  };
+}
+
+/** watch_video: where the video is now; "ended" also when it started over (reels loop). */
+export function videoWatchStatus(h) {
+  const watch = h.state().videoWatch;
+  if (!watch) return { gone: true };
+  const v = watch.video;
+  const time = v.currentTime;
+  if (time + 0.75 < watch.lastTime) watch.looped = true;
+  watch.lastTime = time;
+  return { time: Math.round(time * 10) / 10, ended: v.ended || watch.looped, paused: v.paused, gone: !v.isConnected };
+}
+
+/**
+ * watch_video, last step: stop recording. Call until done; then the sound comes back as base64 (webm/opus).
+ */
+export function videoWatchStop(h) {
+  const state = h.state();
+  const watch = state.videoWatch;
+  if (!watch) return { done: true };
+  const finish = (/** @type {any} */ result) => { state.videoWatch = null; return { done: true, ...result }; };
+  if (!watch.recorder) return finish({});
+  if (watch.audio !== null || watch.failed) return finish(watch.failed ? { error: watch.failed } : { audio: watch.audio, mediaType: 'audio/webm' });
+  if (watch.recorder.state !== 'inactive' && !watch.stopping) {
+    watch.stopping = true;
+    watch.recorder.onstop = () => {
+      for (const t of watch.tracks ?? []) t.stop();
+      const reader = new FileReader();
+      reader.onload = () => { watch.audio = String(reader.result).replace(/^data:[^,]*,/, ''); };
+      reader.onerror = () => { watch.failed = 'the sound could not be read'; };
+      reader.readAsDataURL(new Blob(watch.chunks, { type: 'audio/webm' }));
+    };
+    watch.recorder.stop();
+  }
+  return { done: false };
+}
+
 // ───────────────────────────────────────────────────────────── the marked area
 
 /**
