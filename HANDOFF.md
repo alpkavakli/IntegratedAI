@@ -331,6 +331,11 @@ offers the AI tools an older extension can't run, and the other way round.
 - **Publish the server whenever something it ships changed:** `server/`, `extension/shared/` (the agent code,
   actions, prompt and providers live there) or `scripts/services.mjs`. In practice: with every store release, and
   in between only for server-only fixes (then bump the patch version of both, e.g. 0.2.0 → 0.2.1).
+- **Tell users what's new** (a release with new features): a line for the version in
+  `extension/panel/lib/whats-new.js` (the panel or the card shows it once, the first time it opens after Chrome
+  updated the extension; bug-fix versions without a line say nothing), and the list in the setup page's
+  "What's new" section (`whatsNewList…` in both locales). Outside the extension: the store description and a
+  GitHub release.
 - **Order:** 1. bump both versions; 2. `npm test`, `npm run package`; 3. upload the zip to the store;
   4. `npm publish` from the same commit (it runs the tests first; npm asks for the 2FA code); 5. push, so the README
   on GitHub matches what's on npm. Publish from the branch the store version came from (0.2.0: `main`; 0.3.0:

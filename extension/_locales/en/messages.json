@@ -996,7 +996,7 @@
     "message": "These start switched on in the panel. You can switch them per message there."
   },
   "optServer1": {
-    "message": "Install <a href=\"https://nodejs.org\" target=\"_blank\" rel=\"noopener\">Node.js</a> and Claude Code (for Claude) or Codex CLI (for ChatGPT: <code>npm install -g @openai/codex</code>, then <code>codex login</code>), then start the agent server in a terminal: <code>npx integratedai</code> (<a href=\"https://github.com/alpkavakli/IntegratedAI#setup\" target=\"_blank\" rel=\"noopener\">step-by-step guide</a>)."
+    "message": "Install <a href=\"https://nodejs.org\" target=\"_blank\" rel=\"noopener\">Node.js</a> (the LTS version; keep the installer's default options), then open a new terminal."
   },
   "optServer2": {
     "message": "Paste the pairing token it prints (one token for the server: Claude and ChatGPT each use their own login, no keys here):"
@@ -1696,5 +1696,23 @@
   },
   "alReadMore": {
     "message": "Load more and read"
+  },
+  "whatsNew030": {
+    "message": "Updated to 0.3: cover letters and answers from your CV, search in your ChatGPT history, watching videos, and whole comment sections read before a summary."
+  },
+  "whatsNewMore": {
+    "message": "What's new"
+  },
+  "whatsNewTitle": {
+    "message": "What's new"
+  },
+  "whatsNewList030": {
+    "message": "<strong>0.3</strong><ul class=\"data-list\"><li><strong>Writing from your CV:</strong> add your CV once (a PDF works), then use the <strong>Write…</strong> menu for a cover letter for the job on the page, an answer to a form question, or a message. You can edit the text, copy it, or put it into the form.</li><li><strong>Your ChatGPT history:</strong> bring in ChatGPT's data export, and the AI can look things up in your past chats.</li><li><strong>Videos:</strong> the AI can watch a video on the page while it plays (with Gemini it hears the sound too), and summarize reels or clips.</li><li><strong>Whole lists:</strong> for \"summarize the comments\" and the like, the AI first loads all of them, not just what's on screen.</li><li><strong>Claude or ChatGPT subscription:</strong> the server now starts with one command, <code>npx integratedai</code>: no download.</li></ul>"
+  },
+  "optServer1b": {
+    "message": "Sign in, with the one you pay for. ChatGPT: <code>npm install -g @openai/codex</code>, then <code>codex login</code>. Claude: <code>npm install -g @anthropic-ai/claude-code</code>, then <code>claude</code>."
+  },
+  "optServer1c": {
+    "message": "Start the server: <code>npx integratedai</code>, and keep that window open (<a href=\"https://github.com/alpkavakli/IntegratedAI#setup\" target=\"_blank\" rel=\"noopener\">step-by-step guide</a>)."
   }
 }

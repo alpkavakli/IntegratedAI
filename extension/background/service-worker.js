@@ -434,8 +434,13 @@ async function migrateStorage() {
   await chrome.storage.local.set(next);
 }
 
-chrome.runtime.onInstalled.addListener(async ({ reason }) => {
+chrome.runtime.onInstalled.addListener(async ({ reason, previousVersion }) => {
   await migrateStorage();
+  // An update: the panel and the card show a line about what's new, once (panel/lib/whats-new.js).
+  const version = chrome.runtime.getManifest().version;
+  if (reason === chrome.runtime.OnInstalledReason.UPDATE && previousVersion !== version) {
+    await chrome.storage.local.set({ updated: { from: previousVersion, to: version } });
+  }
   // First install: open the options page so the user can connect the agent server.
   if (reason === chrome.runtime.OnInstalledReason.INSTALL) chrome.runtime.openOptionsPage();
 });

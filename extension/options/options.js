@@ -722,7 +722,9 @@ $('chats-clear').addEventListener('click', async () => {
 });
 
 // Opened at this section (the panel's "Add or change my CV…"): bring it into view.
-if (location.hash === '#about-you') $('about-you').scrollIntoView({ block: 'start' });
+// Opened at a section (the panel's "Add or change my CV…", "What's new"): bring it into view.
+const section = /^#([a-z-]{1,30})$/.exec(location.hash)?.[1];
+if (section && document.getElementById(section)) document.getElementById(section)?.scrollIntoView({ block: 'start' });
 
 // Last, so everything above is defined when the first check runs.
 showChoice();

@@ -805,6 +805,16 @@ try {
   log(`panel: read_more → ${loaded.slice(0, 260)} … ${loaded.slice(-700)}`);
   if (!/Comment 60:/.test(loaded)) violations.push(`read_more: not every comment was loaded (${loaded.slice(0, 300) || 'no tool result'})`);
   if (!/Reply 3 to comment 60/.test(loaded) || !/View 3 replies\\" ×6/.test(loaded)) violations.push('read_more: the replies were not opened');
+  // What's new: after an update, the panel says what's new once; the next time it's gone.
+  await ev(sw, `chrome.storage.local.remove('whatsNewSeen').then(() => chrome.storage.local.set({ updated: { from: '0.2.0', to: chrome.runtime.getManifest().version } }))`);
+  const updatedPanel = await openPanel('blog.html', 'article p', 'light');
+  const note = await ev(updatedPanel.panel.session, `document.getElementById('whats-new').hidden ? '' : document.getElementById('whats-new-text').textContent`);
+  log(`panel: what's new → "${note}"`);
+  if (!/^Updated to 0\.3/.test(note)) violations.push(`what's new: no note after the update (${note || 'hidden'})`);
+  await shot(updatedPanel.panel, 'panel-15-whats-new-light');
+  await audit(updatedPanel.panel.session, "panel, what's new");
+  const again = await openPanel('blog.html', 'article p', 'light');
+  if (!(await ev(again.panel.session, `document.getElementById('whats-new').hidden`))) violations.push("what's new: shown a second time");
   if (!/nothing more loaded/.test(loaded)) violations.push(`read_more: it did not stop at the end of the list (${(/"stoppedAt":"[^"]*"/.exec(loaded) ?? [''])[0]})`);
 } catch (err) {
   failed = true;

@@ -44,6 +44,7 @@ import { DirectClient } from './direct/direct-client.js';
 import { boostCss } from '../shared/css-boost.js';
 import { conversationToMarkdown } from '../shared/conversation-markdown.js';
 import { localize, t } from '../shared/i18n.js';
+import { whatsNewLine } from './lib/whats-new.js';
 import { PRESETS, baseUrlFor } from '../shared/providers/openai-compatible.js';
 
 const $ = (/** @type {string} */ id) => /** @type {any} */ (document.getElementById(id));
@@ -105,6 +106,7 @@ export class App {
     else bg('card.devtoolsOpened', { tabId: this.tabId }).catch(() => {});
 
     this.settings = await loadSettings();
+    this.showWhatsNew().catch(() => {});
     document.body.dataset.connection = this.settings.mode === 'direct' ? 'direct' : 'server';
     this.client = this.settings.mode === 'direct' ? new DirectClient(() => loadSettings()) : new ServerClient(() => loadSettings());
     this.applyContextDefaults();
@@ -990,6 +992,19 @@ export class App {
    * @param {string} [actionLabel]
    * @param {() => void} [action]
    */
+  /** Just updated: one line about the new version, the first time the panel or the card opens after it. */
+  async showWhatsNew() {
+    const line = await whatsNewLine();
+    if (!line) return;
+    $('whats-new-text').textContent = line;
+    $('whats-new').hidden = false;
+    $('whats-new-ok').addEventListener('click', () => { $('whats-new').hidden = true; });
+    $('whats-new-more').addEventListener('click', () => {
+      $('whats-new').hidden = true;
+      bg('options.open', { section: 'whats-new' });
+    });
+  }
+
   showBanner(text, isError = false, actionLabel, action) {
     $('banner').hidden = false;
     $('banner').classList.toggle('error', isError);

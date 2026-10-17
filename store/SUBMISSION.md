@@ -196,9 +196,10 @@ If the review still rejects it, the fallback is a store build without `execute_j
 
 1. Bump `version` in `extension/manifest.json` (the store rejects re-uploads of the same version) **and in
    `package.json`** (the npm server; `npm test` fails when they differ).
-2. `npm test`, then `npm run package`.
-3. If stored data changed shape: add a migration (server: `server/src/storage/data-version.js`,
+2. New features: the one-line note in `extension/panel/lib/whats-new.js` and the setup page's "What's new" list.
+3. `npm test`, then `npm run package`.
+4. If stored data changed shape: add a migration (server: `server/src/storage/data-version.js`,
    extension: `STORAGE_MIGRATIONS` in `background/service-worker.js`).
-4. Upload `dist/integratedai-<version>.zip` in the Developer Dashboard.
-5. Publish the matching server: `npm publish` from the same commit (asks for the 2FA code), then push. See
+5. Upload `dist/integratedai-<version>.zip` in the Developer Dashboard.
+6. Publish the matching server: `npm publish` from the same commit (asks for the 2FA code), then push. See
    HANDOFF.md, "Releasing".

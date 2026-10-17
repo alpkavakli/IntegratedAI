@@ -172,6 +172,10 @@ To use your Claude or ChatGPT subscription instead of an API key, follow [Setup]
 This part is for using **your Claude or ChatGPT subscription** (Claude Pro/Max, ChatGPT Plus/Pro) instead of an API
 key. For an API key or Ollama you don't need any of this: see the quick start above.
 
+**In short, three commands** (after installing Node.js): `npm install -g @openai/codex` and `codex login` (or
+`npm install -g @anthropic-ai/claude-code` and `claude`), then `npx integratedai`, and paste the token it prints into
+the extension. The steps below explain each one.
+
 **Why there is something to install:** a subscription has no API key. The extension uses it through Claude Code or
 Codex (OpenAI's command-line app) on your computer, signed in with your account. A browser extension isn't allowed to
 start programs, so a small server runs on your computer and does it for the extension. It comes from npm with one
@@ -179,14 +183,23 @@ command; you don't need to download this project. About 10 minutes the first tim
 
 ### 1. Install Node.js
 
-Download the **LTS** version from [nodejs.org](https://nodejs.org) and install it (version 20 or newer). Open a new
-terminal afterwards and check that it works:
+Node.js is what runs the server (and Claude Code and Codex). On [nodejs.org](https://nodejs.org), download the
+**LTS** version for your computer (version 20 or newer) and run the installer:
+
+- **Windows:** the `.msi` installer. Click **Next** through it and keep the default options (they include "Add to
+  PATH", which lets the terminal find `node` and `npm`). Or, in a terminal: `winget install OpenJS.NodeJS.LTS`.
+- **macOS:** the `.pkg` installer, with the default options. Or, with Homebrew: `brew install node`.
+- **Linux:** your distribution's package (`nodejs` and `npm`), or the instructions on nodejs.org.
+
+Then **close the terminal and open a new one** (one opened before the installer doesn't know about Node.js yet),
+and check that it works:
 
 ```bash
 node -v
 ```
 
-(Windows: the terminal is **Command Prompt** or **PowerShell** from the Start menu. macOS: **Terminal**.)
+It prints a version like `v22.11.0`. (Windows: the terminal is **Command Prompt** or **PowerShell** from the Start
+menu. macOS: **Terminal**, in Applications → Utilities.)
 
 ### 2. Install Claude Code or Codex, and sign in
 

@@ -996,7 +996,7 @@
     "message": "Bunlar panelde açık başlar. Orada her mesaj için değiştirebilirsin."
   },
   "optServer1": {
-    "message": "<a href=\"https://nodejs.org\" target=\"_blank\" rel=\"noopener\">Node.js</a> ile Claude Code'u (Claude için) ya da Codex CLI'ı (ChatGPT için: <code>npm install -g @openai/codex</code>, sonra <code>codex login</code>) kur, sonra ajan sunucusunu bir terminalde başlat: <code>npx integratedai</code> (<a href=\"https://github.com/alpkavakli/IntegratedAI#setup\" target=\"_blank\" rel=\"noopener\">adım adım kılavuz</a>)."
+    "message": "<a href=\"https://nodejs.org\" target=\"_blank\" rel=\"noopener\">Node.js</a>'i kur (LTS sürümü; kurulumun varsayılan seçeneklerini değiştirme), sonra yeni bir terminal aç."
   },
   "optServer2": {
     "message": "Yazdırdığı eşleştirme belirtecini yapıştır (sunucu için tek belirteç: Claude ve ChatGPT kendi girişlerini kullanır, burada anahtar yok):"
@@ -1696,5 +1696,23 @@
   },
   "alReadMore": {
     "message": "Daha fazlasını yükle ve oku"
+  },
+  "whatsNew030": {
+    "message": "0.3'e güncellendi: CV'nden ön yazı ve cevaplar, ChatGPT geçmişinde arama, video izleme ve özetten önce tüm yorumların okunması."
+  },
+  "whatsNewMore": {
+    "message": "Yenilikler"
+  },
+  "whatsNewTitle": {
+    "message": "Yenilikler"
+  },
+  "whatsNewList030": {
+    "message": "<strong>0.3</strong><ul class=\"data-list\"><li><strong>CV'nden yazı:</strong> CV'ni bir kez ekle (PDF olur), sonra <strong>Yaz…</strong> menüsüyle sayfadaki iş için ön yazı, bir form sorusuna cevap ya da bir mesaj iste. Metni düzenleyebilir, kopyalayabilir ya da forma koyabilirsin.</li><li><strong>ChatGPT geçmişin:</strong> ChatGPT'nin veri dışa aktarımını getir, yapay zekâ eski sohbetlerinde arama yapabilsin.</li><li><strong>Videolar:</strong> yapay zekâ sayfadaki bir videoyu oynarken izleyebilir (Gemini sesi de duyar) ve reels ya da klipleri özetler.</li><li><strong>Tüm listeler:</strong> \"yorumları özetle\" gibi isteklerde yapay zekâ önce hepsini yükler, yalnızca ekrandakileri değil.</li><li><strong>Claude ya da ChatGPT aboneliği:</strong> sunucu artık tek komutla başlıyor, <code>npx integratedai</code>: indirme yok.</li></ul>"
+  },
+  "optServer1b": {
+    "message": "Ödediğin hesapla giriş yap. ChatGPT: <code>npm install -g @openai/codex</code>, sonra <code>codex login</code>. Claude: <code>npm install -g @anthropic-ai/claude-code</code>, sonra <code>claude</code>."
+  },
+  "optServer1c": {
+    "message": "Sunucuyu başlat: <code>npx integratedai</code>, ve o pencereyi açık bırak (<a href=\"https://github.com/alpkavakli/IntegratedAI#setup\" target=\"_blank\" rel=\"noopener\">adım adım kılavuz</a>)."
   }
 }

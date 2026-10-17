@@ -182,7 +182,9 @@
 
       <div id="server-setup" hidden>
         <ol>
-          <li data-i18n-html="optServer1">Install <a href="https://nodejs.org" target="_blank" rel="noopener">Node.js</a> and Claude Code (for Claude) or Codex CLI (for ChatGPT: <code>npm install -g @openai/codex</code>, then <code>codex login</code>), then start the agent server in a terminal: <code>npx integratedai</code> (<a href="https://github.com/alpkavakli/IntegratedAI#setup" target="_blank" rel="noopener">step-by-step guide</a>).</li>
+          <li data-i18n-html="optServer1">Install <a href="https://nodejs.org" target="_blank" rel="noopener">Node.js</a> (the LTS version; keep the installer's default options), then open a new terminal.</li>
+          <li data-i18n-html="optServer1b">Sign in, with the one you pay for. ChatGPT: <code>npm install -g @openai/codex</code>, then <code>codex login</code>. Claude: <code>npm install -g @anthropic-ai/claude-code</code>, then <code>claude</code>.</li>
+          <li data-i18n-html="optServer1c">Start the server: <code>npx integratedai</code>, and keep that window open (<a href="https://github.com/alpkavakli/IntegratedAI#setup" target="_blank" rel="noopener">step-by-step guide</a>).</li>
           <li data-i18n="optServer2">Paste the pairing token it prints (one token for the server: Claude and ChatGPT each use their own login, no keys here):</li>
         </ol>
         <div class="key-row">
@@ -275,6 +277,10 @@
       <div class="hint" data-i18n="chatsHint">The chats are copied into this browser and searched here; pictures and files in the export are
         not read. It is a snapshot: export again to bring newer chats. When the AI searches, the parts it finds go to the AI
         you chose, like the rest of your conversation. They are never part of an export of this extension's data.</div>
+    </section>
+    <section class="step" id="whats-new">
+      <h2 data-i18n="whatsNewTitle">What's new</h2>
+      <div data-i18n-html="whatsNewList030"><strong>0.3</strong><ul class="data-list"><li><strong>Writing from your CV:</strong> add your CV once (a PDF works), then use the <strong>Write…</strong> menu for a cover letter for the job on the page, an answer to a form question, or a message. You can edit the text, copy it, or put it into the form.</li><li><strong>Your ChatGPT history:</strong> bring in ChatGPT's data export, and the AI can look things up in your past chats.</li><li><strong>Videos:</strong> the AI can watch a video on the page while it plays (with Gemini it hears the sound too), and summarize reels or clips.</li><li><strong>Whole lists:</strong> for "summarize the comments" and the like, the AI first loads all of them, not just what's on screen.</li><li><strong>Claude or ChatGPT subscription:</strong> the server now starts with one command, <code>npx integratedai</code>: no download.</li></ul></div>
     </section>
     <details class="advanced">
       <summary data-i18n="optAdvanced">Advanced settings</summary>
