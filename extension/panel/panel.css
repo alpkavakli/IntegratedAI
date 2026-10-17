@@ -227,11 +227,16 @@ ai-action-card ul.changes { margin: 2px 0; padding-left: 18px; font-family: ui-m
 }
 #prompt::placeholder { color: var(--fg-muted); }
 .composer-bar { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
-select.mode-select { flex: none; padding: 1px 4px; font-size: 11px; color: var(--fg-muted); }
+/* What the AI sees and may do: easy to spot next to the send button (full-strength text, a visible border). */
+select.mode-select {
+  flex: none; height: 26px; padding: 0 6px; font-size: 12px; font-weight: 600; color: var(--fg);
+  background: var(--bg-alt); border-color: var(--fg-muted); cursor: pointer;
+}
+select.mode-select:hover { background: var(--bg-hover); border-color: var(--fg); }
 /* The agent modes are visible at a glance: the menu takes the mode's colour. */
-body[data-agent-mode="ask"] select.mode-select, body[data-agent-mode="auto"] select.mode-select { border-color: var(--accent); color: var(--accent-text); }
+body[data-agent-mode="ask"] select#agent-mode, body[data-agent-mode="auto"] select#agent-mode { border-color: var(--accent); color: var(--accent-text); }
 body[data-agent-mode="full"] .composer-box { border-color: var(--warn); }
-body[data-agent-mode="full"] select.mode-select { border-color: var(--warn); color: var(--warn); }
+body[data-agent-mode="full"] select#agent-mode { border-color: var(--warn); color: var(--warn); }
 button.send {
   flex: none; display: grid; place-items: center; width: 26px; height: 26px; padding: 0;
   background: var(--accent); color: var(--accent-fg); border: 1px solid var(--accent); border-radius: 4px;
