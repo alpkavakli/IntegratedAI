@@ -1,12 +1,41 @@
 {
-  "name": "integrated-ai",
-  "version": "0.1.0",
-  "private": true,
+  "name": "integratedai",
+  "version": "0.3.0",
   "license": "AGPL-3.0-or-later",
-  "description": "AI panel for Chrome DevTools, backed by a local Node.js agent server.",
+  "description": "Local agent server for the IntegratedAI Chrome extension: use your Claude or ChatGPT subscription (Claude Code, Codex) from the browser.",
+  "keywords": [
+    "chrome-extension",
+    "devtools",
+    "claude-code",
+    "codex",
+    "mcp",
+    "browser-agent"
+  ],
+  "homepage": "https://github.com/alpkavakli/IntegratedAI#setup",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alpkavakli/IntegratedAI.git"
+  },
+  "bugs": {
+    "url": "https://github.com/alpkavakli/IntegratedAI/issues"
+  },
+  "author": "Alp Kavaklı",
   "type": "module",
+  "bin": {
+    "integratedai": "server/bin/integratedai.js"
+  },
+  "files": [
+    "server/bin/",
+    "server/src/",
+    "server/native-host/",
+    "extension/shared/",
+    "scripts/services.mjs"
+  ],
   "engines": {
     "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "start": "node server/src/index.js",
@@ -20,7 +49,8 @@
     "page-check": "node scripts/page-check.mjs",
     "services:install": "node scripts/services.mjs install",
     "services:uninstall": "node scripts/services.mjs uninstall",
-    "quiz-demo": "node scripts/quiz-demo.mjs"
+    "quiz-demo": "node scripts/quiz-demo.mjs",
+    "prepublishOnly": "npm test"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",
