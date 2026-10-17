@@ -283,7 +283,9 @@ harness) or the owner's GitHub/Telegram test is the next thing to do.
 ```bash
 npm install
 npm test                                   # 127 unit tests (node:test)
-npm start                                  # local agent server (Claude Code)
+npm start                                  # local agent server (Claude Code, Codex)
+npm pack --dry-run                         # what npm publish would upload (only the server)
+npm publish                                # publish the server to npm (owner only, 2FA; see "Releasing")
 npm run package                            # store checks + dist/integratedai-<version>.zip
 npm run site                               # docs/ (privacy page) from store/PRIVACY.md
 npm run ui-check [-- <folder>]             # panel + setup page in headless Chrome: screenshots, axe-core, layout,
@@ -316,6 +318,28 @@ mode with `#agent-mode` (value `auto`) and a `change` event, sends the task via 
 loops: when `.ask-step` appears, log its text and click its "Allow" button; stop when `#send` no longer has the stop
 state and nothing is thinking; finally print `#chat`'s `innerText` and capture panel and page. Headless Chrome has no
 logins, so logged-in apps need the owner's own Chrome (load unpacked, try it by hand, send back the chat).
+
+## Releasing: the extension and the npm server go out together
+
+Users of a Claude or ChatGPT subscription run the server from npm (`npx integratedai`, package `integratedai`),
+everyone gets the extension from the Chrome Web Store. Both are built from this repo and must match: a newer server
+offers the AI tools an older extension can't run, and the other way round.
+
+- **Same version number** in `extension/manifest.json` and `package.json`. `npm test` fails when they differ
+  (`server/test/release.test.js`), and also when the server loads a file that the npm package's `files` list
+  leaves out.
+- **Publish the server whenever something it ships changed:** `server/`, `extension/shared/` (the agent code,
+  actions, prompt and providers live there) or `scripts/services.mjs`. In practice: with every store release, and
+  in between only for server-only fixes (then bump the patch version of both, e.g. 0.2.0 → 0.2.1).
+- **Order:** 1. bump both versions; 2. `npm test`, `npm run package`; 3. upload the zip to the store;
+  4. `npm publish` from the same commit (it runs the tests first; npm asks for the 2FA code); 5. push, so the README
+  on GitHub matches what's on npm. Publish from the branch the store version came from (0.2.0: `main`; 0.3.0:
+  `v0.3` once it's merged or released).
+- **Check before publishing:** `npm pack --dry-run` lists exactly what goes up (about 40 files, all under
+  `server/`, `extension/shared/` and `scripts/services.mjs`). A version number can be published once; within 72 hours
+  a version can be unpublished, after that only deprecated (`npm deprecate integratedai@x.y.z "…"`).
+- **The npm account** is the owner's, with two-factor authentication (npm refuses to publish without it). Never
+  publish from a script or CI without the owner.
 
 ## Rules the owner set (keep them)
 
